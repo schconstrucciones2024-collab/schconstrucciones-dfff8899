@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Copy, MessageCircle, Minus, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -18,6 +18,30 @@ function Named({ id, children }: { id: CategoryId; children: string }) {
 }
 
 export function Cotizador() {
+  // Keep #cotizar (and legacy #cotiza) anchored while content above (3D designer) loads and shifts layout.
+  useEffect(() => {
+    let timers: number[] = [];
+    const follow = () => {
+      timers.forEach(clearTimeout);
+      timers = [];
+      const h = window.location.hash;
+      if (h !== "#cotizar" && h !== "#cotiza") return;
+      const go = () => document.getElementById("cotizar")?.scrollIntoView({ block: "start" });
+      go();
+      timers = [150, 500, 1200, 2500].map((ms) => window.setTimeout(go, ms));
+    };
+    follow();
+    window.addEventListener("hashchange", follow);
+    const stop = () => { timers.forEach(clearTimeout); timers = []; };
+    window.addEventListener("wheel", stop, { passive: true });
+    window.addEventListener("touchstart", stop, { passive: true });
+    return () => {
+      stop();
+      window.removeEventListener("hashchange", follow);
+      window.removeEventListener("wheel", stop);
+      window.removeEventListener("touchstart", stop);
+    };
+  }, []);
   const [areas, setAreas] = useState<Areas>(createAreas);
   const [system, setSystem] = useState<SystemId>("woodframe");
   const [syncBySystem, setSyncBySystem] = useState({ woodframe: false, tradicional: false });
@@ -55,7 +79,8 @@ export function Cotizador() {
   const maxValue = Math.max(1, ...categories.map((c) => valueFor(c.id)));
 
   return (
-    <section id="cotiza" className="scroll-mt-20 bg-background" aria-labelledby="cotiza-title">
+    <section id="cotizar" className="scroll-mt-20 bg-background" aria-labelledby="cotiza-title">
+      <span id="cotiza" aria-hidden="true" className="block scroll-mt-20" />
       <div className="mx-auto max-w-7xl px-5 py-24 lg:px-8 lg:py-36">
         <p className="flex items-center gap-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-primary sm:text-xs"><span aria-hidden="true" className="h-px w-10 shrink-0 bg-primary" />Cotizá tu casa · Cotizador interactivo · Valores en USD</p>
         <h2 id="cotiza-title" className="mt-5 max-w-4xl font-display text-4xl font-semibold leading-[1.05] tracking-[-0.01em] text-foreground sm:text-5xl lg:text-6xl">TU PROYECTO. TU SUPERFICIE. TU INVERSIÓN.</h2>

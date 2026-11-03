@@ -1,8 +1,8 @@
 .config-viewer { height: 55svh; min-height: 350px; background: var(--scene-sky); scroll-margin-top: 120px; }
 .config-input { display: block; width: 100%; min-height: 44px; border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; background: var(--secondary); color: var(--foreground); font-size: 14px; }
 .config-input:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
-#configurador-3d input[type="range"] { accent-color: var(--primary); }
-#configurador-3d canvas { touch-action: none; }
+#disenar-3d input[type="range"] { accent-color: var(--primary); }
+#disenar-3d canvas { touch-action: none; }
 .config-viewer:has(.plan-editor) { height: 650px; min-height: 650px; }
 .plan-editor { isolation: isolate; }
 .plan-canvas { user-select: none; }

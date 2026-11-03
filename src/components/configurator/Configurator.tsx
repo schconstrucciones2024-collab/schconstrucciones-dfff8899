@@ -60,7 +60,7 @@ export default function Configurator() {
         useConfigurator.getState().redo();
       }
     };
-    const host = document.getElementById("configurador-3d");
+    const host = document.getElementById("disenar-3d");
     host?.addEventListener("keydown", key);
     return () => {
       host?.removeEventListener("keydown", key);
@@ -73,7 +73,7 @@ export default function Configurator() {
   };
   return (
     <section
-      id="configurador-3d"
+      id="disenar-3d"
       className="scroll-mt-28 border-y border-border bg-secondary py-14 sm:py-20"
       aria-labelledby="config-title"
     >
@@ -102,7 +102,7 @@ export default function Configurator() {
               <RotateCcw size={16} />Reintentar 3D
             </Button>
             <Button asChild variant="outline" className="mt-4 min-h-11">
-              <a href="#cotiza">
+              <a href="#cotizar">
                 Usar cotizador clásico <ArrowRight size={16} />
               </a>
             </Button>

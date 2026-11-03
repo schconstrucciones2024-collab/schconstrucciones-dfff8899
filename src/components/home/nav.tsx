@@ -27,8 +27,8 @@ export const SECTION_LINKS: [label: string, id: string][] = [
   ["Nosotros", "nosotros"],
   ["Proyectos", "proyectos"],
   ["Proceso", "proceso"],
-  ["Diseñá tu casa", "configurador-3d"],
-  ["Cotizá tu casa", "cotiza"],
+  ["Diseñá tu casa", "disenar"],
+  ["Cotizá tu casa", "cotizar"],
   ["Preguntas frecuentes", "preguntas-frecuentes"],
   ["Contacto", "contacto"],
 ];

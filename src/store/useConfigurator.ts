@@ -1055,6 +1055,6 @@ export function decodeDesign(text: string): HouseConfig | null {
   }
 }
 export function designUrl(c: HouseConfig, origin: string) {
-  return `${origin.split("#")[0]?.split("?")[0]}?design=${encodeDesign(c)}#configurador-3d`;
+  return `${origin.split("#")[0]?.split("?")[0]}?design=${encodeDesign(c)}#disenar`;
 }
 export const DESIGN_STORAGE_KEY = "sch-design-v2";
