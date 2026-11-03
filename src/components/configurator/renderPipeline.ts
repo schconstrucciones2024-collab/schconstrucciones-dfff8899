@@ -89,6 +89,9 @@ export function createPipeline(options: {
   if (config.ao) {
     gtao = new GTAOPass(scene, options.camera, Math.round(w * ratio), Math.round(h * ratio));
     gtao.blendIntensity = options.params.aoIntensity;
+    // El pase de normales/profundidad de GTAO usa un material único de una sola cara: las paredes de la casa se dibujan a
+    // dos caras (o con la cara trasera hacia la cámara) y quedaban fuera, así la oclusión "veía" a través de ellas.
+    (gtao as unknown as { normalMaterial: THREE.Material }).normalMaterial.side = THREE.DoubleSide;
     gtao.updateGtaoMaterial({ radius: config.ao.radius, distanceExponent: config.ao.distanceExponent, thickness: config.ao.thickness, scale: config.ao.scale, samples: config.ao.samples, distanceFallOff: 1, screenSpaceRadius: false } as AoParams);
     gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, radiusExponent: 1, rings: 2, samples: config.ao.denoiseSamples } as PdParams);
     composer.addPass(gtao);
