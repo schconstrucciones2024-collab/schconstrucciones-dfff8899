@@ -56,7 +56,7 @@ void main() {
   float d = length((vUv - 0.5) * vec2(1.0, 0.85));
   c.rgb *= 1.0 - vignette * smoothstep(0.35, 0.95, d);
   c.rgb += (hash12(gl_FragCoord.xy) - 0.5) / 255.0;
-  gl_FragColor = vec4(clamp(c.rgb, 0.0, 1.0), c.a);
+  gl_FragColor = vec4(clamp(c.rgb, 0.0, 1.0), 1.0);
 }`,
 };
 
@@ -109,11 +109,10 @@ export function createPipeline(options: {
     composer.addPass(fxaa);
   }
 
-  let finish: ShaderPass | null = null;
-  if (config.cine) {
-    finish = new ShaderPass(FINISH_SHADER);
-    composer.addPass(finish);
-  }
+  // Último paso siempre presente: fija la opacidad en 1. La oclusión ambiental mezcla por multiplicación y en algunos
+  // equipos deja el alfa por debajo de 1, y el canvas se veía "transparente" sobre el fondo de la página.
+  const finish = new ShaderPass(FINISH_SHADER);
+  composer.addPass(finish);
 
   const setFxaaResolution = (pw: number, ph: number) => {
     const res = fxaa?.uniforms["resolution"]?.value as THREE.Vector2 | undefined;
@@ -130,11 +129,9 @@ export function createPipeline(options: {
         bloom.radius = p.bloomRadius;
         bloom.threshold = p.bloomThreshold;
       }
-      if (finish) {
-        finish.uniforms["vignette"]!.value = p.vignette;
-        finish.uniforms["saturation"]!.value = p.saturation;
-        finish.uniforms["contrast"]!.value = p.contrast;
-      }
+      finish.uniforms["vignette"]!.value = config.cine ? p.vignette : 0;
+      finish.uniforms["saturation"]!.value = config.cine ? p.saturation : 1;
+      finish.uniforms["contrast"]!.value = config.cine ? p.contrast : 1;
     },
     resize(width, height, pixelRatio) {
       const r = Math.max(0.5, pixelRatio);
