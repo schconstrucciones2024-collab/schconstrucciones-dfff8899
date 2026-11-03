@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Copy, MessageCircle, Minus, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -18,6 +18,31 @@ function Named({ id, children }: { id: CategoryId; children: string }) {
 }
 
 export function Cotizador() {
+  // Keep #cotizar (and legacy #cotiza) anchored while content above (3D designer) loads and shifts layout.
+  useEffect(() => {
+    let timers: number[] = [];
+    const follow = () => {
+      timers.forEach(clearTimeout);
+      timers = [];
+      const h = window.location.hash;
+      if (h !== "#cotizar" && h !== "#cotiza") return;
+      if (h === "#cotiza") history.replaceState(null, "", "#cotizar");
+      const go = () => document.getElementById("cotizar")?.scrollIntoView({ block: "start" });
+      go();
+      timers = [150, 500, 1200, 2500].map((ms) => window.setTimeout(go, ms));
+    };
+    follow();
+    window.addEventListener("hashchange", follow);
+    const stop = () => { timers.forEach(clearTimeout); timers = []; };
+    window.addEventListener("wheel", stop, { passive: true });
+    window.addEventListener("touchstart", stop, { passive: true });
+    return () => {
+      stop();
+      window.removeEventListener("hashchange", follow);
+      window.removeEventListener("wheel", stop);
+      window.removeEventListener("touchstart", stop);
+    };
+  }, []);
   const [areas, setAreas] = useState<Areas>(createAreas);
   const [system, setSystem] = useState<SystemId>("woodframe");
   const [syncBySystem, setSyncBySystem] = useState({ woodframe: false, tradicional: false });
