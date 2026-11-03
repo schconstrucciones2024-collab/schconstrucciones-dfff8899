@@ -1,0 +1,1 @@
+[{"capability":"code","source":"archive","outcome":"migrate","status":"verified","next_action":"none"},{"capability":"ai_gateway","source":"Lovable AI Gateway","outcome":"preserve","status":"pending","next_action":"verify stair assistant"},{"capability":"database_auth","source":"none","outcome":"absent","status":"verified","next_action":"none"}]

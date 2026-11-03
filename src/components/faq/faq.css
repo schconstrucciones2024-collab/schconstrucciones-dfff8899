@@ -1,0 +1,16 @@
+.faq-section [role="region"][data-state="open"] {
+  animation: faq-answer-in 180ms ease-out;
+}
+.faq-section [role="region"][data-state="closed"] {
+  animation: none;
+}
+.faq-section [data-faq-id] {
+  scroll-margin-top: 7rem;
+}
+@keyframes faq-answer-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .faq-section [role="region"][data-state] { animation: none; }
+}

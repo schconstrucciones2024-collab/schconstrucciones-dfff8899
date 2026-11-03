@@ -10,6 +10,8 @@ export const getRouter = () => {
     context: { queryClient },
     scrollRestoration: true,
     defaultPreloadStaleTime: 0,
+    // Transición suave entre páginas en los navegadores que soportan View Transitions (el CSS respeta prefers-reduced-motion).
+    defaultViewTransition: true,
   });
 
   return router;

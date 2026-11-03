@@ -16,9 +16,15 @@
  * To add a new semantic color:
  * 1. Add the variable to :root (light value) and .dark (dark value)
  * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ *
+ * Paleta SCH (valores oklch equivalentes a los hex de marca):
+ *   negro carbón #171817 · grafito #292C2B · gris piedra #777A76 · gris cemento #D9D8D2
+ *   blanco cálido #F7F6F2 · madera natural #967653 · bronce arquitectónico #A88B63 (acento)
  */
 
 @theme inline {
+  --font-display: "Urbanist", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Epilogue", ui-sans-serif, system-ui, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -51,6 +57,12 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-sch-blue: var(--sch-blue);
+  --color-whatsapp: var(--whatsapp);
+  --color-stone: var(--stone);
+  --color-cement: var(--cement);
+  --color-warm: var(--warm);
+  --color-wood: var(--wood);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -62,31 +74,56 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
+  --scene-sky: oklch(0.88 0.015 210);
+  --scene-trim: oklch(0.28 0.008 90);
+  --scene-glass: oklch(0.73 0.045 215);
+  --scene-light: oklch(0.98 0.01 90);
+  --scene-warm: oklch(0.86 0.055 80);
+  --scene-fabric: oklch(0.62 0.025 130);
+  --radius: 0.25rem;
+  --stone: oklch(0.576 0.007 138);
+  --cement: oklch(0.881 0.008 99);
+  --warm: oklch(0.973 0.005 95);
+  --wood: oklch(0.588 0.064 69);
+  --background: oklch(0.208 0.002 145);
+  --foreground: oklch(0.973 0.005 95);
+  --card: oklch(0.255 0.004 160);
+  --card-foreground: oklch(0.973 0.005 95);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
+  --primary: oklch(0.654 0.065 75);
+  --primary-foreground: oklch(0.208 0.002 145);
+  --secondary: oklch(0.28 0.005 174);
+  --secondary-foreground: oklch(0.973 0.005 95);
+  --muted: oklch(0.881 0.008 99);
+  --muted-foreground: oklch(0.48 0.015 70);
+  --accent: oklch(0.588 0.064 69);
+  --accent-foreground: oklch(0.98 0.01 90);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
+  --border: oklch(0.881 0.008 99 / 16%);
+  --input: oklch(0.881 0.008 99 / 24%);
+  --ring: oklch(0.654 0.065 75);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
+  --sch-blue: oklch(0.576 0.007 138);
+  --whatsapp: oklch(0.654 0.065 75);
+  /* Cotizador: identidad de color por categoría, sistema y tramo logístico (solo presentación). */
+  --cat-rustica: oklch(0.76 0.105 66);
+  --cat-moderna: oklch(0.75 0.07 238);
+  --cat-allwood: oklch(0.75 0.095 150);
+  --cat-esencial: oklch(0.72 0.115 40);
+  --cat-clasica: oklch(0.77 0.075 195);
+  --sys-woodframe: oklch(0.76 0.105 66);
+  --sys-tradicional: oklch(0.72 0.115 40);
+  --zone-local: oklch(0.75 0.095 150);
+  --zone-near: oklch(0.8 0.09 105);
+  --zone-medium: oklch(0.77 0.105 80);
+  --zone-long: oklch(0.73 0.115 58);
+  --zone-far: oklch(0.69 0.125 38);
   --sidebar: oklch(0.984 0.003 247.858);
   --sidebar-foreground: oklch(0.129 0.042 264.695);
   --sidebar-primary: oklch(0.208 0.042 265.755);
@@ -137,8 +174,439 @@
     border-color: var(--color-border);
   }
 
+  html {
+    scroll-padding-top: 5.5rem;
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--font-sans);
+    letter-spacing: 0;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
+
+  h1, h2, h3 { font-family: var(--font-display); letter-spacing: 0; }
+
+  /* Foco visible y consistente en todo el sitio (navegación por teclado). */
+  :where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--primary) 45%, transparent);
+    color: var(--foreground);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
+/* ---------- Superficies ---------- */
+
+/* Sección clara: blanco cálido con hormigón alisado. Redefine los tokens para que
+   todo lo que hay adentro (text-primary, bg-primary, bordes) conserve el contraste. */
+@utility surface-light {
+  --primary: oklch(0.458 0.059 66);
+  --primary-foreground: oklch(0.973 0.005 95);
+  --border: oklch(0.208 0.002 145 / 14%);
+  --ring: oklch(0.458 0.059 66);
+  position: relative;
+  isolation: isolate;
+  background-color: var(--color-warm);
+  color: var(--color-background);
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: url("/images/hormigon-sobre-claro.webp");
+    background-size: 512px 512px;
+    opacity: 0.5;
+  }
+}
+
+/* Alias de compatibilidad: así se llamaba la superficie clara en versiones anteriores. */
+@utility marble-surface {
+  --primary: oklch(0.458 0.059 66);
+  --primary-foreground: oklch(0.973 0.005 95);
+  --border: oklch(0.208 0.002 145 / 14%);
+  --ring: oklch(0.458 0.059 66);
+  position: relative;
+  isolation: isolate;
+  background-color: var(--color-warm);
+  color: var(--color-background);
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: url("/images/hormigon-sobre-claro.webp");
+    background-size: 512px 512px;
+    opacity: 0.5;
+  }
+}
+
+/* Sección oscura con hormigón sutil. */
+@utility surface-dark {
+  position: relative;
+  isolation: isolate;
+  background-color: var(--color-background);
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: url("/images/hormigon-sobre-oscuro.webp");
+    background-size: 512px 512px;
+  }
+}
+
+/* Hormigón sobre el color de la sección (hero, grafito): solo la textura. */
+@utility texture-dark {
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: url("/images/hormigon-sobre-oscuro.webp");
+    background-size: 512px 512px;
+  }
+}
+
+/* ---------- Movimiento ---------- */
+/* Solo transform y opacity. Si el JavaScript o la animación no se ejecutan, el contenido queda visible. */
+
+@utility fade-up {
+  animation: fade-up 0.8s cubic-bezier(.22,1,.36,1) both;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@utility hero-rise {
+  animation: hero-rise 1s cubic-bezier(.22,1,.36,1) both;
+  animation-delay: var(--d, 0ms);
+}
+
+@utility hero-line {
+  display: block;
+  padding-bottom: 0.08em;
+  animation: hero-line 1.1s cubic-bezier(.22,1,.36,1) both;
+  animation-delay: var(--d, 0ms);
+}
+
+@utility hero-rule {
+  transform-origin: left center;
+  animation: hero-rule 1.2s cubic-bezier(.22,1,.36,1) both;
+  animation-delay: var(--d, 0ms);
+}
+
+@utility hero-settle {
+  animation: hero-settle 2.8s cubic-bezier(.22,1,.36,1) both;
+}
+
+@utility scroll-cue {
+  animation: scroll-cue 2.2s cubic-bezier(.65,0,.35,1) 1.8s 3 both;
+}
+
+@keyframes hero-rise {
+  from { opacity: 0; transform: translate3d(0, 24px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes hero-line {
+  from { transform: translate3d(0, 105%, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+
+@keyframes hero-rule {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes hero-settle {
+  from { transform: scale(1.12); }
+  to { transform: scale(1.02); }
+}
+
+@keyframes scroll-cue {
+  0% { transform: translate3d(0, -100%, 0); }
+  70%, 100% { transform: translate3d(0, 100%, 0); }
+}
+
+@keyframes lightbox-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes lightbox-photo {
+  from { opacity: 0; transform: scale(0.985); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@utility lightbox-in {
+  animation: lightbox-in 0.3s ease both;
+}
+
+@utility lightbox-photo {
+  animation: lightbox-photo 0.45s cubic-bezier(.22,1,.36,1) both;
+}
+
+/* ---------- Cotizador: tarjetas, números y barras con el color de cada categoría ---------- */
+/* Cada elemento define `--tone`; todo lo demás se deriva de ahí. */
+@utility tone-card {
+  position: relative;
+  border-top: 2px solid var(--tone);
+  background-image: linear-gradient(180deg, color-mix(in oklab, var(--tone) 11%, transparent) 0, transparent 240px);
+  box-shadow: inset 0 0 0 1px transparent, 0 0 0 0 transparent;
+  transition: box-shadow 0.5s cubic-bezier(.22,1,.36,1), transform 0.5s cubic-bezier(.22,1,.36,1);
+  &:hover, &:focus-within {
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tone) 50%, transparent), 0 30px 60px -36px color-mix(in oklab, var(--tone) 75%, transparent);
+  }
+}
+
+@utility tone-tick {
+  animation: tone-tick 0.5s cubic-bezier(.22,1,.36,1) both;
+}
+
+@keyframes tone-tick {
+  from { opacity: 0.2; transform: translate3d(0, 8px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tone-card:hover, .tone-card:focus-within { transform: translate3d(0, -4px, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tone-tick { animation: none; }
+  .tone-card { transition: none; }
+}
+
+/* Elementos que aparecen al entrar en pantalla (ver Reveal en src/lib/motion.tsx). */
+.reveal {
+  transition: opacity 0.9s cubic-bezier(.22,1,.36,1), transform 0.9s cubic-bezier(.22,1,.36,1);
+  transition-delay: var(--d, 0ms);
+}
+
+.reveal[data-reveal="pending"] {
+  opacity: 0;
+  transform: translate3d(0, 28px, 0);
+}
+
+/* Palabras que suben desde una máscara (ver Words en src/lib/motion.tsx). */
+.word {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  padding: 0.14em 0.05em 0.16em;
+  margin: -0.14em -0.05em -0.16em;
+}
+
+.word-i { display: inline-block; }
+
+.reveal .word-i {
+  transition: transform 1s cubic-bezier(.22,1,.36,1);
+  transition-delay: calc(var(--d, 0ms) + var(--i, 0) * 55ms);
+}
+
+.reveal[data-reveal="pending"] .word-i { transform: translate3d(0, 118%, 0); }
+
+.hero-words .word-i {
+  animation: hero-line 1.1s cubic-bezier(.22,1,.36,1) both;
+  animation-delay: calc(var(--d, 0ms) + var(--i, 0) * 70ms);
+}
+
+/* La cifra del hero: degradé dorado sobre el texto (la animación está en el contador). */
+.hero-figure {
+  background-image: linear-gradient(180deg, var(--color-foreground) 8%, var(--color-primary) 92%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Contenido del hero: al bajar sube más lento y se atenúa (variable --hp desde useHeroExit). */
+.hero-content {
+  transform: translate3d(0, calc(var(--hp, 0) * -56px), 0);
+  opacity: calc(1 - var(--hp, 0) * 0.9);
+}
+
+/* Luz que sigue al mouse: un disco fijo que solo se traslada (transform) y cambia de opacidad. */
+.spotlight {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 640px;
+  height: 640px;
+  margin: -320px 0 0 -320px;
+  border-radius: 9999px;
+  pointer-events: none;
+  background: radial-gradient(circle, color-mix(in oklab, var(--color-primary) 24%, transparent) 0%, transparent 64%);
+  transform: translate3d(var(--sx, 50%), var(--sy, 50%), 0);
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+[data-spot="on"] > .spotlight { opacity: 1; }
+
+/* Botones: se acercan al mouse y un brillo cruza al pasar. */
+.magnetic {
+  position: relative;
+  overflow: hidden;
+  transform: translate3d(var(--mx, 0px), var(--my, 0px), 0);
+  transition: transform 0.35s cubic-bezier(.22,1,.36,1), background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+.btn-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 0.28) 50%, transparent 65%);
+  transform: translate3d(-120%, 0, 0);
+}
+
+.btn-sheen:hover::after,
+.btn-sheen:focus-visible::after {
+  transform: translate3d(120%, 0, 0);
+  transition: transform 0.9s cubic-bezier(.22,1,.36,1);
+}
+
+/* Tarjetas que se inclinan hacia el mouse (useTilt). */
+.tilt {
+  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 0.4s cubic-bezier(.22,1,.36,1);
+  will-change: transform;
+}
+
+/* Imagen a todo ancho: entra con un zoom suave. */
+.media-reveal img { transition: transform 1.8s cubic-bezier(.22,1,.36,1); }
+.media-reveal[data-reveal="pending"] img { transform: scale(1.08); }
+
+/* Barra de avance de lectura. */
+.scroll-progress {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 60;
+  height: 2px;
+  pointer-events: none;
+  background: var(--color-primary);
+  transform: scaleX(var(--sp, 0));
+  transform-origin: left center;
+}
+
+/* Línea de tiempo (Nosotros): la línea se dibuja con el scroll (variable --p desde useSectionProgress). */
+.timeline { position: relative; list-style: none; padding-left: 2rem; }
+
+.timeline::before,
+.timeline::after {
+  content: "";
+  position: absolute;
+  left: 0.3rem;
+  top: 0.6rem;
+  bottom: 0.6rem;
+  width: 1px;
+  transform-origin: top center;
+}
+
+.timeline::before { background: color-mix(in oklab, currentColor 18%, transparent); }
+.timeline::after { background: var(--color-primary); transform: scaleY(var(--p, 0)); }
+
+.timeline-item {
+  position: relative;
+  padding-bottom: 2.25rem;
+  transition: opacity 0.9s cubic-bezier(.22,1,.36,1), transform 0.9s cubic-bezier(.22,1,.36,1);
+  transition-delay: var(--d, 0ms);
+}
+.reveal[data-reveal="pending"] .timeline-item { opacity: 0; transform: translate3d(0, 18px, 0); }
+
+/* Línea que une los cuatro pasos del proceso; se dibuja con el scroll. */
+.process-line { transform: scaleX(var(--p, 1)); transform-origin: left center; }
+.timeline-item:last-child { padding-bottom: 0; }
+
+.timeline-dot {
+  position: absolute;
+  left: -2rem;
+  top: 0.55rem;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 9999px;
+  background: var(--color-primary);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-primary) 22%, transparent);
+}
+
+/* Enlaces del menú: subrayado que se dibuja desde la izquierda. */
+.nav-link { position: relative; }
+.nav-link::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0.7rem 0;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.45s cubic-bezier(.22,1,.36,1);
+}
+.nav-link:hover::after,
+.nav-link:focus-visible::after { transform: scaleX(1); }
+
+/* Galería editorial: la columna central baja un poco (solo `translate`, sin afectar el flujo). */
+@media (min-width: 40rem) and (max-width: 63.999rem) {
+  .portfolio-grid { padding-bottom: 2.5rem; }
+  .portfolio-grid > li:nth-child(even) { translate: 0 2.5rem; }
+}
+
+@media (min-width: 64rem) {
+  .portfolio-grid { padding-bottom: 4rem; }
+  .portfolio-grid > li:nth-child(3n + 2) { translate: 0 4rem; }
+}
+
+/* El parallax del hero solo mueve el contenedor; la imagen tiene su propia animación de entrada. */
+.hero-parallax {
+  transform: translate3d(0, var(--shift, 0px), 0);
+}
+
+/* En celular el hero no hace parallax (la foto ocupa un bloque propio arriba del texto). */
+@media (max-width: 47.999rem) {
+  .hero-parallax { transform: none; }
+}
+
+/* Transición suave entre páginas (el router activa View Transitions cuando el navegador las soporta). */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) { animation: 0.25s ease both vt-out; }
+  ::view-transition-new(root) { animation: 0.4s ease both vt-in; }
+}
+
+@keyframes vt-out { to { opacity: 0; } }
+@keyframes vt-in { from { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-up, .hero-rise, .hero-line, .hero-rule, .hero-settle, .scroll-cue,
+  .lightbox-in, .lightbox-photo { animation: none; }
+  .reveal { transition: none; }
+  .reveal[data-reveal="pending"] { opacity: 1; transform: none; }
+  .reveal .word-i, .hero-words .word-i, .media-reveal img { transition: none; animation: none; }
+  .reveal[data-reveal="pending"] .word-i, .media-reveal[data-reveal="pending"] img { transform: none; }
+  .hero-parallax, .hero-content { transform: none; opacity: 1; }
+  .spotlight, .scroll-progress { display: none; }
+  .magnetic, .tilt { transform: none; transition: none; }
+  .btn-sheen::after { display: none; }
+  .timeline::after { transform: scaleY(1); }
+  .timeline-item { transition: none; }
+  .reveal[data-reveal="pending"] .timeline-item { opacity: 1; transform: none; }
+  .process-line { transform: none; }
+  .nav-link::after { transition: none; }
+  html { scroll-behavior: auto; }
 }
