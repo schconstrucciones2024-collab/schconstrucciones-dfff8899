@@ -60,6 +60,21 @@ void main() {
 }`,
 };
 
+const AO_MIX_SHADER = {
+  uniforms: { tDiffuse: { value: null as THREE.Texture | null }, tAO: { value: null as THREE.Texture | null }, intensity: { value: 1 } },
+  vertexShader: FINISH_SHADER.vertexShader,
+  fragmentShader: /* glsl */ `
+uniform sampler2D tDiffuse;
+uniform sampler2D tAO;
+uniform float intensity;
+varying vec2 vUv;
+void main() {
+  vec4 c = texture2D(tDiffuse, vUv);
+  float ao = clamp(texture2D(tAO, vUv).r, 0.0, 1.0);
+  gl_FragColor = vec4(c.rgb * mix(1.0, ao, intensity), 1.0);
+}`,
+};
+
 type AoParams = Parameters<GTAOPass["updateGtaoMaterial"]>[0];
 type PdParams = Parameters<GTAOPass["updatePdMaterial"]>[0];
 
@@ -86,12 +101,20 @@ export function createPipeline(options: {
   composer.addPass(renderPass);
 
   let gtao: GTAOPass | null = null;
+  let aoMix: ShaderPass | null = null;
   if (config.ao) {
     gtao = new GTAOPass(scene, options.camera, Math.round(w * ratio), Math.round(h * ratio));
     gtao.blendIntensity = options.params.aoIntensity;
     gtao.updateGtaoMaterial({ radius: config.ao.radius, distanceExponent: config.ao.distanceExponent, thickness: config.ao.thickness, scale: config.ao.scale, samples: config.ao.samples, distanceFallOff: 1, screenSpaceRadius: false } as AoParams);
     gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, radiusExponent: 1, rings: 2, samples: config.ao.denoiseSamples } as PdParams);
+    // La mezcla propia de GTAOPass (multiplicación por blending de hardware) deja las paredes manchadas y "transparentes" en
+    // algunos equipos. GTAO solo calcula la oclusión; la mezcla la hace un shader propio que multiplica color × oclusión.
+    gtao.output = GTAOPass.OUTPUT.Off;
+    gtao.needsSwap = false;
     composer.addPass(gtao);
+    aoMix = new ShaderPass(AO_MIX_SHADER);
+    aoMix.uniforms["tAO"]!.value = (gtao as unknown as { pdRenderTarget: THREE.WebGLRenderTarget }).pdRenderTarget.texture;
+    composer.addPass(aoMix);
   }
 
   let bloom: UnrealBloomPass | null = null;
@@ -124,6 +147,7 @@ export function createPipeline(options: {
   const pipeline: Pipeline = {
     setParams(p) {
       if (gtao) gtao.blendIntensity = p.aoIntensity;
+      if (aoMix) aoMix.uniforms["intensity"]!.value = p.aoIntensity;
       if (bloom) {
         bloom.strength = p.bloomStrength;
         bloom.radius = p.bloomRadius;
@@ -146,14 +170,14 @@ export function createPipeline(options: {
         gtao.camera = camera;
         // La oclusión ambiental está calculada para cámara en perspectiva; la planta (cenital, ortogonal) se dibuja sin ella.
         gtao.enabled = (camera as THREE.PerspectiveCamera).isPerspectiveCamera === true;
-        const dbg = (globalThis as { __AO_OUT?: number }).__AO_OUT; if (dbg !== undefined) gtao.output = dbg;
+        if (aoMix) aoMix.enabled = gtao.enabled;
       }
       composer.render(delta);
     },
     dispose() {
       if (disposed) return;
       disposed = true;
-      for (const pass of [renderPass, gtao, bloom, output, fxaa, finish]) pass?.dispose();
+      for (const pass of [renderPass, gtao, aoMix, bloom, output, fxaa, finish]) pass?.dispose();
       composer.dispose();
       target?.dispose();
     },
