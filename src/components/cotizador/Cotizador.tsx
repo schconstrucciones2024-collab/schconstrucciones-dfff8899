@@ -26,7 +26,6 @@ export function Cotizador() {
       timers = [];
       const h = window.location.hash;
       if (h !== "#cotizar" && h !== "#cotiza") return;
-      if (h === "#cotiza") history.replaceState(null, "", "#cotizar");
       const go = () => document.getElementById("cotizar")?.scrollIntoView({ block: "start" });
       go();
       timers = [150, 500, 1200, 2500].map((ms) => window.setTimeout(go, ms));
