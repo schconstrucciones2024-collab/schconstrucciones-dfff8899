@@ -367,7 +367,7 @@ function Wall({
     for(let i=0;i<cuts.length-1;i++){const a=cuts[i],b=cuts[i+1];if(a===undefined||b===undefined||b-a<1e-8)continue;const mid=(a+b)/2,o=openings.find(o=>Math.abs(o.offset-mid)<OPENINGS_CATALOG[o.type].width/2),spec=o?OPENINGS_CATALOG[o.type]:null;
       const bands=spec?[[0,spec.sill],[spec.sill+spec.height,wallHeight]]:[[0,wallHeight]];
       const clipped=polygonClipping.intersection([ring.map(p=>[p.x,p.z] as [number,number])],[[[a,-3],[b,-3],[b,3],[a,3]]]);
-      for(const poly of clipped)for(const [low,high] of bands){if(low===undefined||high===undefined||high-low<1e-6)continue;const points=(poly[0]??[]).slice(0,-1).map(v=>new THREE.Vector2(v[0],v[1]));const sh=new THREE.Shape(points),g=new THREE.ExtrudeGeometry(sh,{depth:high-low,bevelEnabled:false});g.rotateX(-Math.PI/2);g.scale(1,1,-1);g.translate(0,low,0);const pos=g.getAttribute('position'),uv=g.getAttribute('uv');for(let j=0;j<uv.count;j++)uv.setXY(j,pos.getX(j),pos.getY(j));geos.push(g);}
+      for(const poly of clipped)for(const [low,high] of bands){if(low===undefined||high===undefined||high-low<1e-6)continue;const points=(poly[0]??[]).slice(0,-1).map(v=>new THREE.Vector2(v[0],v[1]));const sh=new THREE.Shape(points),g=new THREE.ExtrudeGeometry(sh,{depth:high-low,bevelEnabled:false});g.rotateX(-Math.PI/2);g.scale(1,1,-1);flipWinding(g);g.translate(0,low,0);const pos=g.getAttribute('position'),uv=g.getAttribute('uv');for(let j=0;j<uv.count;j++)uv.setXY(j,pos.getX(j),pos.getY(j));geos.push(g);}
     }
     const g=geos.length?mergeGeometries(geos):null;geos.forEach(g=>g.dispose());return g;
   },[wallData?.a.x,wallData?.a.z,wallData?.b.x,wallData?.b.z,thickness,wallHeight,c.contour,c.walls,openings.map(o=>`${o.id}-${o.type}-${o.offset}`).join('|')]);
@@ -982,4 +982,23 @@ export function House({
       <SceneEditor accent={palette.accent} trim={palette.trim} invalid={palette.invalid} />
     </group>
   );
+}
+
+/**
+ * Un espejado (`scale(1,1,-1)`) invierte el orden de los vértices: las caras exteriores quedaban como "traseras" y el pase de
+ * normales de la oclusión ambiental las veía hacia adentro, oscureciendo la pared entera salvo los bordes (efecto "transparente").
+ * Se reordena cada triángulo para que vuelvan a mirar hacia afuera.
+ */
+function flipWinding(g: THREE.BufferGeometry) {
+  const index = g.getIndex();
+  if (index) {
+    for (let i = 0; i < index.count; i += 3) { const b = index.getX(i + 1); index.setX(i + 1, index.getX(i + 2)); index.setX(i + 2, b); }
+    index.needsUpdate = true;
+    return;
+  }
+  for (const name of Object.keys(g.attributes)) {
+    const a = g.getAttribute(name) as THREE.BufferAttribute, n = a.itemSize, arr = a.array as Float32Array;
+    for (let t = 0; t + 2 < a.count; t += 3) for (let k = 0; k < n; k++) { const i1 = (t + 1) * n + k, i2 = (t + 2) * n + k, v = arr[i1]!; arr[i1] = arr[i2]!; arr[i2] = v; }
+    a.needsUpdate = true;
+  }
 }
