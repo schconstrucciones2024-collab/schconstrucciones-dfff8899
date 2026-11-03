@@ -10,33 +10,68 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ConstruccionTradicionalRouteImport } from './routes/construccion-tradicional'
+import { Route as MobiliarioRouteImport } from './routes/mobiliario'
+import { Route as WoodframeRouteImport } from './routes/woodframe'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConstruccionTradicionalRoute = ConstruccionTradicionalRouteImport.update({
+  id: '/construccion-tradicional',
+  path: '/construccion-tradicional',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MobiliarioRoute = MobiliarioRouteImport.update({
+  id: '/mobiliario',
+  path: '/mobiliario',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WoodframeRoute = WoodframeRouteImport.update({
+  id: '/woodframe',
+  path: '/woodframe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/construccion-tradicional': typeof ConstruccionTradicionalRoute
+  '/mobiliario': typeof MobiliarioRoute
+  '/woodframe': typeof WoodframeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/construccion-tradicional': typeof ConstruccionTradicionalRoute
+  '/mobiliario': typeof MobiliarioRoute
+  '/woodframe': typeof WoodframeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/construccion-tradicional': typeof ConstruccionTradicionalRoute
+  '/mobiliario': typeof MobiliarioRoute
+  '/woodframe': typeof WoodframeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/construccion-tradicional' | '/mobiliario' | '/woodframe'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/construccion-tradicional' | '/mobiliario' | '/woodframe'
+  id:
+    | '__root__'
+    | '/'
+    | '/construccion-tradicional'
+    | '/mobiliario'
+    | '/woodframe'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ConstruccionTradicionalRoute: typeof ConstruccionTradicionalRoute
+  MobiliarioRoute: typeof MobiliarioRoute
+  WoodframeRoute: typeof WoodframeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +83,35 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/construccion-tradicional': {
+      id: '/construccion-tradicional'
+      path: '/construccion-tradicional'
+      fullPath: '/construccion-tradicional'
+      preLoaderRoute: typeof ConstruccionTradicionalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mobiliario': {
+      id: '/mobiliario'
+      path: '/mobiliario'
+      fullPath: '/mobiliario'
+      preLoaderRoute: typeof MobiliarioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/woodframe': {
+      id: '/woodframe'
+      path: '/woodframe'
+      fullPath: '/woodframe'
+      preLoaderRoute: typeof WoodframeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ConstruccionTradicionalRoute: ConstruccionTradicionalRoute,
+  MobiliarioRoute: MobiliarioRoute,
+  WoodframeRoute: WoodframeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
