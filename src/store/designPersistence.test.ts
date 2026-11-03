@@ -79,7 +79,7 @@ describe("escaleras, guardado y diseño compartido", () => {
   it("el enlace compartido contiene un diseño que se puede abrir", () => {
     const c = useConfigurator.getState().config;
     const url = new URL(designUrl(c, "https://sch.example/?x=1#a"));
-    expect(url.hash).toBe("#configurador-3d");
+    expect(url.hash).toBe("#disenar");
     expect(decodeDesign(url.searchParams.get("design")!)).toEqual(c);
   });
   it("ignora diseños compartidos corruptos", () => {

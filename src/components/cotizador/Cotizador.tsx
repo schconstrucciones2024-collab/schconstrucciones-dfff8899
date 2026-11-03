@@ -55,7 +55,7 @@ export function Cotizador() {
   const maxValue = Math.max(1, ...categories.map((c) => valueFor(c.id)));
 
   return (
-    <section id="cotiza" className="scroll-mt-20 bg-background" aria-labelledby="cotiza-title">
+    <section id="cotizar" className="scroll-mt-20 bg-background" aria-labelledby="cotiza-title">
       <div className="mx-auto max-w-7xl px-5 py-24 lg:px-8 lg:py-36">
         <p className="flex items-center gap-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-primary sm:text-xs"><span aria-hidden="true" className="h-px w-10 shrink-0 bg-primary" />Cotizá tu casa · Cotizador interactivo · Valores en USD</p>
         <h2 id="cotiza-title" className="mt-5 max-w-4xl font-display text-4xl font-semibold leading-[1.05] tracking-[-0.01em] text-foreground sm:text-5xl lg:text-6xl">TU PROYECTO. TU SUPERFICIE. TU INVERSIÓN.</h2>
