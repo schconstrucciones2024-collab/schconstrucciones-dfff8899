@@ -146,6 +146,7 @@ export function createPipeline(options: {
         gtao.camera = camera;
         // La oclusión ambiental está calculada para cámara en perspectiva; la planta (cenital, ortogonal) se dibuja sin ella.
         gtao.enabled = (camera as THREE.PerspectiveCamera).isPerspectiveCamera === true;
+        const dbg = (globalThis as { __AO_OUT?: number }).__AO_OUT; if (dbg !== undefined) gtao.output = dbg;
       }
       composer.render(delta);
     },
