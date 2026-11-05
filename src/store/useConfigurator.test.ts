@@ -9,6 +9,10 @@ describe('configurador paramétrico', () => {
     const c = initialConfig(); expect(c.m2).toBe(48);
     for (const [finish, total] of [['rustica', 40800], ['moderna', 43200], ['allwood', 47520]] as const) expect(configPrice({ ...c, finish, extraOpenings: 0 }).total).toBe(total);
   });
+  it('conserva las tarifas de tradicional: Esencial 1.300 y Clásica 1.500 por m²', () => {
+    const c = initialConfig();
+    for (const [finish, total] of [['esencial', 62400], ['clasica', 72000]] as const) expect(configPrice({ ...c, finish, extraOpenings: 0 }).total).toBe(total);
+  });
   it('el diseño inicial tiene ventanal corredizo en la entrada', () => {
     const c = initialConfig();
     expect(c.openings.some(o => o.type === 'ventanal' && o.wall === 'edge-2')).toBe(true);
@@ -47,7 +51,7 @@ describe('configurador paramétrico', () => {
     const c = resizeConfig(initialConfig(), { m2: 60, floors: 3 }); const d = houseDimensions(c); expect(d.width * d.depth * 3).toBeCloseTo(60); expect(d.area).toBe(20);
   });
   it('mantiene ajustes opcionales en cero', () => {
-    expect(ADJUSTMENTS.foundationPerM2).toEqual({ hormigon: 0, madera: 0 }); expect(ADJUSTMENTS.perExtraFloor).toBe(0); expect(ADJUSTMENTS.perExtraOpening).toBe(0); expect(Object.values(ADJUSTMENTS.roofPerM2)).toEqual([0, 0, 0]);
+    expect(ADJUSTMENTS.foundationPerM2).toEqual({ hormigon: 0, madera: 0, platea: 0 }); expect(ADJUSTMENTS.perExtraFloor).toBe(0); expect(ADJUSTMENTS.perExtraOpening).toBe(0); expect(Object.values(ADJUSTMENTS.roofPerM2)).toEqual([0, 0, 0]);
   });
   it('aplica logística 10% por separado: 40800 + 4080 = 44880', () => {
     const p = configPrice({ ...initialConfig(), extraOpenings: 0, logistics: { zoneId: 'medium', separateTrip: false } }); expect(p.base).toBe(40800); expect(p.surcharge).toBe(4080); expect(p.total).toBe(44880);

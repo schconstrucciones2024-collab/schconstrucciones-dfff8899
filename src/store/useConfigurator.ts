@@ -31,6 +31,7 @@ enablePatches();
 import { clampArea, DEFAULT_LOGISTICS, type LogisticsSelection } from "@/lib/cotizador";
 import type { FinishId } from "@/config/materials";
 import type { FoundationId, RoofId } from "@/config/pricing";
+import { PLATEA_HEIGHT, coherentSystem } from "@/config/systems";
 import { OPENINGS_CATALOG, type OpeningType } from "@/config/openingsCatalog";
 import { COMPACTA_PROPOSAL, type LayoutProposal } from "@/config/layoutProposals";
 
@@ -87,7 +88,10 @@ export function houseDimensions(
     ratio = c.shape === "compacta" ? 1.4 : 2;
   return { width: Math.sqrt(area * ratio), depth: Math.sqrt(area / ratio), area };
 }
-export const floorBase = (c: HouseConfig) => c.pileHeight + GEOMETRY.slabThickness;
+/** Con platea la casa apoya casi al ras del terreno; con pilotes, a la altura elegida. */
+export const foundationHeight = (c: Pick<HouseConfig, "foundation" | "pileHeight">) =>
+  c.foundation === "platea" ? PLATEA_HEIGHT : c.pileHeight;
+export const floorBase = (c: HouseConfig) => foundationHeight(c) + GEOMETRY.slabThickness;
 export function designWalls(c: HouseConfig, floor: number): Segment[] {
   return [...exteriorSegments(c.contour), ...(c.walls[floor] ?? [])];
 }
@@ -645,8 +649,17 @@ export const useConfigurator = create<ConfiguratorStore>((set, get) => {
             : suggestedLayout(c),
       );
     },
-    update: (patch) => {
+    update: (requested) => {
       const current = get().config;
+      // La base y el techo tienen que corresponder a la terminación (por ejemplo, la Clásica lleva losa plana):
+      // se adaptan solos cuando se cambia de terminación o de sistema.
+      const merged = { ...current, ...requested },
+        fitted = coherentSystem(merged);
+      const patch: Partial<HouseConfig> = {
+        ...requested,
+        ...(fitted.foundation !== merged.foundation ? { foundation: fitted.foundation } : {}),
+        ...(fitted.roofType !== merged.roofType ? { roofType: fitted.roofType } : {}),
+      };
       // Changing only the floor count keeps the ground-floor footprint and layout, adding/removing upper floors.
       const floorsOnly = patch.floors !== undefined && Object.keys(patch).length === 1;
       const footprint = polygonArea(current.contour);
@@ -1004,8 +1017,8 @@ const designSchema = z
           .passthrough(),
       )
       .max(30),
-    finish: z.enum(["rustica", "moderna", "allwood"]),
-    foundation: z.enum(["hormigon", "madera"]),
+    finish: z.enum(["rustica", "moderna", "allwood", "esencial", "clasica"]),
+    foundation: z.enum(["hormigon", "madera", "platea"]),
     roofType: z.enum(["una", "dos", "plano"]),
     ground: z.enum(["arena", "cesped"]),
     pileHeight: z.number().min(0.25).max(2),
@@ -1042,7 +1055,7 @@ export function decodeDesign(text: string): HouseConfig | null {
     if (!["una", "dos", "plano"].includes(candidate.roofType)) candidate.roofType = "dos";
     const parsed = designSchema.safeParse(candidate);
     if (!parsed.success) return null;
-    const c = parsed.data as HouseConfig;
+    const c = coherentSystem(parsed.data as HouseConfig);
     if (
       validateContour(c.contour, c.floors) ||
       Math.abs(polygonArea(c.contour) * c.floors - c.m2) > 0.0001
