@@ -34,8 +34,10 @@ import {
   FIXTURE_SIZES,
   type Stair,
 } from "@/config/geometry";
+import { PLATEA_HEIGHT } from "@/config/systems";
 import {
   floorBase,
+  foundationHeight,
   designWalls,
   resolveWall,
   FLOOR_BASE,
@@ -186,21 +188,29 @@ function GroundGrass({hidden,sand}:{hidden:boolean;sand:boolean}){
   useEffect(()=>()=>geometry.dispose(),[geometry]);
   return <group position={[c.position.x,0,c.position.z]} rotation-y={-c.rotation} visible={!hidden}><mesh geometry={geometry}><meshStandardMaterial vertexColors side={THREE.DoubleSide} roughness={0.9}/></mesh></group>;
 }
+const NO_HOLES: Point[][] = [];
 function Foundation({ c }: { c: HouseConfig }) {
-  const map = useMaterial(c.foundation === "hormigon" ? "hormigon" : "maderaPilote");
+  const platea = c.foundation === "platea";
+  const map = useMaterial(c.foundation === "madera" ? "maderaPilote" : "hormigon");
   const { width, depth } = houseDimensions(c);
+  const height = foundationHeight(c);
+  // La platea sobresale unos centímetros del contorno de la casa, como el cimiento perimetral.
+  const plinth = useMemo(() => offsetContour(c.contour, 0.06), [c.contour]);
   const boxes = useMemo(() => {
+    if (platea) return [];
     const nx = Math.max(2, Math.ceil(width / 2.4) + 1),
       nz = Math.max(2, Math.ceil(depth / 2.4) + 1);
     return Array.from({ length: nx * nz }, (_, i) => ({
-      size: [0.24, c.pileHeight, 0.24] as Vec3,
+      size: [0.24, height, 0.24] as Vec3,
       pos: [
         bounds(c.contour).minX + 0.3 + ((i % nx) * (width - 0.6)) / (nx - 1),
-        c.pileHeight / 2,
+        height / 2,
         bounds(c.contour).minZ + 0.3 + (Math.floor(i / nx) * (depth - 0.6)) / (nz - 1),
       ] as Vec3,
     }));
-  }, [width, depth, c.pileHeight]);
+  }, [platea, width, depth, height]);
+  if (platea)
+    return <FloorSlab contour={plinth} holes={NO_HOLES} map={map} y={PLATEA_HEIGHT} thickness={PLATEA_HEIGHT} />;
   return (
     <MergedBoxes
       boxes={boxes.filter((b) => inside({ x: b.pos[0], z: b.pos[2] }, c.contour))}
@@ -807,8 +817,10 @@ function HoleRail({ ring, map, stair }: { ring: Point[]; map: THREE.Texture; sta
   );
 }
 function Roof({ c, palette }: { c: HouseConfig; palette: ScenePalette }) {
-  const map = useMaterial("chapa"),
-    siding = useMaterial("sidingModerno");
+  // Esencial lleva techo liviano de chapa; la Clásica, losa de hormigón con membrana asfáltica.
+  const losa = c.finish === "clasica";
+  const map = useMaterial(losa ? "membrana" : "chapa"),
+    siding = useMaterial(FINISH_MATERIALS[c.finish].siding);
   const geo = useMemo(() => {
     const pts: number[] = [],
       uv: number[] = [],
@@ -860,7 +872,7 @@ function Roof({ c, palette }: { c: HouseConfig; palette: ScenePalette }) {
   return (
     <group position-y={floorBase(c) + (c.floors - 1) * FLOOR_STEP + WALL_HEIGHT}>
       <mesh geometry={geo.g} castShadow receiveShadow>
-        <meshStandardMaterial {...pbrProps(map)} map={map} metalness={0.55} roughness={1} side={THREE.DoubleSide} />
+        <meshStandardMaterial {...pbrProps(map)} map={map} metalness={losa ? 0 : 0.55} roughness={1} side={THREE.DoubleSide} />
       </mesh>
       <mesh geometry={geo.ends}>
         <meshStandardMaterial {...pbrProps(siding)} map={siding} side={THREE.DoubleSide} />
@@ -887,7 +899,7 @@ export function House({
   const floorMap = useMaterial(finish.floor),
     interiorMap = useMaterial(finish.wall),
     ceilingMap = useMaterial(finish.ceiling),
-    sidingMap = useMaterial("sidingModerno"),
+    sidingMap = useMaterial(finish.siding),
     cut = view === "interior" || view === "corte" || view === "planta";
   return (
     <group position={[c.position.x, 0, c.position.z]} rotation-y={-c.rotation}>

@@ -1,14 +1,20 @@
 import { isOrthogonal } from "@/config/geometry";
 import { Copy, Trash2, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { CATEGORIES, AREA_MIN, AREA_MAX, formatUSD } from "@/lib/cotizador";
+import { SYSTEMS, AREA_MIN, AREA_MAX, formatUSD, type SystemId } from "@/lib/cotizador";
 import {
   FINISH_NAMES,
   FOUNDATION_NAMES,
-  ROOF_NAMES,
-  type FoundationId,
-  type RoofId,
+  RATES,
+  roofName,
 } from "@/config/pricing";
+import {
+  FINISHES_BY_SYSTEM,
+  FOUNDATIONS_BY_SYSTEM,
+  allowedRoofs,
+  systemOf,
+  systemPatch,
+} from "@/config/systems";
 import { OPENINGS_CATALOG, OPENING_TYPES } from "@/config/openingsCatalog";
 import {
   designWalls,
@@ -40,11 +46,34 @@ export function Panels({ step }: { step: number }) {
   const s = useConfigurator(),
     c = s.config,
     d = houseDimensions(c),
-    selected = c.openings.find((o) => o.id === s.selectedId);
+    selected = c.openings.find((o) => o.id === s.selectedId),
+    system = systemOf(c.finish);
   return (
     <div className="min-h-64 py-6">
       {step === 0 && (
         <>
+          <fieldset className="mb-7">
+            <legend className="mb-3 text-xs text-foreground/70">Sistema constructivo</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {(["woodframe", "tradicional"] as SystemId[]).map((id) => (
+                <Button
+                  key={id}
+                  variant={system === id ? "default" : "outline"}
+                  className="h-auto min-h-12 whitespace-normal px-2 text-xs"
+                  aria-pressed={system === id}
+                  onClick={() => {
+                    const patch = systemPatch(c, id);
+                    if (Object.keys(patch).length) s.update(patch);
+                  }}
+                >
+                  {SYSTEMS[id].name}
+                </Button>
+              ))}
+            </div>
+            <p className="mt-3 text-xs leading-6 text-foreground/60">
+              Al cambiar de sistema se conserva tu diseño; se adaptan los materiales, la base y el techo.
+            </p>
+          </fieldset>
           <div className="flex items-center justify-between gap-4">
             <label htmlFor="config-area" className="text-sm">
               Superficie total
@@ -142,20 +171,22 @@ export function Panels({ step }: { step: number }) {
               <option value="cesped">Suelo firme con césped</option>
             </select>
           </label>
-          <label className="block text-xs mb-4">
-            Altura de pilotes · {c.pileHeight.toFixed(2)} m
-            <input
-              className="h-11 w-full"
-              type="range"
-              min={0.25}
-              max={2}
-              step={0.05}
-              value={c.pileHeight}
-              onChange={(e) => s.update({ pileHeight: Number(e.target.value) })}
-            />
-          </label>
+          {c.foundation !== "platea" && (
+            <label className="block text-xs mb-4">
+              Altura de pilotes · {c.pileHeight.toFixed(2)} m
+              <input
+                className="h-11 w-full"
+                type="range"
+                min={0.25}
+                max={2}
+                step={0.05}
+                value={c.pileHeight}
+                onChange={(e) => s.update({ pileHeight: Number(e.target.value) })}
+              />
+            </label>
+          )}
           <div className="space-y-3">
-            {(["hormigon", "madera"] as FoundationId[]).map((id) => (
+            {FOUNDATIONS_BY_SYSTEM[system].map((id) => (
               <Button
                 key={id}
                 variant={c.foundation === id ? "default" : "outline"}
@@ -168,8 +199,16 @@ export function Panels({ step }: { step: number }) {
             ))}
           </div>
           <p className="mt-5 text-xs leading-6 text-foreground/70">
-            En suelo arenoso/costero recomendamos pilotes de hormigón o de madera curada
+            {system === "tradicional"
+              ? "En suelo arenoso/costero recomendamos pilotes de hormigón; si el suelo es firme se puede hacer platea."
+              : "En suelo arenoso/costero recomendamos pilotes de hormigón o de madera curada"}
           </p>
+          {c.foundation === "platea" && c.ground === "arena" && (
+            <p className="mt-3 text-xs leading-6 text-foreground/70" role="note">
+              En suelo de arena no recomendamos la platea de hormigón: con el tiempo se lava y la base se mueve.
+              Probá con suelo firme o con pilotes de hormigón.
+            </p>
+          )}
           <Button
             className="mt-4 min-h-11 w-full"
             variant="outline"
@@ -182,8 +221,8 @@ export function Panels({ step }: { step: number }) {
       )}
       {step === 3 && (
         <>
-          <div className="grid grid-cols-3 gap-2">
-            {(["rustica", "moderna", "allwood"] as const).map((id) => (
+          <div className={`grid gap-2 ${FINISHES_BY_SYSTEM[system].length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+            {FINISHES_BY_SYSTEM[system].map((id) => (
               <Button
                 key={id}
                 variant={c.finish === id ? "default" : "outline"}
@@ -192,19 +231,22 @@ export function Panels({ step }: { step: number }) {
                 onClick={() => s.update({ finish: id })}
               >
                 {FINISH_NAMES[id]}
-                <span className="text-[10px]">
-                  {formatUSD(CATEGORIES.find((x) => x.id === id)?.price ?? 0)}/m²
-                </span>
+                <span className="text-[10px]">{formatUSD(RATES[id])}/m²</span>
               </Button>
             ))}
           </div>
+          {system === "tradicional" && (
+            <p className="mt-4 text-xs leading-6 text-foreground/70">
+              {SYSTEMS.tradicional.categories.find((x) => x.id === c.finish)?.interior}
+            </p>
+          )}
           <MaterialsSheet finish={c.finish} />
         </>
       )}
       {step === 4 && (
         <>
-          <div className="grid grid-cols-2 gap-2">
-            {(["una", "dos", "plano"] as RoofId[]).map((id) => (
+          <div className={`grid gap-2 ${allowedRoofs(c.finish).length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+            {allowedRoofs(c.finish).map((id) => (
               <Button
                 key={id}
                 variant={c.roofType === id ? "default" : "outline"}
@@ -218,10 +260,17 @@ export function Panels({ step }: { step: number }) {
                 aria-pressed={c.roofType === id}
                 onClick={() => s.update({ roofType: id })}
               >
-                {ROOF_NAMES[id]}
+                {roofName(id, c.finish)}
               </Button>
             ))}
           </div>
+          {system === "tradicional" && (
+            <p className="mt-3 text-xs leading-6 text-foreground/70">
+              {c.finish === "clasica"
+                ? "La Clásica lleva losa de hormigón con aislación térmica y membrana asfáltica."
+                : "La Esencial lleva techo liviano de chapa con aislación básica."}
+            </p>
+          )}
           <label className="block mt-4 text-xs">
             Dirección
             <select

@@ -8,6 +8,8 @@ import {
   decodeDesign,
   useConfigurator,
 } from "@/store/useConfigurator";
+import { SYSTEMS } from "@/lib/cotizador";
+import { systemOf } from "@/config/systems";
 import { Panels, STEPS } from "./Panels";
 import { Summary } from "./Summary";
 import "./configurator.css";
@@ -81,7 +83,7 @@ export default function Configurator() {
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="mb-3 text-[10px] font-semibold uppercase text-primary">
-              SCH Construcciones · Woodframe
+              SCH Construcciones · {SYSTEMS[systemOf(s.config.finish)].name}
             </p>
             <h2 id="config-title" className="font-display text-4xl font-medium sm:text-5xl">
               Diseñá tu casa

@@ -149,7 +149,7 @@ function CameraRig({ resetKey, dragging, onCamera, onControls }: { resetKey: num
     g.sweepNext = false;
     g.moving = true;
     invalidate();
-  }, [c.m2, c.floors, c.shape, c.position.x, c.position.z,c.rotation,c.pileHeight, view, floor, under, resetKey, size.width, size.height, invalidate]);
+  }, [c.m2, c.floors, c.shape, c.position.x, c.position.z,c.rotation,c.pileHeight,c.foundation, view, floor, under, resetKey, size.width, size.height, invalidate]);
   // Vistas predefinidas (frontal, lateral, aérea, fachada, encuadre automático): se aplican al pedirlas, una vez por pedido.
   useEffect(() => {
     const { preset, trees } = useEntorno.getState();

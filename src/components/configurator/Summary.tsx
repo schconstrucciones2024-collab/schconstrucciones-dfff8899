@@ -7,9 +7,10 @@ import {
   configWhatsAppUrl,
   FINISH_NAMES,
   FOUNDATION_NAMES,
-  ROOF_NAMES,
+  roofName,
 } from "@/config/pricing";
-import { LOGISTICS_ZONES, formatUSD } from "@/lib/cotizador";
+import { systemOf } from "@/config/systems";
+import { LOGISTICS_ZONES, SYSTEMS, formatUSD } from "@/lib/cotizador";
 import { detectRooms } from "@/config/geometry";
 import { designUrl, suggestedOpenings, useConfigurator } from "@/store/useConfigurator";
 export function Summary({ full = false }: { full?: boolean }) {
@@ -42,7 +43,7 @@ export function Summary({ full = false }: { full?: boolean }) {
   const share = async () => {
     if (navigator.share) {
       try {
-        await navigator.share({ title: "Mi cabaña · SCH Construcciones", text, url: link });
+        await navigator.share({ title: `${systemOf(c.finish) === "tradicional" ? "Mi vivienda" : "Mi cabaña"} · SCH Construcciones`, text, url: link });
       } catch (error) {
         if (!(error instanceof DOMException && error.name === "AbortError")) setFallback(true);
       }
@@ -63,9 +64,10 @@ export function Summary({ full = false }: { full?: boolean }) {
             {[
               ["Superficie", `${Number(c.m2.toFixed(2))} m²`],
               ["Plantas", `${c.floors} · ${(c.m2 / c.floors).toFixed(1)} m² por planta`],
+              ["Sistema", SYSTEMS[systemOf(c.finish)].name],
               ["Terminación", FINISH_NAMES[c.finish]],
               ["Fundación", FOUNDATION_NAMES[c.foundation]],
-              ["Techo", ROOF_NAMES[c.roofType]],
+              ["Techo", roofName(c.roofType, c.finish)],
               ["Aberturas", String(c.openings.length)],
               ["Suelo", c.ground==="arena"?"Suelo de arena":"Suelo firme con césped"],
               ["Ambientes", String(input.roomsCount)],
