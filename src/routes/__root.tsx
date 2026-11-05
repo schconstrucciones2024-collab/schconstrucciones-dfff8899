@@ -79,11 +79,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "SCH Construcciones" },
-      { name: "description", content: "Construcción familiar premium en Rocha, Uruguay." },
       { name: "author", content: "SCH Construcciones" },
-      { property: "og:title", content: "SCH Construcciones" },
-      { property: "og:description", content: "Construcción familiar premium en Rocha, Uruguay." },
       { property: "og:type", content: "website" },
       { property: "og:locale", content: "es_UY" },
       { property: "og:site_name", content: "SCH Construcciones" },

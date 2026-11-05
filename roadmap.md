@@ -48,3 +48,8 @@
 - [ ] Completar captura visual interior: la herramienta de captura 3D agota el tiempo disponible.
 - [x] Abrir siempre en la distribución "Compacta abierta" (6 × 8 m, 48 m²), dejando elegir otra distribución desde "Distribuciones".
 - [x] Conservar los demás valores iniciales elegidos: techo de 2 aguas, pilotes de madera curada, ventanal corredizo de entrada y escalera exterior de 2,4 m.
+
+## Metadatos de páginas públicas
+- [x] Completar títulos/descripciones propios, canónicas y textos sociales para inicio y tres servicios.
+- [x] Comprobar etiquetas en HTML inicial de las cuatro páginas y navegación entre servicios, sin canónicas ni imágenes heredadas duplicadas.
+- [ ] Publicar los metadatos para actualizar el sitio público (requiere publicación del dueño).

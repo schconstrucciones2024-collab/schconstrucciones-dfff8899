@@ -34,16 +34,24 @@ export const faqPageJsonLd = (faqs: ServiceFaq[]) => ({
   mainEntity: faqs.map((f) => ({ "@type": "Question", name: f.question, acceptedAnswer: { "@type": "Answer", text: f.answer } })),
 });
 
-export function serviceHead(path: string, title: string, description: string, faqs: ServiceFaq[]) {
-  const url = `${SITE_URL}${path}`;
+export function publicPageHead(path: string, title: string, description: string) {
+  const url = path === "/" ? SITE_URL : `${SITE_URL}${path}`;
   return {
     meta: [
       { title }, { name: "description", content: description },
       { property: "og:title", content: title }, { property: "og:description", content: description },
-      { property: "og:type", content: "article" }, { property: "og:url", content: url },
+      { property: "og:type", content: "website" }, { property: "og:url", content: url },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: title },
+      { name: "twitter:description", content: description },
     ],
     links: [{ rel: "canonical", href: url }],
+  };
+}
+
+export function serviceHead(path: string, title: string, description: string, faqs: ServiceFaq[]) {
+  return {
+    ...publicPageHead(path, title, description),
     scripts: [
       { type: "application/ld+json", children: JSON.stringify(localBusinessJsonLd) },
       { type: "application/ld+json", children: JSON.stringify(faqPageJsonLd(faqs)) },

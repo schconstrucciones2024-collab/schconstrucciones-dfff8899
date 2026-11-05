@@ -30,3 +30,4 @@
 - The AI stair assistant calls the Gateway only from the `reviewStairs` server function; every AI proposal passes through `resolveProposal` (stairConflict + findStairSpot) before applying, so the model can never place an invalid stair.
 - Interior stairs rotate freely via the 3D `StairRotateHandle` (5° snap, Shift 1°); commits go through `editStair` validation so invalid angles revert.
 - `/sitemap.xml` is generated from each route's required `staticData.sitemap` decision via `src/lib/sitemap.ts`; new routes must declare inclusion so the sitemap follows the router without a manual URL list.
+- Public leaf routes use `publicPageHead` in `src/data/servicios.ts` for self-referencing canonical and matching Open Graph/Twitter text; root metadata stays sitewide so page previews do not inherit another page's identity.

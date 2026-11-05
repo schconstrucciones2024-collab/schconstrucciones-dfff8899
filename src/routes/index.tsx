@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { SITE_URL, localBusinessJsonLd } from "@/data/servicios";
+import { SITE_URL, localBusinessJsonLd, publicPageHead } from "@/data/servicios";
 import { FAQSection } from "@/components/faq/FAQSection";
 import { faqJsonLd } from "@/data/faqs";
 import { Cotizador } from "@/components/cotizador/Cotizador";
@@ -18,27 +18,22 @@ import { Social } from "@/components/home/Social";
 import { Sistemas } from "@/components/sistemas/Sistemas";
 
 const TITLE = "SCH Construcciones | Construcción en Rocha";
-const DESCRIPTION = "Más de 40 años construyendo hogares, reformas y proyectos integrales en Punta del Diablo y Rocha.";
+const DESCRIPTION = "Viviendas woodframe y tradicionales, reformas y mobiliario a medida. SCH Construcciones en Punta del Diablo, Rocha, con obras en todo Uruguay.";
 const SOCIAL_IMAGE = `${SITE_URL}/images/hero-obra-1280.webp`;
 
 export const Route = createFileRoute("/")({
   staticData: { sitemap: true },
   head: () => ({
+    ...publicPageHead("/", TITLE, DESCRIPTION),
     meta: [
-      { title: TITLE },
-      { name: "description", content: DESCRIPTION },
-      { property: "og:title", content: TITLE },
-      { property: "og:description", content: "Construimos con vos hogares seguros, duraderos y de terminación premium." },
-      { property: "og:type", content: "website" },
-      { property: "og:url", content: SITE_URL },
+      ...publicPageHead("/", TITLE, DESCRIPTION).meta,
       { property: "og:image", content: SOCIAL_IMAGE },
       { property: "og:image:width", content: "1280" },
       { property: "og:image:height", content: "720" },
       { property: "og:image:alt", content: "Casa celeste con piscina, obra Lo de Cata de SCH Construcciones en Punta del Diablo" },
-      { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:image", content: SOCIAL_IMAGE },
+      { name: "twitter:image:alt", content: "Casa celeste con piscina, obra Lo de Cata de SCH Construcciones en Punta del Diablo" },
     ],
-    links: [{ rel: "canonical", href: SITE_URL }],
     scripts: [
       { type: "application/ld+json", children: JSON.stringify(faqJsonLd) },
       { type: "application/ld+json", children: JSON.stringify(localBusinessJsonLd) },
