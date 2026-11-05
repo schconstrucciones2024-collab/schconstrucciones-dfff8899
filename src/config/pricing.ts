@@ -1,21 +1,19 @@
 import {
-  CATEGORIES,
+  SYSTEMS,
   calculateLogistics,
-  clampArea,
   formatUSD,
   getLogisticsZone,
   type LogisticsSelection,
 } from "@/lib/cotizador";
 import type { FinishId } from "./materials";
+import { systemOf } from "./systems";
 
 /** Rates per m² come from the existing quote configuration — never duplicated here. */
 export const RATES: Record<FinishId, number> = Object.fromEntries(
-  CATEGORIES.filter((c) => c.id === "rustica" || c.id === "moderna" || c.id === "allwood").map(
-    (c) => [c.id, c.price],
-  ),
+  [...SYSTEMS.woodframe.categories, ...SYSTEMS.tradicional.categories].map((c) => [c.id, c.price]),
 ) as Record<FinishId, number>;
 
-export type FoundationId = "hormigon" | "madera";
+export type FoundationId = "hormigon" | "madera" | "platea";
 export type RoofId = "una" | "dos" | "plano";
 
 /**
@@ -26,7 +24,7 @@ export type RoofId = "una" | "dos" | "plano";
  * - perExtraOpening: for each opening beyond the suggested default ones.
  */
 export const ADJUSTMENTS = {
-  foundationPerM2: { hormigon: 0, madera: 0 } as Record<FoundationId, number>,
+  foundationPerM2: { hormigon: 0, madera: 0, platea: 0 } as Record<FoundationId, number>,
   perExtraFloor: 0,
   roofPerM2: { una: 0, dos: 0, plano: 0 } as Record<RoofId, number>,
   perExtraOpening: 0,
@@ -39,16 +37,22 @@ export const FINISH_NAMES: Record<FinishId, string> = {
   rustica: "RÚSTICA",
   moderna: "MODERNA",
   allwood: "ALLWOOD",
+  esencial: "ESENCIAL",
+  clasica: "CLÁSICA",
 };
 export const FOUNDATION_NAMES: Record<FoundationId, string> = {
   hormigon: "pilotes de hormigón",
   madera: "pilotes de madera curada",
+  platea: "platea de hormigón",
 };
 export const ROOF_NAMES: Record<RoofId, string> = {
   una: "Una caída",
   dos: "Doble agua",
   plano: "Plano / liviano",
 };
+/** En la Clásica el techo plano es la losa de hormigón. */
+export const roofName = (roof: RoofId, finish: FinishId): string =>
+  finish === "clasica" && roof === "plano" ? "Losa de hormigón" : ROOF_NAMES[roof];
 
 export type PriceInput = {
   m2: number;
@@ -87,8 +91,9 @@ export function configWhatsAppText(input: PriceInput & { openings: number }) {
   const p = configPrice(input);
   const zone = getLogisticsZone(input.logistics.zoneId);
   const floors = `${input.floors} planta${input.floors > 1 ? "s" : ""}`;
+  const traditional = systemOf(input.finish) === "tradicional";
   const lines = [
-    `Hola SCH Construcciones, configuré mi cabaña: ${Number(input.m2.toFixed(2))} m² · ${floors} · Terminación: ${FINISH_NAMES[input.finish]} · Base: ${FOUNDATION_NAMES[input.foundation]} · Techo: ${ROOF_NAMES[input.roofType]} · Aberturas: ${input.openings} · Inversión estimada: ${formatUSD(p.obra)}`,
+    `Hola SCH Construcciones, configuré ${traditional ? "mi vivienda en construcción tradicional" : "mi cabaña"}: ${Number(input.m2.toFixed(2))} m² · ${floors} · Terminación: ${FINISH_NAMES[input.finish]} · Base: ${FOUNDATION_NAMES[input.foundation]} · Techo: ${roofName(input.roofType, input.finish)} · Aberturas: ${input.openings} · Inversión estimada: ${formatUSD(p.obra)}`,
   ];
   if (zone.id !== "local") {
     lines.push(

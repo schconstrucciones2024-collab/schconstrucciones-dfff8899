@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FINISH_MATERIALS, MATERIAL_BOARDS, MATERIAL_NAMES, MATERIAL_TILE_M, materialTextureUrl, type MaterialKind } from "./materials";
+import { FINISHES_BY_SYSTEM } from "./systems";
 
 /** El revestimiento exterior es gris claro en las tres terminaciones. */
 function expectLightGraySiding(kind: MaterialKind) {
@@ -17,10 +18,27 @@ describe("siding exterior", () => {
     expectLightGraySiding("sidingModerno");
   });
 
-  it("las tres terminaciones muestran el mismo siding gris claro", () => {
-    for (const finish of Object.keys(FINISH_MATERIALS) as (keyof typeof FINISH_MATERIALS)[]) {
-      expectLightGraySiding(FINISH_MATERIALS[finish].siding);
+  it("las tres terminaciones de woodframe muestran el mismo siding gris claro", () => {
+    for (const finish of FINISHES_BY_SYSTEM.woodframe) expectLightGraySiding(FINISH_MATERIALS[finish].siding);
+  });
+});
+
+describe("terminaciones de construcción tradicional", () => {
+  it("las dos llevan muros revocados por dentro y por fuera, sin siding", () => {
+    for (const finish of FINISHES_BY_SYSTEM.tradicional) {
+      const m = FINISH_MATERIALS[finish];
+      expect(["revoque", "revoqueFino"]).toContain(m.wall);
+      expect(m.siding).toBe(m.wall);
+      expect(MATERIAL_BOARDS[m.siding]).toBeUndefined();
     }
+  });
+
+  it("Esencial: revoque común, cielorraso de yeso y piso cerámico", () => {
+    expect(FINISH_MATERIALS.esencial).toEqual({ wall: "revoque", ceiling: "drywall", floor: "ceramico", siding: "revoque" });
+  });
+
+  it("Clásica: revoque fino, sin cielorraso (losa de hormigón a la vista) y porcelanato", () => {
+    expect(FINISH_MATERIALS.clasica).toEqual({ wall: "revoqueFino", ceiling: "hormigon", floor: "porcelanato", siding: "revoqueFino" });
   });
 });
 
@@ -44,9 +62,12 @@ describe("texturas PBR del visor 3D", () => {
     expect(materialTextureUrl("pasto", "normal", true)).toBe("/textures/pasto/normal-512.webp");
   });
 
-  it("la arena y el pasto se repiten cada 2 m y el resto cada 1 m", () => {
+  it("la arena y el pasto se repiten cada 2 m, los pisos de baldosas según su tamaño y el resto cada 1 m", () => {
     expect(MATERIAL_TILE_M.arena).toBe(2);
     expect(MATERIAL_TILE_M.pasto).toBe(2);
-    for (const kind of kinds.filter((k) => k !== "arena" && k !== "pasto")) expect(MATERIAL_TILE_M[kind] ?? 1).toBe(1);
+    expect(MATERIAL_TILE_M.ceramico).toBe(0.9); // 2 × 2 baldosas de 45 cm
+    expect(MATERIAL_TILE_M.porcelanato).toBe(1.2); // 2 × 2 baldosas de 60 cm
+    const own = new Set<MaterialKind>(["arena", "pasto", "ceramico", "porcelanato"]);
+    for (const kind of kinds.filter((k) => !own.has(k))) expect(MATERIAL_TILE_M[kind] ?? 1).toBe(1);
   });
 });

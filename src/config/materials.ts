@@ -1,13 +1,15 @@
 import type { CategoryId } from "@/lib/cotizador";
 
-export type FinishId = Extract<CategoryId, "rustica" | "moderna" | "allwood">;
+export type FinishId = Extract<CategoryId, "rustica" | "moderna" | "allwood" | "esencial" | "clasica">;
 export type MaterialKind =
   | "chapones" | "drywall" | "machimbre" | "lambriz" | "pisoPino"
   | "sidingRustico" | "sidingModerno" | "sidingAllwood"
   | "arena" | "hormigon" | "maderaPilote" | "pasto" | "chapa" | "mesada"
   // Apartado "Sistemas constructivos" (paredes Wood Frame y tradicional)
   | "maderaEstructural" | "chaponPino" | "chaponEucalipto" | "osb" | "lanaVidrio" | "membrana"
-  | "ladrilloComun" | "ladrilloHueco" | "revoque" | "revoqueFino";
+  | "ladrilloComun" | "ladrilloHueco" | "revoque" | "revoqueFino"
+  // Pisos de la construcción tradicional
+  | "ceramico" | "porcelanato";
 
 export const MATERIAL_NAMES: Record<MaterialKind, string> = {
   chapones: "Chapones cepillados de eucalipto/pino",
@@ -34,12 +36,29 @@ export const MATERIAL_NAMES: Record<MaterialKind, string> = {
   ladrilloHueco: "Ladrillo hueco (ticholo)",
   revoque: "Revoque grueso",
   revoqueFino: "Revoque fino",
+  ceramico: "Piso cerámico estándar",
+  porcelanato: "Piso porcelanato",
 };
 
 export const FINISH_MATERIALS: Record<FinishId, { wall: MaterialKind; ceiling: MaterialKind; floor: MaterialKind; siding: MaterialKind }> = {
   rustica: { wall: "chapones", ceiling: "chapones", floor: "pisoPino", siding: "sidingModerno" },
   moderna: { wall: "drywall", ceiling: "drywall", floor: "pisoPino", siding: "sidingModerno" },
   allwood: { wall: "machimbre", ceiling: "lambriz", floor: "pisoPino", siding: "sidingModerno" },
+  // Tradicional: muros revocados por dentro y por fuera. Esencial lleva cielorraso de yeso; la Clásica no lleva
+  // cielorraso: se ve la losa de hormigón por debajo.
+  esencial: { wall: "revoque", ceiling: "drywall", floor: "ceramico", siding: "revoque" },
+  clasica: { wall: "revoqueFino", ceiling: "hormigon", floor: "porcelanato", siding: "revoqueFino" },
+};
+
+/**
+ * Textos de la hoja de materiales cuando difieren del nombre genérico del material
+ * (Esencial dice "revoque común" y la Clásica no lleva cielorraso, sino losa a la vista).
+ */
+export const FINISH_SHEET_TEXT: Partial<
+  Record<FinishId, { ceilingLabel?: string; names?: Partial<Record<"wall" | "ceiling" | "floor" | "siding", string>> }>
+> = {
+  esencial: { names: { wall: "Revoque común", siding: "Revoque común", ceiling: "Cielorraso de yeso" } },
+  clasica: { ceilingLabel: "Techo", names: { ceiling: "Losa de hormigón a la vista" } },
 };
 
 function rng(seed: number) {
@@ -131,6 +150,34 @@ export function drawMaterial(kind: MaterialKind, size = 512): HTMLCanvasElement 
     if (kind === "maderaPilote") { ctx.fillStyle = "rgba(70,90,40,0.18)"; ctx.fillRect(0, 0, size, size); }
     return c;
   }
+  // Baldosas en cuadrícula (muestra de respaldo hasta que llegan los mapas reales): `n` baldosas por lado con junta clara.
+  const tiles = (n: number, base: [number, number, number], vary: number, grout: string, groutPx: number, veins: boolean) => {
+    const rr = rng(kind === "porcelanato" ? 31 : 29), tile = size / n;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      const v = (rr() - 0.5) * vary;
+      ctx.fillStyle = `rgb(${base[0] + v},${base[1] + v},${base[2] + v})`;
+      ctx.fillRect(i * tile, j * tile, tile, tile);
+      for (let d = 0; d < 320; d++) {
+        const k = (rr() - 0.5) * 26;
+        ctx.fillStyle = `rgba(${base[0] + k},${base[1] + k},${base[2] + k},0.5)`;
+        ctx.fillRect(i * tile + rr() * tile, j * tile + rr() * tile, 1 + rr() * 2, 1 + rr() * 2);
+      }
+      if (veins) {
+        ctx.strokeStyle = "rgba(150,146,140,0.32)";
+        for (let g = 0; g < 3; g++) {
+          ctx.lineWidth = 0.6 + rr();
+          ctx.beginPath();
+          let x = i * tile + rr() * tile, y = j * tile;
+          ctx.moveTo(x, y);
+          for (let s = 0; s < 8; s++) { x += (rr() - 0.5) * tile * 0.25; y += tile / 8; ctx.lineTo(x, y); }
+          ctx.stroke();
+        }
+      }
+      ctx.fillStyle = grout;
+      ctx.fillRect(i * tile, j * tile, tile, groutPx);
+      ctx.fillRect(i * tile, j * tile, groutPx, tile);
+    }
+  };
   const noise = (base: [number, number, number], amount: number, dots: number) => {
     ctx.fillStyle = `rgb(${base.join(",")})`;
     ctx.fillRect(0, 0, size, size);
@@ -165,13 +212,18 @@ export function drawMaterial(kind: MaterialKind, size = 512): HTMLCanvasElement 
       }
       break;
     }
+    case "ceramico": tiles(2, [196, 184, 168], 14, "rgb(128,120,110)", Math.max(3, size / 120), false); break;
+    case "porcelanato": tiles(2, [228, 226, 221], 8, "rgb(186,182,176)", Math.max(2, size / 220), true); break;
     default: noise([128, 128, 128], 20, 1000);
   }
   return c;
 }
 
-/** Lado, en metros, de la muestra que se repite en cada material (los no listados usan 1 m). */
-export const MATERIAL_TILE_M: Partial<Record<MaterialKind, number>> = { arena: 2, pasto: 2 };
+/**
+ * Lado, en metros, de la muestra que se repite en cada material (los no listados usan 1 m).
+ * Cerámico: baldosas de 45 cm (2 × 2 por muestra); porcelanato: baldosas de 60 cm (2 × 2 por muestra).
+ */
+export const MATERIAL_TILE_M: Partial<Record<MaterialKind, number>> = { arena: 2, pasto: 2, ceramico: 0.9, porcelanato: 1.2 };
 
 export type MaterialMapId = "albedo" | "normal" | "orm";
 
