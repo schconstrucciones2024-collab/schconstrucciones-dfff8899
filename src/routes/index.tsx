@@ -22,6 +22,7 @@ const DESCRIPTION = "Más de 40 años construyendo hogares, reformas y proyectos
 const SOCIAL_IMAGE = `${SITE_URL}/images/hero-obra-1280.webp`;
 
 export const Route = createFileRoute("/")({
+  staticData: { sitemap: true },
   head: () => ({
     meta: [
       { title: TITLE },

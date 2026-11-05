@@ -15,6 +15,7 @@ const title = "Cabañas woodframe llave en mano en Uruguay | SCH Construcciones"
 const description = "Cabañas de madera woodframe desde USD 850/m², llave en mano en 3 a 5 meses. Punta del Diablo y todo Uruguay. Pago por avance de obra.";
 
 export const Route = createFileRoute("/woodframe")({
+  staticData: { sitemap: true },
   head: () => serviceHead("/woodframe", title, description, faqs),
   component: WoodframePage,
 });

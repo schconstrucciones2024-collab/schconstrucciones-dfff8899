@@ -15,6 +15,7 @@ const title = "Construcción tradicional de viviendas en Uruguay | SCH Construcc
 const description = "Casas de ladrillo (ticholo o común) desde USD 1.300/m². Opciones Esencial y Clásica, pago por avance de obra. Punta del Diablo y todo Uruguay.";
 
 export const Route = createFileRoute("/construccion-tradicional")({
+  staticData: { sitemap: true },
   head: () => serviceHead("/construccion-tradicional", title, description, faqs),
   component: TradicionalPage,
 });

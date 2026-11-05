@@ -15,3 +15,5 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+Sitemap: https://schconstrucciones.lovable.app/sitemap.xml

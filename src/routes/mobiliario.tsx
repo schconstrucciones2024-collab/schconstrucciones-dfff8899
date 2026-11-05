@@ -12,6 +12,7 @@ const title = "Mobiliario a medida en Punta del Diablo | SCH Construcciones";
 const description = "Mesadas, islas, mesas, camas y muebles de drywall a medida para tu cabaña o casa. Punta del Diablo, Rocha. Presupuesto por WhatsApp 095 564 068.";
 
 export const Route = createFileRoute("/mobiliario")({
+  staticData: { sitemap: true },
   head: () => serviceHead("/mobiliario", title, description, faqs),
   component: MobiliarioPage,
 });

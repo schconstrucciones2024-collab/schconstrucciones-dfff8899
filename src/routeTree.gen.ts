@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ConstruccionTradicionalRouteImport } from './routes/construccion-tradicional'
 import { Route as MobiliarioRouteImport } from './routes/mobiliario'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as WoodframeRouteImport } from './routes/woodframe'
 
 const IndexRoute = IndexRouteImport.update({
@@ -29,6 +30,11 @@ const MobiliarioRoute = MobiliarioRouteImport.update({
   path: '/mobiliario',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WoodframeRoute = WoodframeRouteImport.update({
   id: '/woodframe',
   path: '/woodframe',
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/construccion-tradicional': typeof ConstruccionTradicionalRoute
   '/mobiliario': typeof MobiliarioRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/woodframe': typeof WoodframeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/construccion-tradicional': typeof ConstruccionTradicionalRoute
   '/mobiliario': typeof MobiliarioRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/woodframe': typeof WoodframeRoute
 }
 export interface FileRoutesById {
@@ -52,18 +60,30 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/construccion-tradicional': typeof ConstruccionTradicionalRoute
   '/mobiliario': typeof MobiliarioRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/woodframe': typeof WoodframeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/construccion-tradicional' | '/mobiliario' | '/woodframe'
+  fullPaths:
+    | '/'
+    | '/construccion-tradicional'
+    | '/mobiliario'
+    | '/sitemap.xml'
+    | '/woodframe'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/construccion-tradicional' | '/mobiliario' | '/woodframe'
+  to:
+    | '/'
+    | '/construccion-tradicional'
+    | '/mobiliario'
+    | '/sitemap.xml'
+    | '/woodframe'
   id:
     | '__root__'
     | '/'
     | '/construccion-tradicional'
     | '/mobiliario'
+    | '/sitemap.xml'
     | '/woodframe'
   fileRoutesById: FileRoutesById
 }
@@ -71,6 +91,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ConstruccionTradicionalRoute: typeof ConstruccionTradicionalRoute
   MobiliarioRoute: typeof MobiliarioRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   WoodframeRoute: typeof WoodframeRoute
 }
 
@@ -97,6 +118,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MobiliarioRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/woodframe': {
       id: '/woodframe'
       path: '/woodframe'
@@ -111,6 +139,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ConstruccionTradicionalRoute: ConstruccionTradicionalRoute,
   MobiliarioRoute: MobiliarioRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   WoodframeRoute: WoodframeRoute,
 }
 export const routeTree = rootRouteImport

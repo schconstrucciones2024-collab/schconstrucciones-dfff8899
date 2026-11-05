@@ -29,3 +29,4 @@
 - Interior stairs are placed by `findStairSpot`/`stairConflict` in `src/store/useConfigurator.ts` (walls, furniture, other stairs and slab holes checked); multi-floor room programs reserve a stair bay and floor changes relocate or regenerate so every level keeps a valid stair; a spiral type covers small footprints.
 - The AI stair assistant calls the Gateway only from the `reviewStairs` server function; every AI proposal passes through `resolveProposal` (stairConflict + findStairSpot) before applying, so the model can never place an invalid stair.
 - Interior stairs rotate freely via the 3D `StairRotateHandle` (5° snap, Shift 1°); commits go through `editStair` validation so invalid angles revert.
+- `/sitemap.xml` is generated from each route's required `staticData.sitemap` decision via `src/lib/sitemap.ts`; new routes must declare inclusion so the sitemap follows the router without a manual URL list.
