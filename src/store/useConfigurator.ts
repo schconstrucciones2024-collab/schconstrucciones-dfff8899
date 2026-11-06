@@ -31,7 +31,14 @@ enablePatches();
 import { clampArea, DEFAULT_LOGISTICS, type LogisticsSelection } from "@/lib/cotizador";
 import type { FinishId } from "@/config/materials";
 import type { FoundationId, RoofId } from "@/config/pricing";
-import { PLATEA_HEIGHT, coherentSystem } from "@/config/systems";
+import {
+  DEFAULT_FOUNDATION,
+  PLATEA_HEIGHT,
+  TRADICIONAL_MAX_PITCH,
+  coherentSystem,
+  exteriorThickness,
+  systemOf,
+} from "@/config/systems";
 import { OPENINGS_CATALOG, type OpeningType } from "@/config/openingsCatalog";
 import { COMPACTA_PROPOSAL, type LayoutProposal } from "@/config/layoutProposals";
 
@@ -93,7 +100,7 @@ export const foundationHeight = (c: Pick<HouseConfig, "foundation" | "pileHeight
   c.foundation === "platea" ? PLATEA_HEIGHT : c.pileHeight;
 export const floorBase = (c: HouseConfig) => foundationHeight(c) + GEOMETRY.slabThickness;
 export function designWalls(c: HouseConfig, floor: number): Segment[] {
-  return [...exteriorSegments(c.contour), ...(c.walls[floor] ?? [])];
+  return [...exteriorSegments(c.contour, exteriorThickness(c.finish)), ...(c.walls[floor] ?? [])];
 }
 export function resolveWall(c: HouseConfig, id: WallId | string, floor = 0): Segment | undefined {
   const aliases: Record<string, string> = {
@@ -653,10 +660,25 @@ export const useConfigurator = create<ConfiguratorStore>((set, get) => {
       const current = get().config;
       // La base y el techo tienen que corresponder a la terminación (por ejemplo, la Clásica lleva losa plana):
       // se adaptan solos cuando se cambia de terminación o de sistema.
-      const merged = { ...current, ...requested },
+      // Todo diseño tradicional arranca con platea y con un techo de chapa bajo; si el cambio ya trae su propia base o
+      // pendiente, esa es la que vale.
+      const toTradicional =
+        requested.finish !== undefined &&
+        systemOf(requested.finish) === "tradicional" &&
+        systemOf(current.finish) !== "tradicional";
+      const asked: Partial<HouseConfig> = toTradicional
+        ? {
+            ...(requested.foundation === undefined ? { foundation: DEFAULT_FOUNDATION.tradicional } : {}),
+            ...(requested.roofPitch === undefined && current.roofPitch > TRADICIONAL_MAX_PITCH
+              ? { roofPitch: TRADICIONAL_MAX_PITCH }
+              : {}),
+            ...requested,
+          }
+        : requested;
+      const merged = { ...current, ...asked },
         fitted = coherentSystem(merged);
       const patch: Partial<HouseConfig> = {
-        ...requested,
+        ...asked,
         ...(fitted.foundation !== merged.foundation ? { foundation: fitted.foundation } : {}),
         ...(fitted.roofType !== merged.roofType ? { roofType: fitted.roofType } : {}),
       };
