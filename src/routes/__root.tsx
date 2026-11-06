@@ -80,6 +80,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { name: "author", content: "SCH Construcciones" },
+      { name: "google-site-verification", content: "x188Ch_oRn0G-UjBioQpY_tgduqliVTpo4EFl15DUxc" },
       { property: "og:type", content: "website" },
       { property: "og:locale", content: "es_UY" },
       { property: "og:site_name", content: "SCH Construcciones" },
