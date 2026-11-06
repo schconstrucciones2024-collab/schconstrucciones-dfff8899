@@ -52,9 +52,9 @@
 ## Metadatos de páginas públicas
 - [x] Completar títulos/descripciones propios, canónicas y textos sociales para inicio y tres servicios.
 - [x] Comprobar etiquetas en HTML inicial de las cuatro páginas y navegación entre servicios, sin canónicas ni imágenes heredadas duplicadas.
-- [ ] Publicar los metadatos para actualizar el sitio público (requiere publicación del dueño).
+- [x] Publicar los metadatos junto con la etiqueta de verificación de Search Console.
 
 ## Search Console
 - [x] Conectar la cuenta y agregar la etiqueta de verificación de Google; sitemap publicado comprobado.
-- [ ] Publicar la etiqueta, verificar propiedad y enviar sitemap.
-- [ ] Revisar búsquedas y páginas reales para mejorar contenido existente; depende de datos disponibles en Google.
+- [x] Publicar la etiqueta, verificar propiedad y enviar sitemap; Google lo descargó con cuatro URLs, sin errores ni advertencias.
+- [ ] Mejorar contenido con búsquedas reales: informe consultado sin datos reportados; bloqueado hasta que Google tenga datos suficientes.
