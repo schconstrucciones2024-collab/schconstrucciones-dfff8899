@@ -219,12 +219,12 @@ export const isOrthogonal = (p: Point[]) =>
     const b = p[(i + 1) % p.length];
     return b && (Math.abs(a.x - b.x) < 1e-6 || Math.abs(a.z - b.z) < 1e-6);
   });
-export function exteriorSegments(p: Point[]): Segment[] {
+export function exteriorSegments(p: Point[], thickness: number = GEOMETRY.exteriorThickness): Segment[] {
   return p.map((a, i) => ({
     id: `edge-${i}`,
     a,
     b: p[(i + 1) % p.length] ?? a,
-    thickness: GEOMETRY.exteriorThickness,
+    thickness,
     height: GEOMETRY.wallHeight,
   }));
 }
