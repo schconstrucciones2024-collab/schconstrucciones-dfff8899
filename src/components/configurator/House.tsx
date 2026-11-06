@@ -34,7 +34,8 @@ import {
   FIXTURE_SIZES,
   type Stair,
 } from "@/config/geometry";
-import { PLATEA_HEIGHT } from "@/config/systems";
+import { EXTERIOR_THICKNESS, PLATEA_HEIGHT, exteriorThickness, systemOf } from "@/config/systems";
+import { TraditionalEnvelope } from "./TraditionalEnvelope";
 import {
   floorBase,
   foundationHeight,
@@ -194,8 +195,8 @@ function Foundation({ c }: { c: HouseConfig }) {
   const map = useMaterial(c.foundation === "madera" ? "maderaPilote" : "hormigon");
   const { width, depth } = houseDimensions(c);
   const height = foundationHeight(c);
-  // La platea sobresale unos centímetros del contorno de la casa, como el cimiento perimetral.
-  const plinth = useMemo(() => offsetContour(c.contour, 0.06), [c.contour]);
+  // La platea sobresale de la cara exterior del muro unos centímetros, como el cimiento perimetral.
+  const plinth = useMemo(() => offsetContour(c.contour, exteriorThickness(c.finish) / 2 + 0.08), [c.contour, c.finish]);
   const boxes = useMemo(() => {
     if (platea) return [];
     const nx = Math.max(2, Math.ceil(width / 2.4) + 1),
@@ -245,17 +246,25 @@ function OpeningModel({
     if (Math.abs(m.emissiveIntensity - v) > 0.002) m.emissiveIntensity = v;
   });
   const color = invalid ? palette.invalid : ghost || selected ? palette.accent : palette.trim;
+  // En una casa tradicional los muros son gruesos: la carpintería queda retranqueada hacia adentro (se ven las jambas
+  // del muro) y las ventanas llevan alféizar de hormigón. En woodframe todo queda como antes.
+  const masonry =
+    useConfigurator((st) => systemOf(st.config.finish) === "tradicional") &&
+    opening.wall !== "partition" &&
+    !opening.wall.startsWith("wall-");
+  const depth = masonry ? 0.1 : 0.22,
+    zc = masonry ? -EXTERIOR_THICKNESS.tradicional / 2 + 0.07 + depth / 2 : 0;
   const frames = useMemo(
     () => [
-      { size: [s.width + 0.1, 0.07, 0.22] as Vec3, pos: [0, s.sill + s.height, 0] as Vec3 },
-      { size: [s.width + 0.1, 0.07, 0.22] as Vec3, pos: [0, s.sill, 0] as Vec3 },
-      { size: [0.07, s.height, 0.22] as Vec3, pos: [-s.width / 2, y, 0] as Vec3 },
-      { size: [0.07, s.height, 0.22] as Vec3, pos: [s.width / 2, y, 0] as Vec3 },
+      { size: [s.width + 0.1, 0.07, depth] as Vec3, pos: [0, s.sill + s.height, 0] as Vec3 },
+      { size: [s.width + 0.1, 0.07, depth] as Vec3, pos: [0, s.sill, 0] as Vec3 },
+      { size: [0.07, s.height, depth] as Vec3, pos: [-s.width / 2, y, 0] as Vec3 },
+      { size: [0.07, s.height, depth] as Vec3, pos: [s.width / 2, y, 0] as Vec3 },
       ...(!s.door || opening.type === "ventanal"
-        ? [{ size: [0.045, s.height, 0.15] as Vec3, pos: [0, y, 0] as Vec3 }]
+        ? [{ size: [0.045, s.height, masonry ? 0.08 : 0.15] as Vec3, pos: [0, y, 0] as Vec3 }]
         : []),
     ],
-    [s.width, s.height, s.sill, s.door, opening.type, y],
+    [s.width, s.height, s.sill, s.door, opening.type, y, depth, masonry],
   );
   return (
     <group
@@ -272,28 +281,37 @@ function OpeningModel({
         if (wasSelected) onDrag?.(opening.id);
       }}
     >
-      <MergedBoxes boxes={frames} color={color} />
-      <mesh position={[0, y, 0]}>
-        <boxGeometry args={[s.width - 0.08, s.height - 0.08, 0.05]} />
-        <meshStandardMaterial
-          ref={pane}
-          emissive="#ffcf86"
-          emissiveIntensity={0}
-          color={s.door && opening.type !== "ventanal" ? palette.warm : palette.glass}
-          roughness={s.door ? 0.65 : 0.12}
-          metalness={s.door ? 0.05 : 0.25}
-          transparent
-          opacity={ghost ? 0.45 : s.door && opening.type !== "ventanal" ? 1 : 0.28}
-          depthWrite={!ghost && s.door}
-        />
-      </mesh>
-      {s.door && opening.type !== "ventanal" && (
+      {masonry && !s.door && (
         <Box
-          size={[0.12, 0.035, 0.07]}
-          position={[s.width / 2 - 0.16, 1, 0.1]}
-          color={palette.trim}
+          size={[s.width + 0.16, 0.05, 0.17]}
+          position={[0, s.sill - 0.025, -EXTERIOR_THICKNESS.tradicional / 2 - 0.03 + 0.085]}
+          color="#cdc8bf"
         />
       )}
+      <group position-z={zc}>
+        <MergedBoxes boxes={frames} color={color} />
+        <mesh position={[0, y, 0]}>
+          <boxGeometry args={[s.width - 0.08, s.height - 0.08, 0.05]} />
+          <meshStandardMaterial
+            ref={pane}
+            emissive="#ffcf86"
+            emissiveIntensity={0}
+            color={s.door && opening.type !== "ventanal" ? palette.warm : palette.glass}
+            roughness={s.door ? 0.65 : 0.12}
+            metalness={s.door ? 0.05 : 0.25}
+            transparent
+            opacity={ghost ? 0.45 : s.door && opening.type !== "ventanal" ? 1 : 0.28}
+            depthWrite={!ghost && s.door}
+          />
+        </mesh>
+        {s.door && opening.type !== "ventanal" && (
+          <Box
+            size={[0.12, 0.035, 0.07]}
+            position={[s.width / 2 - 0.16, 1, 0.1]}
+            color={palette.trim}
+          />
+        )}
+      </group>
     </group>
   );
 }
@@ -880,6 +898,13 @@ function Roof({ c, palette }: { c: HouseConfig; palette: ScenePalette }) {
     </group>
   );
 }
+/** Zócalo, cintas y techo de la construcción tradicional, con sus materiales (hormigón, revoque y membrana o chapa). */
+function TradEnvelope({ c }: { c: HouseConfig }) {
+  const concrete = useMaterial("hormigon"),
+    plaster = useMaterial(FINISH_MATERIALS[c.finish].siding),
+    roof = useMaterial(c.finish === "clasica" ? "membrana" : "chapa");
+  return <TraditionalEnvelope c={c} maps={{ concrete, plaster, roof }} />;
+}
 export function House({
   palette,
   dragging,
@@ -990,7 +1015,7 @@ export function House({
         .map((s) => (
           <StairModel key={s.id} stair={s} c={c} map={floorMap} palette={palette} onPreview={previewStair} />
         ))}
-      {!cut && <Roof c={c} palette={palette} />}
+      {!cut && (systemOf(c.finish) === "tradicional" ? <TradEnvelope c={c} /> : <Roof c={c} palette={palette} />)}
       <SceneEditor accent={palette.accent} trim={palette.trim} invalid={palette.invalid} />
     </group>
   );

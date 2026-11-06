@@ -200,13 +200,13 @@ export function Panels({ step }: { step: number }) {
           </div>
           <p className="mt-5 text-xs leading-6 text-foreground/70">
             {system === "tradicional"
-              ? "En suelo arenoso/costero recomendamos pilotes de hormigón; si el suelo es firme se puede hacer platea."
+              ? "La construcción tradicional va sobre platea de hormigón. Si el terreno es de arena o costero, se puede elegir pilotes de hormigón."
               : "En suelo arenoso/costero recomendamos pilotes de hormigón o de madera curada"}
           </p>
           {c.foundation === "platea" && c.ground === "arena" && (
             <p className="mt-3 text-xs leading-6 text-foreground/70" role="note">
-              En suelo de arena no recomendamos la platea de hormigón: con el tiempo se lava y la base se mueve.
-              Probá con suelo firme o con pilotes de hormigón.
+              La platea está pensada para suelo firme. Si tu terreno es de arena o costero, consultanos: en ese caso solemos
+              recomendar pilotes de hormigón.
             </p>
           )}
           <Button
@@ -267,10 +267,12 @@ export function Panels({ step }: { step: number }) {
           {system === "tradicional" && (
             <p className="mt-3 text-xs leading-6 text-foreground/70">
               {c.finish === "clasica"
-                ? "La Clásica lleva losa de hormigón con aislación térmica y membrana asfáltica."
-                : "La Esencial lleva techo liviano de chapa con aislación básica."}
+                ? "La Clásica lleva losa de hormigón plana con antepecho, aislación térmica y membrana asfáltica."
+                : "La Esencial lleva techo liviano de chapa con aislación básica, cenefa y canaleta."}
             </p>
           )}
+          {c.finish !== "clasica" && (
+          <>
           <label className="block mt-4 text-xs">
             Dirección
             <select
@@ -294,13 +296,15 @@ export function Panels({ step }: { step: number }) {
               onChange={(e) => s.update({ overhang: Number(e.target.value) })}
             />
           </label>
+          </>
+          )}
           {c.roofType !== "plano" && (
             <label className="mt-6 block text-sm">
               Pendiente · {c.roofPitch}°
               <input
                 type="range"
                 min={5}
-                max={40}
+                max={system === "tradicional" ? 25 : 40}
                 value={c.roofPitch}
                 className="mt-3 h-11 w-full accent-primary"
                 onChange={(e) => s.update({ roofPitch: Number(e.target.value) })}
