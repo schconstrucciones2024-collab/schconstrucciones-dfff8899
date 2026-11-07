@@ -11,6 +11,7 @@ import {
 import { SYSTEMS } from "@/lib/cotizador";
 import { systemOf } from "@/config/systems";
 import { Panels, STEPS } from "./Panels";
+import { SystemSelector } from "./SystemSelector";
 import { Summary } from "./Summary";
 import "./configurator.css";
 const Viewer3D = lazy(() => import("./Viewer3D"));
@@ -93,6 +94,7 @@ export default function Configurator() {
             {Number(s.config.m2.toFixed(2))} m² · {s.config.openings.length} aberturas
           </span>
         </div>
+        <SystemSelector />
         <EditorToolbar />
         {!failed && <EntornoToolbar onStep={changeStep} />}
         {failed && !(s.view === 'planta' && (s.tool === 'contour' || s.tool === 'wall')) ? (

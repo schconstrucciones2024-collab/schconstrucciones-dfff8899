@@ -18,7 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { LayoutGallery } from './LayoutGallery';
 import { StairAssistant } from './StairAssistant';
-import { useConfigurator, designWalls, roomName, type ToolId } from "@/store/useConfigurator";
+import { useConfigurator, designWalls, roomLabelKey, roomName, type ToolId } from "@/store/useConfigurator";
 import { detectRooms, presetPolygon, isOrthogonal, FIXTURE_SIZES, type Footprint, type FixtureKind } from "@/config/geometry";
 const tools: { id: ToolId; name: string; Icon: typeof Plus }[] = [
   { id: "select", name: "Seleccionar", Icon: MousePointer2 },
@@ -139,12 +139,15 @@ export function EditorPanel() {
                 variant={c.footprint === v ? "default" : "outline"}
                 className="min-h-11 capitalize text-xs"
                 onClick={() =>
-                  s.update({
-                    contour: presetPolygon(v, c.m2 / c.floors),
-                    footprint: v,
-                    walls: Array.from({ length: c.floors }, () => []),
-                    openings: [],
-                  })
+                  // La L tiene distribuciones proyectadas; el resto de las formas parte de un contorno vacío.
+                  v === "L"
+                    ? s.applyShape("L")
+                    : s.update({
+                        contour: presetPolygon(v, c.m2 / c.floors),
+                        footprint: v,
+                        walls: Array.from({ length: c.floors }, () => []),
+                        openings: [],
+                      })
                 }
               >
                 {v === "rectangular"
@@ -573,14 +576,27 @@ export function EditorPanel() {
               className="config-input"
               value={roomName(c, s.activeFloor, r, i)}
               onChange={(e) =>
-                s.update({ roomLabels: { ...c.roomLabels, [r.id]: e.target.value } })
+                s.update({ roomLabels: { ...c.roomLabels, [roomLabelKey(s.activeFloor, r.id)]: e.target.value } })
               }
             >
-              {["Dormitorio", "Baño", "Cocina-living-comedor", "Estar", "Circulación", "Otro"].map(
-                (label) => (
-                  <option key={label}>{label}</option>
-                ),
-              )}
+              {[
+                ...new Set([
+                  "Dormitorio",
+                  "Baño",
+                  "Cocina-living-comedor",
+                  "Cocina",
+                  "Living-comedor",
+                  "Lavadero",
+                  "Escritorio",
+                  "Estar",
+                  "Distribuidor",
+                  "Circulación",
+                  "Otro",
+                  roomName(c, s.activeFloor, r, i),
+                ]),
+              ].map((label) => (
+                <option key={label}>{label}</option>
+              ))}
             </select>
           </label>
         ))}

@@ -1,7 +1,7 @@
 import { isOrthogonal } from "@/config/geometry";
 import { Copy, Trash2, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SYSTEMS, AREA_MIN, AREA_MAX, formatUSD, type SystemId } from "@/lib/cotizador";
+import { SYSTEMS, AREA_MIN, AREA_MAX, formatUSD } from "@/lib/cotizador";
 import {
   FINISH_NAMES,
   FOUNDATION_NAMES,
@@ -13,8 +13,8 @@ import {
   FOUNDATIONS_BY_SYSTEM,
   allowedRoofs,
   systemOf,
-  systemPatch,
 } from "@/config/systems";
+import { isLShape } from "@/config/layoutProposals";
 import { OPENINGS_CATALOG, OPENING_TYPES } from "@/config/openingsCatalog";
 import {
   designWalls,
@@ -47,33 +47,12 @@ export function Panels({ step }: { step: number }) {
     c = s.config,
     d = houseDimensions(c),
     selected = c.openings.find((o) => o.id === s.selectedId),
-    system = systemOf(c.finish);
+    system = systemOf(c.finish),
+    inL = isLShape(c.contour);
   return (
     <div className="min-h-64 py-6">
       {step === 0 && (
         <>
-          <fieldset className="mb-7">
-            <legend className="mb-3 text-xs text-foreground/70">Sistema constructivo</legend>
-            <div className="grid grid-cols-2 gap-2">
-              {(["woodframe", "tradicional"] as SystemId[]).map((id) => (
-                <Button
-                  key={id}
-                  variant={system === id ? "default" : "outline"}
-                  className="h-auto min-h-12 whitespace-normal px-2 text-xs"
-                  aria-pressed={system === id}
-                  onClick={() => {
-                    const patch = systemPatch(c, id);
-                    if (Object.keys(patch).length) s.update(patch);
-                  }}
-                >
-                  {SYSTEMS[id].name}
-                </Button>
-              ))}
-            </div>
-            <p className="mt-3 text-xs leading-6 text-foreground/60">
-              Al cambiar de sistema se conserva tu diseño; se adaptan los materiales, la base y el techo.
-            </p>
-          </fieldset>
           <div className="flex items-center justify-between gap-4">
             <label htmlFor="config-area" className="text-sm">
               Superficie total
@@ -106,19 +85,27 @@ export function Panels({ step }: { step: number }) {
           </div>
           <fieldset className="mt-7">
             <legend className="mb-3 text-xs text-foreground/70">Forma de la casa</legend>
-            <div className="grid grid-cols-2 gap-2">
-              {(["compacta", "alargada"] as const).map((v) => (
-                <Button
-                  key={v}
-                  variant={c.shape === v ? "default" : "outline"}
-                  className="min-h-12 capitalize"
-                  aria-pressed={c.shape === v}
-                  onClick={() => s.update({ shape: v })}
-                >
-                  {v}
-                </Button>
-              ))}
+            <div className="grid grid-cols-3 gap-2">
+              {(["compacta", "alargada", "L"] as const).map((v) => {
+                const active = v === "L" ? inL : !inL && c.shape === v;
+                return (
+                  <Button
+                    key={v}
+                    variant={active ? "default" : "outline"}
+                    className="min-h-12 px-1 text-sm capitalize"
+                    aria-pressed={active}
+                    onClick={() => s.applyShape(v)}
+                  >
+                    {v === "L" ? "En L" : v}
+                  </Button>
+                );
+              })}
             </div>
+            <p className="mt-3 text-xs leading-6 text-foreground/60">
+              {inL
+                ? "Casa en L: dos alas alrededor de un patio o jardín. Se aplicó la distribución recomendada; podés cambiarla en Distribuciones."
+                : "La forma en L abre un patio de servicio y separa la zona social de los dormitorios."}
+            </p>
           </fieldset>
           <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-border pt-4 text-sm">
             <div>
