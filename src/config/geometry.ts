@@ -497,17 +497,15 @@ export function validateStair(s: Stair, contour: Point[], upperWalls: Segment[],
     )
   )
     return "La escalera debe quedar dentro del contorno.";
+  // Un muro que corre a lo largo del borde del hueco (el de un ambiente pegado a la escalera) no lo cruza: solo cuenta
+  // lo que entra en el interior del hueco.
   for (const w of upperWalls) {
-    if (
-      inside(w.a, g.hole, false) ||
-      inside(w.b, g.hole, false) ||
-      g.hole.some((a, i) => {
-        const b = g.hole[(i + 1) % g.hole.length];
-        const p = b ? intersection(a, b, w.a, w.b) : null;
-        return p && project(p, w.a, w.b).t > 1e-5 && project(p, w.a, w.b).t < 1 - 1e-5;
-      })
-    )
-      return "El hueco cruza una pared de la planta superior.";
+    const steps = Math.max(2, Math.ceil(distance(w.a, w.b) / 0.05));
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      if (inside({ x: w.a.x + (w.b.x - w.a.x) * t, z: w.a.z + (w.b.z - w.a.z) * t }, g.hole, false))
+        return "El hueco cruza una pared de la planta superior.";
+    }
   }
   return null;
 }
