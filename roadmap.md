@@ -58,3 +58,12 @@
 - [x] Conectar la cuenta y agregar la etiqueta de verificación de Google; sitemap publicado comprobado.
 - [x] Publicar la etiqueta, verificar propiedad y enviar sitemap; Google lo descargó con cuatro URLs, sin errores ni advertencias.
 - [ ] Mejorar contenido con búsquedas reales: informe consultado sin datos reportados; bloqueado hasta que Google tenga datos suficientes.
+
+## Evolución premium SCH
+- [x] Auditar estructura, obras, datos, sistemas y funcionalidades antes de modificar.
+- [ ] Implementar cinco fondos por sesión y movimiento sutil conservando el inicio.
+- [ ] Evolucionar servicios, pilares, proceso, navegación, contacto y cierre de marca.
+- [ ] Crear URLs individuales, galería, compartir y SEO para las doce obras reales.
+- [ ] Reforzar sistemas 3D y preparar medición de consultas sin datos personales.
+- [ ] Verificar móvil/escritorio, contacto, galerías, imágenes, SEO y regresiones.
+- [ ] Activar GA4: pendiente de identificador de medición real.

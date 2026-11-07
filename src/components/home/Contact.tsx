@@ -1,5 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { ArrowRight, Instagram, Mail, MapPin, MessageCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { PROJECT_TYPES, inquirySchema, inquiryUrl } from "@/lib/contactInquiry";
+import { conversionEvent } from "./ConversionEvents";
 import { CONTACT } from "@/data/projects";
 import { Reveal } from "@/lib/motion";
 import { SectionHeading } from "./SectionHeading";
@@ -11,18 +14,21 @@ const contactLink = "inline-flex min-h-11 items-center gap-3 text-base text-back
 
 export function Contact() {
   const [opened, setOpened] = useState(false);
+  const [error, setError] = useState("");
 
   // El formulario no envía datos a ningún servidor: arma el mensaje y abre WhatsApp para que lo envíe la persona.
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const nombre = String(data.get("nombre") || "").trim();
-    const telefono = String(data.get("telefono") || "").trim();
-    const descripcion = String(data.get("descripcion") || "").trim();
-    const texto = `Hola SCH Construcciones, soy ${nombre || "—"}${telefono ? ` (${telefono})` : ""}. Quiero solicitar un presupuesto sin costo. Detalle del proyecto: ${descripcion || "—"}`;
-    const url = `${CONTACT.whatsapp}?text=${encodeURIComponent(texto)}`;
+    const input = Object.fromEntries(data.entries());
+    const result = inquirySchema.safeParse(input);
+    if (!result.success) { setError(result.error.issues[0]?.message ?? "Revisá los datos."); return; }
+    setError("");
+    const url = inquiryUrl(result.data);
     const win = window.open(url, "_blank");
-    if (!win) window.location.href = url;
+    if (win) win.opener = null;
+    else window.location.href = url;
+    conversionEvent('form_submit', { section: 'contacto', item: result.data.tipo });
     setOpened(true);
   };
 
@@ -30,7 +36,7 @@ export function Contact() {
     <section id="contacto" aria-labelledby="contacto-title" className="surface-light">
       <div className="mx-auto grid max-w-7xl gap-16 px-5 py-24 lg:grid-cols-12 lg:px-8 lg:py-36">
         <Reveal className="lg:col-span-5">
-          <SectionHeading eyebrow="Contacto" title="El mejor momento para empezar es hoy." id="contacto-title" />
+          <SectionHeading eyebrow="Contacto" title="Tu proyecto empieza con una conversación." id="contacto-title" />
           <address className="mt-10 flex flex-col items-start not-italic">
             <a href={CONTACT.whatsapp} target="_blank" rel="noopener noreferrer" className="mb-3 inline-flex min-h-12 items-center gap-3 bg-background px-6 text-sm font-semibold text-foreground transition-colors hover:bg-primary hover:text-primary-foreground">
               <MessageCircle aria-hidden="true" className="size-[18px]" /> {CONTACT.whatsappLabel}
@@ -46,27 +52,32 @@ export function Contact() {
         </Reveal>
 
         <Reveal delay={150} className="lg:col-span-7">
-          <form onSubmit={onSubmit} className="border border-background/15 bg-background/[0.03] p-6 sm:p-10" aria-describedby="contacto-nota">
+          <form onSubmit={onSubmit} className="border-t border-background/20 pt-8" aria-describedby="contacto-nota">
             <div className="grid gap-6 sm:grid-cols-2">
               <label className="block">
                 <span className={labelClass}>Nombre</span>
-                <input type="text" name="nombre" required autoComplete="name" placeholder="Tu nombre" className={fieldClass} />
+                <input type="text" name="nombre" minLength={2} maxLength={100} required autoComplete="name" placeholder="Tu nombre" className={fieldClass} />
               </label>
               <label className="block">
                 <span className={labelClass}>Teléfono</span>
-                <input type="tel" name="telefono" inputMode="tel" autoComplete="tel" placeholder="Tu teléfono" className={fieldClass} />
+                <input type="tel" name="telefono" required minLength={7} maxLength={25} inputMode="tel" autoComplete="tel" placeholder="Tu teléfono" className={fieldClass} />
               </label>
             </div>
+            <div className="mt-6 grid gap-6 sm:grid-cols-2">
+              <label><span className={labelClass}>Tipo de proyecto</span><select name="tipo" required defaultValue="" className={fieldClass}><option value="" disabled>Seleccioná tu proyecto</option>{PROJECT_TYPES.map(type => <option key={type} value={type}>{type}</option>)}</select></label>
+              <label><span className={labelClass}>Ubicación de la obra</span><input name="ubicacion" required minLength={2} maxLength={150} placeholder="Localidad o zona" className={fieldClass} /></label>
+            </div>
             <label className="mt-6 block">
-              <span className={labelClass}>Descripción del proyecto</span>
-              <textarea name="descripcion" rows={5} required placeholder="Contanos qué querés construir" className={`${fieldClass} resize-y`} />
+              <span className={labelClass}>Descripción · opcional</span>
+              <textarea name="descripcion" rows={4} maxLength={1000} placeholder="Contanos qué querés construir" className={`${fieldClass} resize-y`} />
             </label>
-            <button type="submit" className="group mt-8 inline-flex min-h-14 w-full items-center justify-center gap-3 bg-primary px-8 text-xs font-semibold uppercase tracking-[0.18em] text-primary-foreground transition-colors hover:bg-background hover:text-foreground sm:w-auto">
+            <Button type="submit" className="group mt-8 h-auto rounded-none whitespace-normal inline-flex min-h-14 w-full items-center justify-center gap-3 bg-primary px-8 text-xs font-semibold uppercase tracking-[0.18em] text-primary-foreground transition-colors hover:bg-background hover:text-foreground sm:w-auto">
               Enviar por WhatsApp <ArrowRight aria-hidden="true" className="size-4 transition-transform duration-300 group-hover:translate-x-1 motion-reduce:transition-none" />
-            </button>
+            </Button>
             <p id="contacto-nota" className="mt-5 text-sm leading-6 text-background/70">
-              Este formulario no envía datos a ningún servidor: arma tu mensaje y abre WhatsApp para que lo envíes vos.
+              Tu consulta es sin costo. Coordinamos cada etapa según tu proyecto.
             </p>
+            <p role="alert" className="mt-3 text-sm text-destructive">{error}</p>
             <p role="status" className="mt-2 text-sm font-medium text-primary">
               {opened ? `Se abrió WhatsApp con tu mensaje. Si no se abrió, escribinos al ${CONTACT.whatsappLabel}.` : ""}
             </p>

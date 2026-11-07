@@ -8,7 +8,7 @@ export function Social() {
     <section id="redes" aria-labelledby="redes-title" className="surface-dark border-t border-border">
       <div className="mx-auto max-w-7xl px-5 py-24 lg:px-8 lg:py-36">
         <Reveal>
-          <SectionHeading eyebrow="Redes sociales" title="Viví cada obra, paso a paso" id="redes-title">
+          <SectionHeading eyebrow="Redes sociales" title="Seguí nuestras obras" id="redes-title">
             <p className="mt-8 max-w-3xl text-base leading-8 text-foreground/75 sm:text-lg">
               Si querés ver imágenes de los procesos de los proyectos y todas las imágenes de los proyectos, visitá exclusivamente nuestro{" "}
               <a href={CONTACT.instagram} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline decoration-primary/40 underline-offset-4 transition-colors hover:decoration-primary">Instagram</a>

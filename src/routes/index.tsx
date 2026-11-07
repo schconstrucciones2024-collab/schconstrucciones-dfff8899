@@ -7,6 +7,7 @@ import { ConfiguratorEntry } from "@/components/configurator/ConfiguratorEntry";
 import { About, CoastBand } from "@/components/home/About";
 import { Contact } from "@/components/home/Contact";
 import { FloatingWhatsApp } from "@/components/home/FloatingWhatsApp";
+import { ConversionEvents } from "@/components/home/ConversionEvents";
 import { Hero } from "@/components/home/Hero";
 import { Pillars } from "@/components/home/Pillars";
 import { Portfolio } from "@/components/home/Portfolio";
@@ -46,6 +47,7 @@ function Index() {
   return (
     <>
       <SiteHeader />
+      <ConversionEvents />
       <main id="contenido" className="overflow-x-clip bg-background text-foreground">
         <Hero />
         <About />

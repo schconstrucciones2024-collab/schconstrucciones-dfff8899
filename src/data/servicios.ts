@@ -22,7 +22,7 @@ export const localBusinessJsonLd = {
   image: `${SITE_URL}/images/hero-obra-1280.webp`,
   sameAs: [
     "https://www.instagram.com/sch_construcciones_/",
-    "https://www.facebook.com/share/19CeKwxrSK/",
+    "https://www.facebook.com/share/1EjmoTC5N4/",
     "https://www.tiktok.com/@sch_construcciones_",
     "https://pin.it/JdGW6Fisb",
   ],

@@ -60,7 +60,7 @@ export const CONTACT = {
   whatsappLabel: "+598 95 564 068",
   email: "sch.construcciones2024@gmail.com",
   instagram: "https://www.instagram.com/sch_construcciones_/",
-  facebook: "https://www.facebook.com/share/19CeKwxrSK/",
+  facebook: "https://www.facebook.com/share/1EjmoTC5N4/",
   tiktok: "https://www.tiktok.com/@sch_construcciones_?_r=1&_t=ZS-99gXbTq467B",
   pinterest: "https://pin.it/JdGW6Fisb",
   google: "https://share.google/hW0EK0aERStyHuqfg",

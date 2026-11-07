@@ -1,4 +1,7 @@
 import { useCallback, useRef, useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { Button } from "@/components/ui/button";
+import { PROJECT_STORIES } from "@/data/projectStories";
 import { ArrowUpRight } from "lucide-react";
 import { PROJECTS, type Project } from "@/data/projects";
 import { responsive } from "@/lib/img";
@@ -12,7 +15,7 @@ function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void
   const tiltRef = useRef<HTMLSpanElement>(null);
   useTilt(tiltRef, 3);
   return (
-    <button type="button" onClick={onOpen} aria-label={`Ver galería de ${project.name}`} className="group block w-full text-left">
+    <Button variant="ghost" type="button" onClick={onOpen} aria-label={`Ver galería de ${project.name}`} className="group block h-auto w-full whitespace-normal rounded-none p-0 text-left hover:bg-transparent">
       <span ref={tiltRef} className="tilt relative block aspect-[1600/1987] overflow-hidden bg-card">
         <img
           src={image.src}
@@ -36,7 +39,7 @@ function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void
           {project.images.length} imágenes <ArrowUpRight aria-hidden="true" className="size-4 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 motion-reduce:transition-none" />
         </span>
       </span>
-    </button>
+    </Button>
   );
 }
 
@@ -50,13 +53,14 @@ export function Portfolio() {
         <div className="mx-auto max-w-7xl px-5 py-24 lg:px-8 lg:py-36">
           <Reveal>
             <SectionHeading eyebrow="Proyectos" title="Resultados que perduran" id="proyectos-title">
-              <p className="mt-8 max-w-xl text-base leading-8 text-foreground/75 sm:text-lg">Obras reales de SCH Construcciones. Tocá una para ver su galería.</p>
+              <p className="mt-8 max-w-xl text-base leading-8 text-foreground/75 sm:text-lg">Viviendas, ampliaciones y espacios que forman nuestra historia en Punta del Diablo y Uruguay.</p>
             </SectionHeading>
           </Reveal>
           <ul className="portfolio-grid mt-16 grid gap-x-6 gap-y-14 sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-8">
             {PROJECTS.map((project, i) => (
               <Reveal as="li" key={project.alt} delay={(i % 3) * 90}>
                 <ProjectCard project={project} onOpen={() => setSelected(project)} />
+                {PROJECT_STORIES[i] && <Link to="/proyectos/$slug" params={{ slug: PROJECT_STORIES[i].slug }} className="mt-4 inline-flex min-h-11 items-center gap-3 border-b border-primary/50 text-xs uppercase text-primary">Conocer la obra <ArrowUpRight className="size-4" /></Link>}
               </Reveal>
             ))}
           </ul>

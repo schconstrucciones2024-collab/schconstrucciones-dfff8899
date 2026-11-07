@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { Mail, MapPin, MessageCircle } from "lucide-react";
 import logoCompleto from "@/assets/logo-sch-construcciones.png.asset.json";
+import { Button } from "@/components/ui/button";
+import { whatsappUrl } from "@/lib/contactInquiry";
 import { CONTACT } from "@/data/projects";
 import { SERVICE_LINKS } from "@/data/servicios";
 import { AnchorLink, SECTION_LINKS, SYSTEMS_LINK } from "./nav";
@@ -11,6 +13,10 @@ const linkClass = "inline-flex min-h-11 items-center text-sm text-foreground/75 
 export function SiteFooter({ home = true }: { home?: boolean }) {
   return (
     <footer className="surface-dark border-t border-border">
+      <div className="mx-auto flex max-w-7xl flex-col gap-8 border-b border-border px-5 py-16 sm:flex-row sm:items-end sm:justify-between lg:px-8">
+        <div><p className="text-xs uppercase text-primary">Tu proyecto puede ser el próximo</p><h2 className="mt-4 font-display text-3xl font-medium sm:text-4xl">Construir confianza.<br />Edificar futuro.</h2></div>
+        <Button asChild className="h-auto min-h-14 rounded-none whitespace-normal px-6 py-4"><a href={whatsappUrl("Hola SCH, quiero hablar de mi proyecto.")} target="_blank" rel="noopener noreferrer"><MessageCircle /> Hablemos de tu proyecto</a></Button>
+      </div>
       <div className="mx-auto grid max-w-7xl gap-12 px-5 py-16 lg:grid-cols-12 lg:gap-10 lg:px-8 lg:py-20">
         <div className="lg:col-span-5">
           <img src={logoCompleto.url} alt="SCH Construcciones" width={96} height={98} loading="lazy" decoding="async" className="size-24 object-contain" />
