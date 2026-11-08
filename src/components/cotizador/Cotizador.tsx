@@ -6,7 +6,7 @@ import { Reveal } from "@/lib/motion";
 import { LogisticsCalculator } from "./LogisticsCalculator";
 import { CATEGORY_COLOR, SYSTEM_COLOR, tone } from "./palette";
 import {
-  AREA_MAX, AREA_MIN, SYSTEMS, EXCLUDED, createAreas, updateAreas, buildWhatsAppUrl,
+  AREA_CONSULT_URL, AREA_MAX, AREA_MIN, SYSTEMS, EXCLUDED, createAreas, updateAreas, buildWhatsAppUrl,
   DEFAULT_LOGISTICS, buildSummary, clampArea, estimate, formatUSD, type CategoryId, type LogisticsSelection, type SystemId,
 } from "@/lib/cotizador";
 
@@ -223,7 +223,7 @@ function CategoryCard({ id, name, description, price, interior, area, onChange, 
         </div>
         <Button variant="ghost" type="button" aria-label={`Aumentar superficie de ${name}`} onClick={() => onChange(area + 1)} disabled={area >= AREA_MAX} className="grid h-11 w-11 rounded-none p-0 place-items-center border border-border text-foreground transition-[border-color,color,transform] duration-200 hover:border-(--tone) hover:text-(--tone) active:scale-95 disabled:cursor-not-allowed disabled:border-dashed disabled:text-foreground/30 disabled:opacity-60 disabled:hover:border-border disabled:hover:text-foreground/30 focus-visible:outline-2 focus-visible:outline-(--tone)"><Plus size={16} /></Button>
       </div>
-      <p id={`${inputId}-hint`} className={`mt-2 text-xs ${invalid ? "text-destructive" : "text-foreground/40"}`}>{invalid ? `Ingresá un número entre ${AREA_MIN} y ${AREA_MAX} m².` : `Entre ${AREA_MIN} y ${AREA_MAX} m².`}</p>
+      <p id={`${inputId}-hint`} className={`mt-2 text-xs ${invalid ? "text-destructive" : "text-foreground/40"}`}>{invalid ? `Ingresá un número entre ${AREA_MIN} y ${AREA_MAX} m².` : `Entre ${AREA_MIN} y ${AREA_MAX} m².`} ¿Necesitás más de {AREA_MAX} m²? <a href={AREA_CONSULT_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline underline-offset-2">Consultalo con SCH</a>.</p>
       <input type="range" min={AREA_MIN} max={AREA_MAX} step={1} value={area} onChange={(e) => { setDraft(null); onChange(Number(e.target.value)); }} aria-label={`Superficie de ${name} en m²`} className="mt-4 h-11 w-full cursor-pointer accent-(--tone)" />
 
       <div className="mt-6 border-t border-border pt-5">
