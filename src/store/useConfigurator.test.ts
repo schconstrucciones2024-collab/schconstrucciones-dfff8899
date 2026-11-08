@@ -46,8 +46,8 @@ describe('configurador paramétrico', () => {
     expect(canUseFloors(39, 2)).toBe(false); expect(canUseFloors(40, 2)).toBe(true);
     expect(canUseFloors(59, 3)).toBe(false); expect(canUseFloors(60, 3)).toBe(true); expect(canUseFloors(10, 1)).toBe(true);
   });
-  it('limita superficie a 10–200 y reparte metraje total sin multiplicarlo', () => {
-    expect(resizeConfig(initialConfig(), { m2: 1 }).m2).toBe(10); expect(resizeConfig(initialConfig(), { m2: 250 }).m2).toBe(200);
+  it('limita superficie a 10–500 y reparte metraje total sin multiplicarlo', () => {
+    expect(resizeConfig(initialConfig(), { m2: 1 }).m2).toBe(10); expect(resizeConfig(initialConfig(), { m2: 250 }).m2).toBe(250); expect(resizeConfig(initialConfig(), { m2: 650 }).m2).toBe(500);
     const c = resizeConfig(initialConfig(), { m2: 60, floors: 3 }); const d = houseDimensions(c); expect(d.width * d.depth * 3).toBeCloseTo(60); expect(d.area).toBe(20);
   });
   it('mantiene ajustes opcionales en cero', () => {

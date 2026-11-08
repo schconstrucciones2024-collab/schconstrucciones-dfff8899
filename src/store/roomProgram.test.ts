@@ -1,8 +1,22 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { initialConfig, resizeConfig, useConfigurator, placedRooms, decodeDesign, encodeDesign } from "./useConfigurator";
+import {
+  initialConfig,
+  resizeConfig,
+  useConfigurator,
+  placedRooms,
+  decodeDesign,
+  encodeDesign,
+} from "./useConfigurator";
 
 const reset = (m2 = 40, floors = 1, shape?: "compacta" | "alargada") =>
-  useConfigurator.setState({ config: resizeConfig(initialConfig(), { m2, floors, ...(shape ? { shape } : {}) }), past: [], future: [], selectedId: null, error: null, activeFloor: 0 });
+  useConfigurator.setState({
+    config: resizeConfig(initialConfig(), { m2, floors, ...(shape ? { shape } : {}) }),
+    past: [],
+    future: [],
+    selectedId: null,
+    error: null,
+    activeFloor: 0,
+  });
 
 describe("programa de ambientes", () => {
   beforeEach(() => reset());
@@ -27,11 +41,14 @@ describe("programa de ambientes", () => {
     useConfigurator.getState().setRooms({ bedrooms: 3, bathrooms: 2 });
     expect(placedRooms(useConfigurator.getState().config)).toEqual({ bedrooms: 3, bathrooms: 2 });
   });
-  it("limita dormitorios a 1–3 y baños a 1–2", () => {
-    useConfigurator.getState().setRooms({ bedrooms: 5, bathrooms: 4 });
+  it("limita dormitorios a 1–6 y baños a 1–4", () => {
+    useConfigurator.getState().setRooms({ bedrooms: 9, bathrooms: 7 });
     const c = useConfigurator.getState().config;
-    expect(c.bedrooms).toBe(3);
-    expect(c.bathrooms).toBe(2);
+    expect(c.bedrooms).toBe(6);
+    expect(c.bathrooms).toBe(4);
+    useConfigurator.getState().setRooms({ bedrooms: 0, bathrooms: 0 });
+    expect(useConfigurator.getState().config.bedrooms).toBe(1);
+    expect(useConfigurator.getState().config.bathrooms).toBe(1);
   });
   it("en 40 m² informa que entran menos ambientes de los pedidos", () => {
     useConfigurator.getState().setRooms({ bedrooms: 3, bathrooms: 2 });

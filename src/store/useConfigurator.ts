@@ -17,6 +17,7 @@ import {
   exteriorSegments,
   validateStair,
   stairGeometry,
+  transformPoint,
   detectRooms,
   type Point,
   type Segment,
@@ -168,6 +169,8 @@ export function suggestedOpenings(c: HouseConfig): Opening[] {
     }
   return result;
 }
+/** Hasta 500 m² entran casas grandes: el selector llega a 6 dormitorios y 4 baños. */
+export const MAX_BEDROOMS = 6, MAX_BATHROOMS = 4;
 const BATH_WIDTH = 1.8, BED_MIN_WIDTH = 2.6;
 /** Splits each floor into a front social zone and a back strip of bathrooms and bedrooms. */
 export function roomProgram(c: HouseConfig) {
@@ -327,6 +330,60 @@ export function stairConflict(c: HouseConfig, s: Stair): string | null {
     }
   return null;
 }
+/**
+ * Profundidad libre (m) frente a los dos extremos de una escalera interior: la entrada, en su planta, y la salida, en la
+ * superior. Se mide hasta la primera pared, mueble, otra escalera o el borde de la casa, en tres franjas a lo ancho de la
+ * escalera, de modo que una escalera cuyo extremo da contra una pared (o que sube y desemboca de cara a un muro) da cerca de cero.
+ */
+export function stairLanding(c: HouseConfig, s: Stair, cap = 1.6): { entry: number; exit: number } {
+  if (s.exterior || s.type === "caracol") return { entry: cap, exit: cap };
+  const g = stairGeometry(s, FLOOR_STEP),
+    first = g.steps[0],
+    last = g.steps[g.steps.length - 1];
+  if (!first || !last) return { entry: cap, exit: cap };
+  const exteriorHalf = exteriorThickness(c.finish) / 2,
+    edge = (t: typeof first, sign: 1 | -1) => {
+      const forward = { x: -Math.sin(t.rotation), z: Math.cos(t.rotation) },
+        lateral = { x: Math.cos(t.rotation), z: Math.sin(t.rotation) },
+        origin = { x: t.x + sign * forward.x * (g.tread / 2), z: t.z + sign * forward.z * (g.tread / 2) };
+      return { origin, forward: { x: sign * forward.x, z: sign * forward.z }, lateral };
+    };
+  const clearAhead = (t: typeof first, sign: 1 | -1, floor: number) => {
+    const e = edge(t, sign),
+      walls = c.walls[floor] ?? [],
+      boxes: Box2[] = [
+        ...c.stairs.filter((o) => !o.exterior && o.id !== s.id && o.floor === floor).map((o) => bounds(stairGeometry(o, FLOOR_STEP).footprint)),
+        ...c.stairs.filter((o) => !o.exterior && o.id !== s.id && o.floor === floor - 1).map((o) => bounds(stairGeometry(o, FLOOR_STEP).hole)),
+        ...[...c.fixtures, ...c.counters]
+          .filter((f) => f.floor === floor)
+          .map((f) => {
+            const r = "kind" in f && "length" in f ? Math.max((f as Counter).length, (f as Counter).depth) / 2 : Math.max(FIXTURE_SIZES[(f as Fixture).kind].width, FIXTURE_SIZES[(f as Fixture).kind].depth) / 2;
+            return { minX: f.x - r, maxX: f.x + r, minZ: f.z - r, maxZ: f.z + r };
+          }),
+      ];
+    let best = cap;
+    for (const side of [-0.28, 0, 0.28]) {
+      const base = transformPoint({ x: e.origin.x + e.lateral.x * side, z: e.origin.z + e.lateral.z * side }, s.x, s.z, s.rotation),
+        dir = transformPoint(e.forward, 0, 0, s.rotation),
+        dir0 = transformPoint({ x: 0, z: 0 }, 0, 0, s.rotation),
+        step = { x: dir.x - dir0.x, z: dir.z - dir0.z };
+      let d = 0.02;
+      for (; d < best; d += 0.04) {
+        const q = { x: base.x + step.x * d, z: base.z + step.z * d };
+        const blocked =
+          !inside(q, c.contour, false) ||
+          edgesOf(c.contour).some(([a, b]) => distance(project(q, a, b).point, q) < exteriorHalf) ||
+          walls.some((w) => distance(project(q, w.a, w.b).point, q) < w.thickness / 2) ||
+          boxes.some((o) => q.x > o.minX && q.x < o.maxX && q.z > o.minZ && q.z < o.maxZ);
+        if (blocked) break;
+      }
+      best = Math.min(best, d);
+    }
+    return best;
+  };
+  return { entry: clearAhead(first, -1, s.floor), exit: clearAhead(last, 1, s.floor + 1) };
+}
+const edgesOf = (ring: Point[]): [Point, Point][] => ring.map((p, i) => [p, ring[(i + 1) % ring.length] ?? p]);
 /** Searches the floor for the closest-to-a-wall position where an interior stair fits without conflicts. */
 export function findStairSpot(c: HouseConfig, floor: number, prefer?: Stair, id = `stair-${floor}`): Stair | null {
   if (floor < 0 || floor >= c.floors - 1) return null;
@@ -360,7 +417,20 @@ export function findStairSpot(c: HouseConfig, floor: number, prefer?: Stair, id 
           candidates.push({ s, score: (gaps[0] ?? 0) + (gaps[1] ?? 0) * 0.5 + (type === "U" ? 0 : type === "L" ? 0.3 : type === "recta" ? 0.6 : 1.5) });
         }
   candidates.sort((p, q) => p.score - q.score);
-  return candidates.find((v) => free(v.s))?.s ?? null;
+  // Primero las que dejan un descanso libre de 1 m frente a la entrada y la salida (no sube de cara a una pared); si la casa
+  // es tan chica que no hay, las de 0,85 m, y recién después cualquiera que entre.
+  const fits = candidates.filter((v) => free(v.s)).map((v) => v.s);
+  const prev = c.stairs.find((o) => !o.exterior && o.floor === floor - 1);
+  for (const need of [1, 0.85]) {
+    const found = fits.find((v) => {
+      const l = stairLanding(c, v, need);
+      if (l.entry < need - 1e-6 || l.exit < need - 1e-6) return false;
+      // La escalera de abajo desemboca en esta planta: la nueva no puede quedar justo delante de su salida.
+      return !prev || stairLanding({ ...c, stairs: [...c.stairs, v] }, prev, need).exit >= need - 1e-6;
+    });
+    if (found) return found;
+  }
+  return fits[0] ?? null;
 }
 /** Bedrooms/bathrooms that actually fit with the current area and floors. */
 export function placedRooms(c: HouseConfig) {
@@ -619,8 +689,8 @@ export function buildPlan(current: HouseConfig, proposal: LayoutProposal): House
       roomLabels[roomLabelKey(f, room.id)] = name;
     }
   });
-  c.bedrooms = Math.min(3, Math.max(1, fixtures.filter((v) => v.kind === "cama").length));
-  c.bathrooms = Math.min(2, Math.max(1, fixtures.filter((v) => v.kind === "wc").length));
+  c.bedrooms = Math.min(MAX_BEDROOMS, Math.max(1, fixtures.filter((v) => v.kind === "cama").length));
+  c.bathrooms = Math.min(MAX_BATHROOMS, Math.max(1, fixtures.filter((v) => v.kind === "wc").length));
   return c;
 }
 /** Arma el diseño de una propuesta: las originales con sus reglas, las nuevas con datos explícitos. */
@@ -898,7 +968,7 @@ export const useConfigurator = create<ConfiguratorStore>((set, get) => {
       const floorsOnly = patch.floors !== undefined && Object.keys(patch).length === 1;
       const footprint = polygonArea(current.contour);
       let next = floorsOnly
-        ? resizeConfig(current, { floors: patch.floors!, m2: Math.min(200, footprint * Math.min(3, Math.max(1, Math.floor(patch.floors!)))) })
+        ? resizeConfig(current, { floors: patch.floors!, m2: Math.min(GEOMETRY.maxArea, footprint * Math.min(3, Math.max(1, Math.floor(patch.floors!)))) })
         : resizeConfig(current, patch);
       const placed = placedRooms(next);
       if ((!floorsOnly && patch.floors !== undefined && next.floors !== current.floors) || ((patch.m2 !== undefined || patch.shape !== undefined) && !floorsOnly && (placed.bedrooms < next.bedrooms || placed.bathrooms < next.bathrooms)))
@@ -998,8 +1068,8 @@ export const useConfigurator = create<ConfiguratorStore>((set, get) => {
     },
     setRooms: (patch) => {
       const c = get().config,
-        bedrooms = Math.min(3, Math.max(1, Math.round(patch.bedrooms ?? c.bedrooms))),
-        bathrooms = Math.min(2, Math.max(1, Math.round(patch.bathrooms ?? c.bathrooms)));
+        bedrooms = Math.min(MAX_BEDROOMS, Math.max(1, Math.round(patch.bedrooms ?? c.bedrooms))),
+        bathrooms = Math.min(MAX_BATHROOMS, Math.max(1, Math.round(patch.bathrooms ?? c.bathrooms)));
       commit(suggestedLayout({ ...c, bedrooms, bathrooms }));
       set({ selectedId: null });
     },
@@ -1210,7 +1280,7 @@ export const useConfigurator = create<ConfiguratorStore>((set, get) => {
 const pointSchema = z.object({ x: z.number().finite(), z: z.number().finite() });
 const designSchema = z
   .object({
-    m2: z.number().min(10).max(200),
+    m2: z.number().min(GEOMETRY.minArea).max(GEOMETRY.maxArea),
     floors: z.number().int().min(1).max(3),
     contour: z.array(pointSchema).min(3).max(100),
     walls: z
@@ -1263,8 +1333,8 @@ const designSchema = z
           .passthrough(),
       )
       .max(100),
-    bedrooms: z.number().int().min(1).max(3),
-    bathrooms: z.number().int().min(1).max(2),
+    bedrooms: z.number().int().min(1).max(MAX_BEDROOMS),
+    bathrooms: z.number().int().min(1).max(MAX_BATHROOMS),
     stairs: z
       .array(
         z
