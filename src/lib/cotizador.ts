@@ -1,5 +1,5 @@
 export const AREA_MIN = 10;
-export const AREA_MAX = 200;
+export const AREA_MAX = 500;
 export const AREA_DEFAULT = 40;
 export const WHATSAPP_OFICIAL = "https://wa.me/message/XQR2B2RH7SSWD1";
 // Same contact used by the site's existing prefilled contact form.
@@ -19,7 +19,7 @@ export const CATEGORIES: Category[] = [
     price: 850,
     description: "Una alternativa accesible y funcional para quienes buscan materializar su proyecto con una inversión inicial más económica.",
     interior:
-      "Pared y cielorraso de chapones cepillados de primera de eucalipto/pino. Piso de tablas machimbradas curadas/tratadas de pino de primera.",
+      "Pared y cielorraso de chapones cepillados de primera de eucalipto/pino. Piso de tablas machimbradas curadas/tratadas de pino de primera. Baños con piso de cerámica antideslizante y paredes de cerámica.",
   },
   {
     id: "moderna",
@@ -27,7 +27,7 @@ export const CATEGORIES: Category[] = [
     price: 900,
     description: "Una alternativa equilibrada para quienes buscan una propuesta de vivienda contemporánea.",
     interior:
-      "Pared y cielorraso de drywall (yeso). Piso de tablas machimbradas curadas/tratadas de pino de primera.",
+      "Pared y cielorraso de drywall (yeso). Piso de tablas machimbradas curadas/tratadas de pino de primera. Baños con piso de cerámica antideslizante y paredes de cerámica.",
   },
   {
     id: "allwood",
@@ -35,7 +35,7 @@ export const CATEGORIES: Category[] = [
     price: 990,
     description: "La alternativa de mayor precio por metro cuadrado entre las tres categorías disponibles.",
     interior:
-      "Pared de tablas machimbradas de madera de pino curadas/tratadas de primera. Cielorraso de lambriz de pino de primera. Piso de tablas machimbradas de pino curadas/tratadas de primera.",
+      "Pared de tablas machimbradas de madera de pino curadas/tratadas de primera. Cielorraso de lambriz de pino de primera. Piso de tablas machimbradas de pino curadas/tratadas de primera. Baños con piso de cerámica antideslizante y paredes de cerámica.",
   },
 ];
 
@@ -63,6 +63,10 @@ export function updateAreas(areas: Record<CategoryId, number>, system: SystemId,
   }
   return next;
 }
+
+/** Más de AREA_MAX m² ya no se cotiza en línea: se consulta directamente con SCH. */
+export const AREA_CONSULT_TEXT = `¿Necesitás más de ${AREA_MAX} m²? Consultalo con SCH.`;
+export const AREA_CONSULT_URL = `${WHATSAPP_MESSAGE_DESTINATION}?text=${encodeURIComponent(`Hola SCH Construcciones, quiero consultar por una obra de más de ${AREA_MAX} m².`)}`;
 
 export function clampArea(value: unknown): number {
   const n = typeof value === "number" ? value : Number(String(value ?? "").replace(",", "."));

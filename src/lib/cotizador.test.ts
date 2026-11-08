@@ -21,9 +21,11 @@ describe("cotizador", () => {
     expect(formatUSD(estimate(a, price("moderna")))).toBe(m);
     expect(formatUSD(estimate(a, price("allwood")))).toBe(w);
   });
-  it("límites 10–200 m²", () => {
+  it("límites 10–500 m²", () => {
     expect(clampArea(5)).toBe(10);
-    expect(clampArea(500)).toBe(200);
+    expect(clampArea(250)).toBe(250);
+    expect(clampArea(500)).toBe(500);
+    expect(clampArea(900)).toBe(500);
     expect(clampArea("abc")).toBe(40);
     expect(clampArea(-3)).toBe(10);
   });
@@ -35,13 +37,13 @@ describe("cotizador", () => {
   it("revestimientos interiores de cada categoría", () => {
     const interior = (id: string) => CATEGORIES.find((c) => c.id === id)?.interior;
     expect(interior("rustica")).toBe(
-      "Pared y cielorraso de chapones cepillados de primera de eucalipto/pino. Piso de tablas machimbradas curadas/tratadas de pino de primera.",
+      "Pared y cielorraso de chapones cepillados de primera de eucalipto/pino. Piso de tablas machimbradas curadas/tratadas de pino de primera. Baños con piso de cerámica antideslizante y paredes de cerámica.",
     );
     expect(interior("moderna")).toBe(
-      "Pared y cielorraso de drywall (yeso). Piso de tablas machimbradas curadas/tratadas de pino de primera.",
+      "Pared y cielorraso de drywall (yeso). Piso de tablas machimbradas curadas/tratadas de pino de primera. Baños con piso de cerámica antideslizante y paredes de cerámica.",
     );
     expect(interior("allwood")).toBe(
-      "Pared de tablas machimbradas de madera de pino curadas/tratadas de primera. Cielorraso de lambriz de pino de primera. Piso de tablas machimbradas de pino curadas/tratadas de primera.",
+      "Pared de tablas machimbradas de madera de pino curadas/tratadas de primera. Cielorraso de lambriz de pino de primera. Piso de tablas machimbradas de pino curadas/tratadas de primera. Baños con piso de cerámica antideslizante y paredes de cerámica.",
     );
   });
   it("exterior de siding en las tres categorías", () => {
@@ -110,7 +112,7 @@ describe("sistemas compartidos", () => {
     expect(wood).toMatchObject({ rustica: 65, moderna: 40, allwood: 40 });
     const traditional = updateAreas(wood, "tradicional", "esencial", 100, true);
     expect(traditional).toEqual({ rustica: 65, moderna: 40, allwood: 40, esencial: 100, clasica: 100 });
-    expect(updateAreas(traditional, "tradicional", "clasica", 999, false).clasica).toBe(200);
+    expect(updateAreas(traditional, "tradicional", "clasica", 999, false).clasica).toBe(500);
   });
   it("incluye firma UTE y sanitaria hasta primera cámara en tradicional", () => {
     expect(SYSTEMS.tradicional.included).toEqual(["Instalación eléctrica interior completa con firma de UTE.", "Instalación sanitaria completa hasta la primera cámara."]);
