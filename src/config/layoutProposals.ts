@@ -1,7 +1,9 @@
 import { signedArea, type Point } from './geometry';
 import type { OpeningType } from './openingsCatalog';
 import { WOODFRAME_PLANS } from './plansWoodframe';
+import { WOODFRAME_PLANS_EXTRA } from './plansWoodframeExtra';
 import { TRADICIONAL_PLANS } from './plansTradicional';
+import { TRADICIONAL_PLANS_EXTRA } from './plansTradicionalExtra';
 
 /**
  * Catálogo de distribuciones del diseñador 3D. Este módulo solo contiene datos dimensionados: nunca debe importar el store
@@ -130,7 +132,9 @@ export const LAYOUT_PROPOSALS: LayoutProposal[] = [
 export const PLAN_CATALOG: LayoutProposal[] = [
   ...LAYOUT_PROPOSALS.map((p) => ({ ...p, system: 'woodframe' as const, floors: 1, footprint: 'rectangular' as const })),
   ...WOODFRAME_PLANS,
+  ...WOODFRAME_PLANS_EXTRA,
   ...TRADICIONAL_PLANS,
+  ...TRADICIONAL_PLANS_EXTRA,
 ];
 
 export const planFloors = (p: LayoutProposal) => p.floors ?? 1;

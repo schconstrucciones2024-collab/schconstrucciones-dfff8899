@@ -66,6 +66,7 @@ export const GEOMETRY = {
   ceilingThickness: 0.07,
   minSide: 1.5,
   minArea: 10,
+  maxArea: 500,
   snap: 0.1,
   headroom: 2,
   railHeight: 1,
@@ -191,8 +192,8 @@ export function validateContour(p: Point[], floors: number) {
   if(p.some((a,i)=>p.some((b,j)=>i!==j&&distance(a,b)<1e-7)))return "El contorno no puede repetir vértices.";
   for(let i=0;i<p.length;i++){const a=p[(i+p.length-1)%p.length],b=p[i],c=p[(i+1)%p.length];if(!a||!b||!c)continue;if(Math.abs(orient2d(a.x,a.z,b.x,b.z,c.x,c.z))<1e-9&&(a.x-b.x)*(c.x-b.x)+(a.z-b.z)*(c.z-b.z)>1e-8)return "El contorno no puede superponerse.";}
   const area = polygonArea(p) * floors;
-  if (area < 10 - 1e-5 || area > 200 + 1e-5)
-    return "La superficie total debe estar entre 10 y 200 m².";
+  if (area < GEOMETRY.minArea - 1e-5 || area > GEOMETRY.maxArea + 1e-5)
+    return `La superficie total debe estar entre ${GEOMETRY.minArea} y ${GEOMETRY.maxArea} m². Para más metros, consultá con SCH.`;
   if (floors > 1 && polygonArea(p) < 20 - 1e-5) return "Mínimo 20 m² por planta.";
   for (let i = 0; i < p.length; i++) {
     const a = p[i],

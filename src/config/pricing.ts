@@ -1,4 +1,6 @@
 import {
+  AREA_MAX,
+  AREA_MIN,
   SYSTEMS,
   calculateLogistics,
   formatUSD,
@@ -70,7 +72,7 @@ export type PriceInput = {
 };
 
 export function configPrice(input: PriceInput) {
-  const m2 = Math.max(10, Math.min(200, input.m2));
+  const m2 = Math.max(AREA_MIN, Math.min(AREA_MAX, input.m2));
   const base = m2 * RATES[input.finish];
   const adjustments =
     m2 * ADJUSTMENTS.foundationPerM2[input.foundation] +

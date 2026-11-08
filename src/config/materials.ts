@@ -9,7 +9,9 @@ export type MaterialKind =
   | "maderaEstructural" | "chaponPino" | "chaponEucalipto" | "osb" | "lanaVidrio" | "membrana"
   | "ladrilloComun" | "ladrilloHueco" | "revoque" | "revoqueFino"
   // Pisos de la construcción tradicional
-  | "ceramico" | "porcelanato";
+  | "ceramico" | "porcelanato"
+  // Baños de woodframe: piso cerámico antideslizante y pared de cerámica
+  | "ceramicoAntideslizante" | "ceramicoBano";
 
 export const MATERIAL_NAMES: Record<MaterialKind, string> = {
   chapones: "Chapones cepillados de eucalipto/pino",
@@ -38,6 +40,8 @@ export const MATERIAL_NAMES: Record<MaterialKind, string> = {
   revoqueFino: "Revoque fino",
   ceramico: "Piso cerámico estándar",
   porcelanato: "Piso porcelanato",
+  ceramicoAntideslizante: "Piso cerámico antideslizante",
+  ceramicoBano: "Pared de cerámica",
 };
 
 export const FINISH_MATERIALS: Record<FinishId, { wall: MaterialKind; ceiling: MaterialKind; floor: MaterialKind; siding: MaterialKind }> = {
@@ -49,6 +53,18 @@ export const FINISH_MATERIALS: Record<FinishId, { wall: MaterialKind; ceiling: M
   esencial: { wall: "revoque", ceiling: "drywall", floor: "ceramico", siding: "revoque" },
   clasica: { wall: "revoqueFino", ceiling: "hormigon", floor: "porcelanato", siding: "revoqueFino" },
 };
+
+/**
+ * Baños de woodframe (Rústica, Moderna y Allwood): piso de cerámica antideslizante y paredes de cerámica común.
+ * La construcción tradicional no figura acá: sus baños siguen con el piso y el revestimiento de la terminación.
+ */
+export const BATHROOM_MATERIALS: Partial<Record<FinishId, { floor: MaterialKind; wall: MaterialKind }>> = {
+  rustica: { floor: "ceramicoAntideslizante", wall: "ceramicoBano" },
+  moderna: { floor: "ceramicoAntideslizante", wall: "ceramicoBano" },
+  allwood: { floor: "ceramicoAntideslizante", wall: "ceramicoBano" },
+};
+/** Altura (m) hasta la que sube la cerámica de pared en los baños: hasta el cielorraso. */
+export const BATHROOM_TILE_HEIGHT = 2.65;
 
 /**
  * Textos de la hoja de materiales cuando difieren del nombre genérico del material
@@ -212,6 +228,23 @@ export function drawMaterial(kind: MaterialKind, size = 512): HTMLCanvasElement 
       }
       break;
     }
+    case "ceramicoAntideslizante": tiles(2, [150, 148, 142], 10, "rgb(104,102,98)", Math.max(3, size / 130), false); break;
+    case "ceramicoBano": {
+      // Cerámica blanca esmaltada de 60 × 30 cm, colocada en horizontal (dos hiladas por muestra), junta clara fina.
+      const rr = rng(37), rowH = size / 2, gp = Math.max(2, size / 200);
+      for (let j = 0; j < 2; j++) {
+        const v = (rr() - 0.5) * 7;
+        ctx.fillStyle = `rgb(${238 + v},${239 + v},${236 + v})`;
+        ctx.fillRect(0, j * rowH, size, rowH);
+        const g = ctx.createLinearGradient(0, j * rowH, 0, (j + 1) * rowH);
+        g.addColorStop(0, "rgba(255,255,255,0.35)"); g.addColorStop(0.5, "rgba(255,255,255,0)"); g.addColorStop(1, "rgba(0,0,0,0.05)");
+        ctx.fillStyle = g; ctx.fillRect(0, j * rowH, size, rowH);
+        ctx.fillStyle = "rgb(196,196,190)";
+        ctx.fillRect(0, j * rowH, size, gp);
+      }
+      ctx.fillStyle = "rgb(196,196,190)"; ctx.fillRect(0, 0, gp, size);
+      break;
+    }
     case "ceramico": tiles(2, [196, 184, 168], 14, "rgb(128,120,110)", Math.max(3, size / 120), false); break;
     case "porcelanato": tiles(2, [228, 226, 221], 8, "rgb(186,182,176)", Math.max(2, size / 220), true); break;
     default: noise([128, 128, 128], 20, 1000);
@@ -223,7 +256,11 @@ export function drawMaterial(kind: MaterialKind, size = 512): HTMLCanvasElement 
  * Lado, en metros, de la muestra que se repite en cada material (los no listados usan 1 m).
  * Cerámico: baldosas de 45 cm (2 × 2 por muestra); porcelanato: baldosas de 60 cm (2 × 2 por muestra).
  */
-export const MATERIAL_TILE_M: Partial<Record<MaterialKind, number>> = { arena: 2, pasto: 2, ceramico: 0.9, porcelanato: 1.2 };
+export const MATERIAL_TILE_M: Partial<Record<MaterialKind, number>> = {
+  arena: 2, pasto: 2, ceramico: 0.9, porcelanato: 1.2,
+  // antideslizante: baldosas de 30 cm (2 × 2); cerámica de pared: baldosas de 60 × 30 cm (dos hiladas por muestra)
+  ceramicoAntideslizante: 0.6, ceramicoBano: 0.6,
+};
 
 export type MaterialMapId = "albedo" | "normal" | "orm";
 

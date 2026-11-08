@@ -67,7 +67,9 @@ describe("texturas PBR del visor 3D", () => {
     expect(MATERIAL_TILE_M.pasto).toBe(2);
     expect(MATERIAL_TILE_M.ceramico).toBe(0.9); // 2 × 2 baldosas de 45 cm
     expect(MATERIAL_TILE_M.porcelanato).toBe(1.2); // 2 × 2 baldosas de 60 cm
-    const own = new Set<MaterialKind>(["arena", "pasto", "ceramico", "porcelanato"]);
+    expect(MATERIAL_TILE_M.ceramicoAntideslizante).toBe(0.6); // 2 × 2 baldosas de 30 cm
+    expect(MATERIAL_TILE_M.ceramicoBano).toBe(0.6); // dos hiladas de baldosas de 60 × 30 cm
+    const own = new Set<MaterialKind>(["arena", "pasto", "ceramico", "porcelanato", "ceramicoAntideslizante", "ceramicoBano"]);
     for (const kind of kinds.filter((k) => !own.has(k))) expect(MATERIAL_TILE_M[kind] ?? 1).toBe(1);
   });
 });
