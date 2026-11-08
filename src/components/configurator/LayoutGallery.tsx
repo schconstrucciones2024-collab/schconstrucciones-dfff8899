@@ -156,7 +156,7 @@ export function LayoutGallery() {
   const s = useConfigurator(),
     [open, setOpen] = useState(false),
     [pending, setPending] = useState<LayoutProposal | null>(null),
-    [floors, setFloors] = useState(1),
+    [floors, setFloors] = useState(0),
     [shape, setShape] = useState<ShapeFilter>("todas"),
     system = systemOf(s.config.finish);
   const all = useMemo(() => plansFor(system), [system]);
@@ -164,7 +164,7 @@ export function LayoutGallery() {
     if (!open) return [];
     const base = useConfigurator.getState().config;
     return all
-      .filter((p) => planFloors(p) === floors && (shape === "todas" || planShape(p) === shape))
+      .filter((p) => (floors === 0 || planFloors(p) === floors) && (shape === "todas" || planShape(p) === shape))
       .sort(
         (a, b) => Number(!!b.recommended) - Number(!!a.recommended) || planArea(a) - planArea(b),
       )
@@ -177,7 +177,7 @@ export function LayoutGallery() {
         variant="outline"
         className="min-h-11 gap-2 text-xs"
         onClick={() => {
-          setFloors(Math.min(3, Math.max(1, s.config.floors)));
+          setFloors(0);
           setShape("todas");
           setOpen(true);
         }}
@@ -199,6 +199,9 @@ export function LayoutGallery() {
             aria-label="Filtros de distribuciones"
           >
             <div className="flex flex-wrap gap-1" role="group" aria-label="Cantidad de plantas">
+              <Chip active={floors === 0} onClick={() => setFloors(0)}>
+                Todas las plantas ({all.length})
+              </Chip>
               {[1, 2, 3].map((n) => (
                 <Chip key={n} active={floors === n} onClick={() => setFloors(n)}>
                   {n} {n === 1 ? "planta" : "plantas"} ({count(n)})

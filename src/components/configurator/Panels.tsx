@@ -1,7 +1,7 @@
 import { isOrthogonal } from "@/config/geometry";
 import { Copy, Trash2, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SYSTEMS, AREA_MIN, AREA_MAX, formatUSD } from "@/lib/cotizador";
+import { SYSTEMS, AREA_MIN, AREA_MAX, AREA_CONSULT_URL, formatUSD } from "@/lib/cotizador";
 import {
   FINISH_NAMES,
   FOUNDATION_NAMES,
@@ -83,6 +83,13 @@ export function Panels({ step }: { step: number }) {
             <span>{AREA_MIN} m²</span>
             <span>{AREA_MAX} m²</span>
           </div>
+          <p className="mt-2 text-xs leading-5 text-foreground/60">
+            ¿Necesitás más de {AREA_MAX} m²?{" "}
+            <a href={AREA_CONSULT_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline underline-offset-2">
+              Consultalo con SCH
+            </a>
+            .
+          </p>
           <fieldset className="mt-7">
             <legend className="mb-3 text-xs text-foreground/70">Forma de la casa</legend>
             <div className="grid grid-cols-3 gap-2">
@@ -467,10 +474,10 @@ function RoomPicker() {
   return (
     <div className="mt-6 space-y-4">
       <p className="text-xs text-foreground/70">Cada diseño incluye cocina-living-comedor. Elegí dormitorios (cama matrimonial) y baños (WC, ducha y lavamanos sobre mesada de pino).</p>
-      {([["bedrooms", "Dormitorios", [1, 2, 3]], ["bathrooms", "Baños", [1, 2]]] as const).map(([key, label, opts]) => (
+      {([["bedrooms", "Dormitorios", [1, 2, 3, 4, 5, 6]], ["bathrooms", "Baños", [1, 2, 3, 4]]] as const).map(([key, label, opts]) => (
         <div key={key}>
           <p className="mb-2 text-xs font-medium">{label}</p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className={opts.length > 4 ? "grid grid-cols-3 gap-2" : "grid grid-cols-4 gap-2"}>
             {opts.map((n) => (
               <Button
                 key={n}

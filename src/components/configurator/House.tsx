@@ -3,7 +3,7 @@ import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import polygonClipping from "polygon-clipping";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { drawMaterial, FINISH_MATERIALS, type MaterialKind } from "@/config/materials";
+import { BATHROOM_MATERIALS, drawMaterial, FINISH_MATERIALS, type MaterialKind } from "@/config/materials";
 import { OPENINGS_CATALOG } from "@/config/openingsCatalog";
 import { Html } from "@react-three/drei";
 import { createPBR, pbrProps, disposePBR, loadPBR, repeatPBR } from "./pbr";
@@ -36,6 +36,7 @@ import {
 } from "@/config/geometry";
 import { EXTERIOR_THICKNESS, PLATEA_HEIGHT, exteriorThickness, systemOf } from "@/config/systems";
 import { TraditionalEnvelope } from "./TraditionalEnvelope";
+import { bathFloorGeometry, bathSurfaces, bathWallGeometry, TILE_LIFT, type BathSurfaces } from "./bathTiling";
 import {
   floorBase,
   foundationHeight,
@@ -527,6 +528,38 @@ function FloorSlab({
     </mesh>
   );
 }
+/** Cerámica de los baños de woodframe: piso antideslizante y paredes de cerámica hasta el cielorraso. */
+function BathTiling({ c, floor }: { c: HouseConfig; floor: number }) {
+  const mats = BATHROOM_MATERIALS[c.finish];
+  const surfaces = useMemo(
+    () => (mats ? bathSurfaces(c, floor) : null),
+    [mats, floor, c.contour, c.walls, c.openings, c.fixtures, c.roomLabels, c.finish],
+  );
+  if (!mats || !surfaces || !surfaces.floors.length) return null;
+  return <BathTileMeshes surfaces={surfaces} floorKind={mats.floor} wallKind={mats.wall} />;
+}
+function BathTileMeshes({ surfaces, floorKind, wallKind }: { surfaces: BathSurfaces; floorKind: MaterialKind; wallKind: MaterialKind }) {
+  const floorMap = useMaterial(floorKind),
+    wallMap = useMaterial(wallKind);
+  const floorGeometry = useMemo(() => bathFloorGeometry(surfaces), [surfaces]);
+  const wallGeometry = useMemo(() => bathWallGeometry(surfaces), [surfaces]);
+  useEffect(() => () => floorGeometry?.dispose(), [floorGeometry]);
+  useEffect(() => () => wallGeometry?.dispose(), [wallGeometry]);
+  return (
+    <group>
+      {floorGeometry && (
+        <mesh geometry={floorGeometry} position-y={TILE_LIFT} receiveShadow>
+          <meshStandardMaterial {...pbrProps(floorMap)} map={floorMap} roughness={1} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
+        </mesh>
+      )}
+      {wallGeometry && (
+        <mesh geometry={wallGeometry} receiveShadow>
+          <meshStandardMaterial {...pbrProps(wallMap)} map={wallMap} roughness={1} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1} />
+        </mesh>
+      )}
+    </group>
+  );
+}
 function CounterModel({ counter: v, palette }: { counter: Counter; palette: ScenePalette }) {
   const s = useConfigurator(),
     map = useMaterial(v.material === "pino" ? "pisoPino" : "drywall"),
@@ -947,6 +980,7 @@ export function House({
               y={0}
               thickness={GEOMETRY.slabThickness}
             />
+            <BathTiling c={c} floor={floor} />
             {designWalls(c, floor)
               .filter((w) => view !== "corte" || (w.id !== "edge-1" && w.id !== "edge-2"))
               .map((w) => (
