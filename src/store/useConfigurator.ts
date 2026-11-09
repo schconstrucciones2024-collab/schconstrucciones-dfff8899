@@ -30,6 +30,7 @@ import {
 } from "@/config/geometry";
 enablePatches();
 import { clampArea, DEFAULT_LOGISTICS, type LogisticsSelection } from "@/lib/cotizador";
+import { DEFAULT_DECK, normalizeDeck, type DeckConfig } from "@/config/deck";
 import type { FinishId } from "@/config/materials";
 import type { FoundationId, RoofId } from "@/config/pricing";
 import {
@@ -83,6 +84,8 @@ export type HouseConfig = {
   overhang: number;
   position: Point;
   rotation: number;
+  /** Extra opcional «Deck y techado»: no forma parte del presupuesto de la vivienda. */
+  deck: DeckConfig;
 };
 export const WALL_HEIGHT = 2.65;
 export const FLOOR_BASE = 0.85;
@@ -734,6 +737,7 @@ export function initialConfig(system: SystemId = "woodframe"): HouseConfig {
     overhang: 0.25,
     position: { x: 0, z: 0 },
     rotation: 0,
+    deck: { ...DEFAULT_DECK },
   };
   const starter = tradicional ? PLAN_CATALOG.find((p) => p.id === TRADICIONAL_STARTER_ID) : undefined;
   return buildLayoutProposal(c, starter ?? COMPACTA_PROPOSAL);
@@ -885,6 +889,8 @@ type ConfiguratorStore = {
   editOpening: (id: string, patch: Partial<Opening>) => boolean;
   deleteOpening: (id: string) => void;
   duplicateOpening: (id: string) => void;
+  /** Cambia el deck sin tocar nada más del diseño (entra al historial de deshacer). */
+  setDeck: (patch: Partial<DeckConfig>) => void;
   reset: () => void;
 };
 export const useConfigurator = create<ConfiguratorStore>((set, get) => {
@@ -1270,6 +1276,10 @@ export const useConfigurator = create<ConfiguratorStore>((set, get) => {
       if (commit(suggestedLayout(rect))) done();
     },
     // Reiniciar vuelve al diseño de arranque del sistema que se está usando: un tradicional no salta a woodframe.
+    setDeck: (patch) => {
+      const c = get().config;
+      commit({ ...c, deck: normalizeDeck({ ...c.deck, ...patch }) });
+    },
     reset: () => {
       commit(initialConfig(systemOf(get().config.finish)));
       set({ view: "exterior", activeFloor: 0, selectedId: null, placing: null });
@@ -1392,6 +1402,8 @@ export function decodeDesign(text: string): HouseConfig | null {
     const source = data.config ?? data;
     const candidate = { ...initialConfig(), ...(source.fixtures ? {} : { fixtures: [] }), ...source };
     if (!["una", "dos", "plano"].includes(candidate.roofType)) candidate.roofType = "dos";
+    // Los diseños guardados antes del deck no lo traen: arrancan con el deck apagado.
+    candidate.deck = normalizeDeck(source.deck);
     const parsed = designSchema.safeParse(candidate);
     if (!parsed.success) return null;
     const c = coherentSystem(parsed.data as HouseConfig);
