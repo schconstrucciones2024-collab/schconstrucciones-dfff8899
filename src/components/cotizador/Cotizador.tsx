@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Reveal } from "@/lib/motion";
 import { LogisticsCalculator } from "./LogisticsCalculator";
+import { DeckPanel } from "./DeckExtra";
+import { DECK_TEXTOS, DEFAULT_DECK, normalizeDeck, type DeckConfig } from "@/config/deck";
 import { CATEGORY_COLOR, SYSTEM_COLOR, tone } from "./palette";
 import {
   AREA_CONSULT_URL, AREA_MAX, AREA_MIN, SYSTEMS, EXCLUDED, createAreas, updateAreas, buildWhatsAppUrl,
-  DEFAULT_LOGISTICS, buildSummary, clampArea, estimate, formatUSD, type CategoryId, type LogisticsSelection, type SystemId,
+  DEFAULT_LOGISTICS, buildSummary, calculateLogistics, clampArea, deckExtra, estimate, formatUSD, withExtras, type CategoryId, type LogisticsSelection, type SystemId,
 } from "@/lib/cotizador";
 
 type Areas = Record<CategoryId, number>;
@@ -52,6 +54,9 @@ export function Cotizador() {
   const [logistics, setLogistics] = useState<LogisticsSelection>(DEFAULT_LOGISTICS);
   const [copyState, setCopyState] = useState<"idle" | "ok" | "fail">("idle");
   const [fallback, setFallback] = useState("");
+  // Extra opcional «Deck y techado»: arranca apagado y no cambia ningún precio de la vivienda.
+  const [deck, setDeck] = useState<DeckConfig>(DEFAULT_DECK);
+  const changeDeck = (patch: Partial<DeckConfig>) => { setDeck((prev) => normalizeDeck({ ...prev, ...patch })); setCopyState("idle"); setFallback(""); };
 
   const setArea = (id: CategoryId, v: number) => {
     setAreas((prev) => updateAreas(prev, system, id, v, sync));
@@ -64,7 +69,7 @@ export function Cotizador() {
     setCopyState("idle"); setFallback("");
   };
   const copy = async (categoryId?: CategoryId) => {
-    const text = buildSummary(areas, logistics, system, categoryId);
+    const text = buildSummary(areas, logistics, system, categoryId, deck);
     try {
       if (!navigator.clipboard) throw new Error("no clipboard");
       await navigator.clipboard.writeText(text);
@@ -105,7 +110,7 @@ export function Cotizador() {
         <div key={system} className={`fade-up mt-8 grid gap-5 ${system === "woodframe" ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
           {categories.map((c, i) => (
             <Reveal key={c.id} delay={i * 90} className="flex">
-            <CategoryCard id={c.id} name={c.name} description={c.description} price={c.price} interior={c.interior} area={areas[c.id]} onChange={(v) => setArea(c.id, v)} materialsLabel={config.materialsLabel} onCopy={() => copy(c.id)} whatsappUrl={buildWhatsAppUrl(areas, logistics, system, c.id)} />
+            <CategoryCard id={c.id} name={c.name} description={c.description} price={c.price} interior={c.interior} area={areas[c.id]} onChange={(v) => setArea(c.id, v)} materialsLabel={config.materialsLabel} onCopy={() => copy(c.id)} whatsappUrl={buildWhatsAppUrl(areas, logistics, system, c.id, deck)} />
             </Reveal>
           ))}
         </div>
@@ -142,6 +147,31 @@ export function Cotizador() {
 
         <LogisticsCalculator categories={categories} areas={areas} selection={logistics} onChange={(next) => { setLogistics(next); setCopyState("idle"); setFallback(""); }} />
 
+        <DeckPanel deck={deck} onChange={changeDeck} logistics={logistics} variant="page" idPrefix="cotiza-deck">
+          {deck.enabled && (
+            <div className="mt-6" aria-live="polite">
+              <h4 className="text-xs uppercase tracking-[0.15em] text-foreground/60">{DECK_TEXTOS.vivienda} + {DECK_TEXTOS.extras}</h4>
+              <div className={`mt-3 grid gap-5 ${categories.length === 3 ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
+                {categories.map((category) => {
+                  const base = estimate(areas[category.id], category.price);
+                  const rows = withExtras(calculateLogistics(base, logistics).total, deckExtra(deck, logistics));
+                  const money = (v: number | null, pending: string) => (v === null ? pending : formatUSD(v));
+                  return (
+                    <article key={category.id} style={tone(CATEGORY_COLOR[category.id])} className="border border-border border-t-2 border-t-(--tone) bg-card p-5">
+                      <h5 className="flex items-center gap-3 font-semibold text-foreground"><span aria-hidden="true" className="size-2.5 shrink-0 rounded-full bg-(--tone)" />{category.name} · {areas[category.id]} m²</h5>
+                      <dl className="mt-4 space-y-3 text-sm">
+                        <div className="flex flex-wrap justify-between gap-2"><dt className="text-foreground/60">{DECK_TEXTOS.vivienda}</dt><dd className="font-semibold text-foreground">{money(rows.vivienda, "A cotizar aparte")}</dd></div>
+                        <div className="flex flex-wrap justify-between gap-2"><dt className="text-foreground/60">{DECK_TEXTOS.extras}</dt><dd className="font-semibold text-foreground">{money(rows.extras, "A cotizar")}</dd></div>
+                        <div className="border-t border-border pt-4"><dt className="text-xs text-foreground/60">{DECK_TEXTOS.totalConExtras}</dt><dd className="mt-2 text-2xl font-semibold text-(--tone)">{money(rows.totalConExtras, "A cotizar")}</dd></div>
+                      </dl>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </DeckPanel>
+
         <div className="mt-16 grid gap-5 md:grid-cols-2">
           <div className="border border-primary/30 bg-card p-6 sm:p-8">
             <h3 className="text-xl font-semibold text-foreground">¿QUÉ INCLUYE TU PROYECTO CON SCH?</h3>
@@ -174,7 +204,7 @@ export function Cotizador() {
           <h3 className="text-3xl font-semibold text-foreground">¿LISTO PARA HACER REALIDAD TU PROYECTO?</h3>
           <p className="mx-auto mt-4 max-w-2xl text-foreground/70">Ya conocés el valor estimado de tu futura vivienda.</p>
           <p className="mx-auto mt-2 max-w-2xl text-foreground/70">El próximo paso es conversar con SCH CONSTRUCCIONES para evaluar los detalles de tu proyecto y solicitar un presupuesto personalizado.</p>
-          <a href={buildWhatsAppUrl(areas, logistics, system)} target="_blank" rel="noopener noreferrer" className="mt-8 inline-flex w-full items-center justify-center gap-2 bg-whatsapp px-7 py-4 text-sm font-semibold text-background sm:w-auto">
+          <a href={buildWhatsAppUrl(areas, logistics, system, undefined, deck)} target="_blank" rel="noopener noreferrer" className="mt-8 inline-flex w-full items-center justify-center gap-2 bg-whatsapp px-7 py-4 text-sm font-semibold text-background sm:w-auto">
             <MessageCircle size={18} aria-hidden="true" /> SOLICITAR PRESUPUESTO POR WHATSAPP
           </a>
         </div>
