@@ -73,6 +73,8 @@ export default function Configurator() {
     setStep(n);
     s.setPlacing(null);
     if (n === 5) s.setView("corte");
+    // El deck se ve desde afuera.
+    if (n === 6 && s.view !== "exterior") s.setView("exterior");
   };
   return (
     <section
@@ -130,7 +132,7 @@ export default function Configurator() {
             <div className="config-panel min-w-0 border-border bg-background px-4 py-5 sm:px-6 lg:border-l">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase text-primary">
-                  {String(step + 1).padStart(2, "0")} / 07
+                  {String(step + 1).padStart(2, "0")} / {String(STEPS.length).padStart(2, "0")}
                 </span>
                 <Button
                   variant="ghost"
@@ -146,7 +148,7 @@ export default function Configurator() {
                   <RotateCcw size={16} />
                 </Button>
               </div>
-              <nav aria-label="Pasos de configuración" className="mb-6 grid grid-cols-7 gap-1">
+              <nav aria-label="Pasos de configuración" className="mb-6 grid grid-cols-8 gap-1">
                 {STEPS.map((name, i) => (
                   <Button
                     key={name}
@@ -174,7 +176,7 @@ export default function Configurator() {
                   <ArrowLeft size={16} />
                   Anterior
                 </Button>
-                {step < 6 && (
+                {step < STEPS.length - 1 && (
                   <Button
                     variant="outline"
                     className="min-h-11"
@@ -185,7 +187,7 @@ export default function Configurator() {
                   </Button>
                 )}
               </div>
-              {step !== 6 && <Summary />}
+              {step !== STEPS.length - 1 && <Summary />}
             </div>
           </div>
         )}

@@ -36,6 +36,8 @@ import {
 } from "@/config/geometry";
 import { EXTERIOR_THICKNESS, PLATEA_HEIGHT, exteriorThickness, systemOf } from "@/config/systems";
 import { TraditionalEnvelope } from "./TraditionalEnvelope";
+import { DeckModel } from "./Deck";
+import { DECK_WALL, deckPlacement, deckTopY, resolveDeck } from "@/config/deckGeometry";
 import { bathFloorGeometry, bathSurfaces, bathWallGeometry, TILE_LIFT, type BathSurfaces } from "./bathTiling";
 import {
   floorBase,
@@ -931,6 +933,34 @@ function Roof({ c, palette }: { c: HouseConfig; palette: ScenePalette }) {
     </group>
   );
 }
+/**
+ * Deck opcional pegado al frente, centrado en la puerta de entrada. Su cara superior queda por debajo del umbral de esa
+ * puerta (`floorBase`). Solo existe en la escena cuando está activado, así que no carga texturas de más.
+ */
+function DeckScene({ c, cut }: { c: HouseConfig; cut: boolean }) {
+  const woodMap = useMaterial("pisoPino"),
+    pileMap = useMaterial("maderaPilote"),
+    door = c.openings.find((o) => o.floor === 0 && o.wall === DECK_WALL && OPENINGS_CATALOG[o.type].door),
+    doorOffset = door ? door.offset : null,
+    thickness = exteriorThickness(c.finish),
+    // Por defecto el deck cubre todo el frente de la casa: el ancho sale del contorno actual.
+    deck = useMemo(() => resolveDeck(c.deck, c.contour, thickness), [c.deck, c.contour, thickness]),
+    placement = useMemo(
+      () => deckPlacement(c.contour, thickness, deck, doorOffset),
+      [c.contour, thickness, deck, doorOffset],
+    );
+  if (!placement) return null;
+  return (
+    <DeckModel
+      deck={deck}
+      placement={placement}
+      topY={deckTopY(floorBase(c))}
+      woodMap={woodMap}
+      pileMap={pileMap}
+      showRoofSheet={!cut}
+    />
+  );
+}
 /** Zócalo, cintas y techo de la construcción tradicional, con sus materiales (hormigón, revoque y membrana o chapa). */
 function TradEnvelope({ c }: { c: HouseConfig }) {
   const concrete = useMaterial("hormigon"),
@@ -1044,8 +1074,10 @@ export function House({
           </group>
         );
       })}
+      {c.deck.enabled && <DeckScene c={c} cut={cut} />}
       {c.stairs
-        .filter((s) => s.exterior)
+        // Con el deck activo, la escalinata de la entrada se reemplaza por el deck (que ocupa su lugar).
+        .filter((s) => s.exterior && !(c.deck.enabled && (s.wall ?? DECK_WALL) === DECK_WALL))
         .map((s) => (
           <StairModel key={s.id} stair={s} c={c} map={floorMap} palette={palette} onPreview={previewStair} />
         ))}

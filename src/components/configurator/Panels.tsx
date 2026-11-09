@@ -12,6 +12,7 @@ import {
   FINISHES_BY_SYSTEM,
   FOUNDATIONS_BY_SYSTEM,
   allowedRoofs,
+  exteriorThickness,
   systemOf,
 } from "@/config/systems";
 import { isLShape } from "@/config/layoutProposals";
@@ -24,6 +25,8 @@ import {
   placedRooms,
   type WallId,
 } from "@/store/useConfigurator";
+import { DeckPanel } from "@/components/cotizador/DeckExtra";
+import { deckFrontSpan, resolveDeck } from "@/config/deckGeometry";
 import { MaterialsSheet } from "./MaterialsSheet";
 import { Summary } from "./Summary";
 export const STEPS = [
@@ -33,6 +36,7 @@ export const STEPS = [
   "Terminación",
   "Techo",
   "Aberturas",
+  "Deck y techado (opcional)",
   "Resumen",
 ];
 const WALLS: { id: WallId; label: string }[] = [
@@ -457,13 +461,37 @@ export function Panels({ step }: { step: number }) {
           )}
         </>
       )}
-      {step === 6 && <Summary full />}
+      {step === 6 && <DeckStep />}
+      {step === 7 && <Summary full />}
       {s.error && (
         <p role="alert" className="mt-4 text-xs leading-6 text-destructive">
           {s.error}
         </p>
       )}
     </div>
+  );
+}
+
+/** Paso «Deck y techado (opcional)»: el mismo extra del cotizador, leyendo y guardando en el diseño. */
+function DeckStep() {
+  const stored = useConfigurator((s) => s.config.deck),
+    contour = useConfigurator((s) => s.config.contour),
+    finish = useConfigurator((s) => s.config.finish),
+    logistics = useConfigurator((s) => s.config.logistics),
+    setDeck = useConfigurator((s) => s.setDeck),
+    thickness = exteriorThickness(finish),
+    deck = resolveDeck(stored, contour, thickness),
+    frontLength = deckFrontSpan(contour, thickness)?.length ?? null;
+  return (
+    <DeckPanel
+      deck={deck}
+      // Al dejar de cubrir todo el frente, el deck conserva el ancho que tenía en ese momento (no salta a otra medida).
+      onChange={(patch) => setDeck(patch.fullFront === false && patch.width === undefined ? { ...patch, width: deck.width } : patch)}
+      frontLength={frontLength === null ? null : Math.round(frontLength * 100) / 100}
+      logistics={logistics}
+      variant="panel"
+      idPrefix="config-deck"
+    />
   );
 }
 

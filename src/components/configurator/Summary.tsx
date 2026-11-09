@@ -9,8 +9,10 @@ import {
   FOUNDATION_NAMES,
   roofName,
 } from "@/config/pricing";
-import { systemOf } from "@/config/systems";
-import { LOGISTICS_ZONES, SYSTEMS, formatUSD } from "@/lib/cotizador";
+import { exteriorThickness, systemOf } from "@/config/systems";
+import { LOGISTICS_ZONES, SYSTEMS, deckExtra, formatUSD, withExtras } from "@/lib/cotizador";
+import { DECK_TEXTOS } from "@/config/deck";
+import { resolveDeck } from "@/config/deckGeometry";
 import { detectRooms } from "@/config/geometry";
 import { designUrl, suggestedOpenings, useConfigurator } from "@/store/useConfigurator";
 export function Summary({ full = false }: { full?: boolean }) {
@@ -20,8 +22,11 @@ export function Summary({ full = false }: { full?: boolean }) {
   const [origin, setOrigin] = useState("");
   useEffect(() => setOrigin(window.location.href), []);
   const link = origin ? designUrl(c, origin) : "";
+  // El deck tal cual se ve y se cotiza: con «frente completo», del ancho del frente de la casa.
+  const deck = resolveDeck(c.deck, c.contour, exteriorThickness(c.finish));
   const input = {
       ...c,
+      deck,
       extraOpenings: Math.max(0, c.openings.length - suggestedOpenings(c).length),
       openings: c.openings.length,
       roomsCount: c.walls.reduce((n, w) => n + detectRooms(c.contour, w).length, 0),
@@ -30,7 +35,8 @@ export function Summary({ full = false }: { full?: boolean }) {
       designLink: link,
     },
     p = configPrice(input),
-    text = configWhatsAppText(input);
+    text = configWhatsAppText(input),
+    rows = withExtras(p.total, deckExtra(deck, c.logistics));
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(text);
@@ -73,6 +79,7 @@ export function Summary({ full = false }: { full?: boolean }) {
               ["Ambientes", String(input.roomsCount)],
               ["Escaleras", String(input.stairsCount)],
               ["Mesadas", String(input.countersCount)],
+              ["Deck y techado", deck.enabled ? `${deck.roofed ? "Deck techado" : "Deck"} · ${Number(deck.width)} × ${Number(deck.depth)} m` : "No agregado"],
             ].map(([k, v]) => (
               <div key={k}>
                 <dt className="mb-1 text-xs text-foreground/60">{k}</dt>
@@ -138,6 +145,23 @@ export function Summary({ full = false }: { full?: boolean }) {
           {Number(c.m2.toFixed(2))} m² · {c.floors} planta{c.floors > 1 ? "s" : ""}
         </span>
       </div>
+      {deck.enabled && (
+        <dl aria-label="Vivienda y extras opcionales" className="mb-4 space-y-2 border-t border-border pt-4 text-sm">
+          <div className="flex justify-between gap-2">
+            <dt>{DECK_TEXTOS.vivienda}{p.total === null ? " · obra base" : ""}</dt>
+            <dd>{formatUSD(p.total ?? p.obra)}</dd>
+          </div>
+          <div className="flex justify-between gap-2">
+            <dt>{DECK_TEXTOS.extras}</dt>
+            <dd>{rows.extras === null ? "A cotizar" : formatUSD(rows.extras)}</dd>
+          </div>
+          <div className="flex justify-between gap-2 font-semibold text-primary">
+            <dt>{DECK_TEXTOS.totalConExtras}</dt>
+            <dd>{rows.totalConExtras === null ? "A cotizar" : formatUSD(rows.totalConExtras)}</dd>
+          </div>
+          <p className="pt-1 text-[11px] font-normal leading-5 text-foreground/60">{DECK_TEXTOS.letraChica}</p>
+        </dl>
+      )}
       <Button
         asChild
         className="min-h-12 w-full gap-2 bg-whatsapp text-primary-foreground hover:bg-whatsapp/90"
