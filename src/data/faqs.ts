@@ -1,3 +1,5 @@
+import { DECK_TEXTOS } from "@/config/deck";
+
 export const FAQ_CATEGORIES = ["Todas", "Plazos y pagos", "Alcance", "Técnica"] as const;
 export type FaqCategory = (typeof FAQ_CATEGORIES)[number];
 export type FaqBlock =
@@ -54,6 +56,14 @@ export const faqs: Faq[] = [
     blocks: [
       { type: "list", checked: false, items: ["Grifería", "Artefactos sanitarios", "Pintura", "Decks", "Pérgolas", "Parrilleros"] },
       { type: "paragraph", text: "Lo importante es saberlo antes de empezar. Si querés sumar alguno a tu proyecto, consultanos." },
+    ],
+  },
+  {
+    id: "faq-deck", category: "Alcance", icon: "excluded",
+    question: DECK_TEXTOS.faqPregunta,
+    blocks: [
+      { type: "paragraph", text: DECK_TEXTOS.faqRespuesta },
+      { type: "note", text: `${DECK_TEXTOS.aviso} ${DECK_TEXTOS.letraChica}` },
     ],
   },
   {
