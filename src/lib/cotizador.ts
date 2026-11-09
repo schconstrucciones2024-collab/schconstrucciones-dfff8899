@@ -1,3 +1,5 @@
+import { BARANDA_PRECIO_ML, DECK_A_COTIZAR, DECK_TEXTOS, deckLabel, deckPrice, type DeckConfig, type DeckPrice } from "@/config/deck";
+
 export const AREA_MIN = 10;
 export const AREA_MAX = 500;
 export const AREA_DEFAULT = 40;
@@ -103,7 +105,66 @@ export function formatUSD(value: number): string {
   return "USD " + Math.round(value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
-export function buildSummary(areas: Areas, logistics?: LogisticsSelection, system: SystemId = "woodframe", categoryId?: CategoryId): string {
+/**
+ * Extra opcional «Deck y techado»: no forma parte del presupuesto de la vivienda, se calcula aparte y se suma como extra.
+ * Si la obra está fuera de Punta del Diablo, el costo logístico del mismo tramo se aplica también sobre el extra.
+ */
+export type DeckExtraQuote = DeckPrice & {
+  percentage: number;
+  /** Viaje a cotizar aparte (tramo de más de 300 km): no hay recargo calculable. */
+  separateTrip: boolean;
+  surcharge: number | null;
+  /** Total del extra con logística; null si es «A cotizar» o hay viaje aparte. */
+  total: number | null;
+};
+
+export function deckExtra(deck: DeckConfig, logistics: LogisticsSelection = DEFAULT_LOGISTICS): DeckExtraQuote {
+  const price = deckPrice(deck);
+  if (price.subtotal === null)
+    return { ...price, percentage: logisticsPercentage(logistics), separateTrip: false, surcharge: null, total: null };
+  const result = calculateLogistics(price.subtotal, logistics),
+    surcharge = result.surcharge === null ? null : Math.round(result.surcharge);
+  return {
+    ...price,
+    percentage: result.percentage,
+    separateTrip: result.separateTrip,
+    surcharge,
+    total: surcharge === null ? null : price.subtotal + surcharge,
+  };
+}
+
+/** Las tres líneas del resumen: la vivienda (su total no cambia por el extra), los extras y el total con extras. */
+export function withExtras(vivienda: number | null, extra: DeckExtraQuote) {
+  return {
+    vivienda,
+    extras: extra.active ? extra.total : 0,
+    totalConExtras: vivienda === null || !extra.active ? vivienda : extra.total === null ? null : vivienda + extra.total,
+  };
+}
+
+function deckSummary(deck: DeckConfig, logistics: LogisticsSelection, viviendas: { name: string; total: number | null }[]): string {
+  const extra = deckExtra(deck, logistics);
+  const lines = [`Extras opcionales (no incluidos en el presupuesto de la vivienda)`, deckLabel(deck)];
+  if (extra.subtotal === null) lines.push(`Deck: ${DECK_A_COTIZAR}`);
+  else {
+    lines.push(`${deck.roofed ? "Deck techado" : "Deck"}: ${extra.area} m² × USD ${extra.rate}/m² = ${formatUSD(extra.deck ?? 0)}`);
+    if (extra.railMl > 0) lines.push(`Barandas: ${extra.railMl} ml × USD ${BARANDA_PRECIO_ML}/ml = ${formatUSD(extra.rails ?? 0)}`);
+  }
+  if (deck.steps) lines.push(`Escalones: ${DECK_TEXTOS.escalonesPrecio}`);
+  if (extra.subtotal !== null) {
+    if (extra.separateTrip) lines.push("Viaje a cotizar aparte. Total del extra pendiente de cotización logística.");
+    else if (extra.percentage > 0) lines.push(`Costo logístico extra (${extra.percentage}%): ${formatUSD(extra.surcharge ?? 0)}`);
+    if (extra.total !== null) lines.push(`Total del extra: ${formatUSD(extra.total)}`);
+  }
+  for (const v of viviendas) {
+    const t = withExtras(v.total, extra).totalConExtras;
+    lines.push(`Total con extras${viviendas.length > 1 ? ` (${v.name})` : ""}: ${t === null ? "a confirmar" : formatUSD(t)}`);
+  }
+  lines.push(DECK_TEXTOS.letraChica);
+  return lines.join("\n");
+}
+
+export function buildSummary(areas: Areas, logistics?: LogisticsSelection, system: SystemId = "woodframe", categoryId?: CategoryId, deck?: DeckConfig): string {
   const config = SYSTEMS[system];
   const blocks = config.categories.filter((c) => categoryId === undefined || c.id === categoryId).map(
     (c) =>
@@ -113,6 +174,20 @@ export function buildSummary(areas: Areas, logistics?: LogisticsSelection, syste
     "SCH CONSTRUCCIONES — RESUMEN DE COTIZACIÓN",
     `Sistema: ${config.name}`,
     ...blocks,
+    ...(deck?.enabled
+      ? [
+          deckSummary(
+            deck,
+            logistics ?? DEFAULT_LOGISTICS,
+            config.categories
+              .filter((c) => categoryId === undefined || c.id === categoryId)
+              .map((c) => {
+                const base = estimate(areas[c.id] ?? AREA_DEFAULT, c.price);
+                return { name: c.name, total: logistics ? calculateLogistics(base, logistics).total : base };
+              }),
+          ),
+        ]
+      : []),
     ...(system === "woodframe" ? [EXTERIOR_REVESTIMIENTO] : []),
     "Hola, SCH CONSTRUCCIONES. Quisiera solicitar un presupuesto personalizado para mi proyecto.",
     "Estas son las alternativas que estuve evaluando.",
@@ -121,8 +196,8 @@ export function buildSummary(areas: Areas, logistics?: LogisticsSelection, syste
   ].join("\n\n");
 }
 
-export function buildWhatsAppUrl(areas: Areas, logistics: LogisticsSelection, system: SystemId, categoryId?: CategoryId) {
-  return `${WHATSAPP_MESSAGE_DESTINATION}?text=${encodeURIComponent(buildSummary(areas, logistics, system, categoryId))}`;
+export function buildWhatsAppUrl(areas: Areas, logistics: LogisticsSelection, system: SystemId, categoryId?: CategoryId, deck?: DeckConfig) {
+  return `${WHATSAPP_MESSAGE_DESTINATION}?text=${encodeURIComponent(buildSummary(areas, logistics, system, categoryId, deck))}`;
 }
 
 function logisticsSummary(base: number, selection: LogisticsSelection): string {
