@@ -3,10 +3,13 @@ import {
   AREA_MIN,
   SYSTEMS,
   calculateLogistics,
+  deckExtra,
   formatUSD,
   getLogisticsZone,
+  withExtras,
   type LogisticsSelection,
 } from "@/lib/cotizador";
+import { BARANDA_PRECIO_ML, DECK_TEXTOS, deckLabel, type DeckConfig } from "./deck";
 import type { FinishId } from "./materials";
 import { systemOf } from "./systems";
 
@@ -69,6 +72,8 @@ export type PriceInput = {
   ground?: string;
   roomsCount?: number;
   designLink?: string;
+  /** Extra opcional «Deck y techado»: no entra en `configPrice` (el precio de la vivienda no cambia). */
+  deck?: DeckConfig;
 };
 
 export function configPrice(input: PriceInput) {
@@ -105,6 +110,21 @@ export function configWhatsAppText(input: PriceInput & { openings: number }) {
   lines.push(
     `Suelo: ${input.ground === "cesped" ? "Suelo firme con césped" : "Suelo de arena"} · Ambientes: ${input.roomsCount ?? 0} · Escaleras: ${input.stairsCount ?? 0} · Mesadas: ${input.countersCount ?? 0}`,
   );
+  if (input.deck?.enabled) {
+    const extra = deckExtra(input.deck, input.logistics),
+      totals = withExtras(p.total, extra),
+      parts = [`Extras opcionales (no incluidos en el presupuesto de la vivienda): ${deckLabel(input.deck)}`];
+    if (extra.subtotal === null) parts.push(`Deck: ${DECK_TEXTOS.escalonesPrecio}`);
+    else {
+      parts.push(`${input.deck.roofed ? "Deck techado" : "Deck"}: ${formatUSD(extra.deck ?? 0)}`);
+      if (extra.railMl > 0) parts.push(`Barandas: ${extra.railMl} ml × USD ${BARANDA_PRECIO_ML} = ${formatUSD(extra.rails ?? 0)}`);
+    }
+    if (input.deck.steps) parts.push(`Escalones: ${DECK_TEXTOS.escalonesPrecio}`);
+    if (extra.total !== null && extra.percentage > 0) parts.push(`Logística del extra (${extra.percentage}%): ${formatUSD(extra.surcharge ?? 0)}`);
+    parts.push(`Total del extra: ${extra.total === null ? "a cotizar" : formatUSD(extra.total)}`);
+    parts.push(`Total con extras: ${totals.totalConExtras === null ? "a cotizar" : formatUSD(totals.totalConExtras)}`);
+    lines.push(parts.join(" · "), DECK_TEXTOS.letraChica);
+  }
   if (input.designLink) lines.push(`Mi diseño: ${input.designLink}`);
   return lines.join("\n");
 }
