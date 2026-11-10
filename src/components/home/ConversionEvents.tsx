@@ -15,6 +15,7 @@ export function ConversionEvents() {
     const click = (event: MouseEvent) => {
       if (!(event.target instanceof Element)) return;
       const el = event.target.closest<HTMLAnchorElement>('a[href]');
+      if (el?.dataset.share) return; // compartir una obra no es una consulta: lo registra ShareButtons
       const section = el?.closest('section')?.id || (el?.closest('header') ? 'header' : 'footer');
       if (el?.href.startsWith('https://wa.me/')) conversionEvent('whatsapp_click', { section, destination: el.href });
       else if (el && /instagram\.com|facebook\.com|tiktok\.com|pin\.it/.test(el.href)) conversionEvent('social_click', { section, destination: el.href });

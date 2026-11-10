@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { ArrowRight } from "lucide-react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { Link } from "@tanstack/react-router";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { CountUp, Words, delay, useHeroExit, useParallax } from "@/lib/motion";
 import { MagneticLink } from "./MagneticLink";
 import { Button } from "@/components/ui/button";
@@ -57,7 +58,16 @@ export function Hero() {
             className="hero-settle h-full w-full object-cover object-[80%_50%] md:object-[62%_50%] xl:object-center"
           />
         </picture>
-        {scene.id !== "lo-de-cata" && <picture key={scene.id} className="hero-scene absolute inset-0 block h-full w-full"><source media="(max-width: 767px)" srcSet={scene.small} /><img src={scene.src} alt={scene.alt} width={1600} height={1200} decoding="async" className="hero-scene-image h-full w-full object-cover md:object-right" onError={() => setScene(HERO_SCENES[0])} /></picture>}
+        {scene.id !== "lo-de-cata" && (
+          <div key={scene.id} className="hero-scene absolute inset-0" style={{ "--focus": scene.focus } as CSSProperties}>
+            {/* Celular: la foto se ve entera (sin recortar la casa) sobre un fondo desenfocado de la misma imagen. */}
+            <img aria-hidden="true" alt="" src={scene.small} decoding="async" className="hero-scene-backdrop absolute inset-0 size-full object-cover md:hidden" />
+            <picture className="block size-full">
+              <source media="(max-width: 767px)" srcSet={scene.small} />
+              <img src={scene.src} alt={scene.alt} width={1600} height={1200} decoding="async" className="hero-scene-image relative size-full object-contain md:object-cover md:[object-position:var(--focus)]" onError={() => setScene(HERO_SCENES[0])} />
+            </picture>
+          </div>
+        )}
       </div>
       <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-10 h-[calc(100vw+1.5rem)] bg-gradient-to-t from-background via-background/35 to-background/10 md:hidden" />
       <div aria-hidden="true" className="absolute inset-0 -z-10 hidden bg-gradient-to-r from-background/95 via-background/70 to-background/10 md:block" />
@@ -113,7 +123,12 @@ export function Hero() {
           </div>
         </div>
 
-        <p className="mt-7 text-[10px] uppercase text-foreground/65">Obra SCH · {scene.name}</p>
+        <p className="mt-5 flex flex-wrap items-center gap-x-2 text-[10px] uppercase tracking-[0.18em] text-foreground/65">
+          Obra SCH ·
+          <Link to="/proyectos/$slug" params={{ slug: scene.id }} className="inline-flex min-h-11 items-center gap-1.5 text-foreground/85 underline-offset-4 transition-colors hover:text-primary hover:underline">
+            {scene.name} <ArrowUpRight aria-hidden="true" className="size-3.5" />
+          </Link>
+        </p>
         <p className="hero-rise mt-12 hidden items-center gap-4 text-[11px] font-medium uppercase tracking-[0.3em] text-foreground/60 sm:flex" style={delay(1600)}>
           <span aria-hidden="true" className="h-px w-10 bg-foreground/40" />
           Construir confianza. Edificar futuro.

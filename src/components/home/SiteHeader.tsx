@@ -5,12 +5,13 @@ import logoSch from "@/assets/logo-sch-medallon.png.asset.json";
 import { CONTACT } from "@/data/projects";
 import { SERVICE_LINKS } from "@/data/servicios";
 import { ScrollProgress, useScrolled } from "@/lib/motion";
-import { AnchorLink, SECTION_LINKS, SYSTEMS_LINK } from "./nav";
+import { MAIN_NAV, TOOL_NAV } from "@/data/navLinks";
+import { AnchorLink, useActiveNav } from "./nav";
 
 const linkClass = "nav-link whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.12em] text-foreground/80 transition-colors hover:text-primary";
 
 /** Menú "Servicios": ancla de la home + las tres páginas de servicio. Se abre con clic, foco o mouse. */
-function ServicesMenu({ home }: { home: boolean }) {
+function ServicesMenu({ home, current }: { home: boolean; current: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -31,15 +32,18 @@ function ServicesMenu({ home }: { home: boolean }) {
       onMouseLeave={() => setOpen(false)}
       onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false); }}
     >
-      <button type="button" aria-expanded={open} aria-controls="menu-servicios" onClick={() => setOpen((value) => !value)} className={`${linkClass} inline-flex min-h-11 items-center gap-1.5`}>
+      <button type="button" aria-expanded={open} aria-controls="menu-servicios" onClick={() => setOpen((value) => !value)} className={`${linkClass} inline-flex min-h-11 items-center gap-1.5`} {...(current ? { "aria-current": "location" as const } : {})}>
         Servicios <ChevronDown aria-hidden="true" className={`size-3.5 transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
       </button>
-      <div id="menu-servicios" className={`absolute left-1/2 top-full z-10 w-64 -translate-x-1/2 pt-2 transition-[opacity,transform,visibility] duration-300 ${open ? "visible translate-y-0 opacity-100" : "invisible translate-y-2 opacity-0"}`}>
+      <div id="menu-servicios" className={`absolute left-1/2 top-full z-10 w-72 -translate-x-1/2 pt-2 transition-[opacity,transform,visibility] duration-300 ${open ? "visible translate-y-0 opacity-100" : "invisible translate-y-2 opacity-0"}`}>
         <ul className="border border-foreground/10 bg-background/95 p-2 shadow-2xl backdrop-blur-md">
           <li><AnchorLink id="servicios" home={home} onClick={() => setOpen(false)} className="block px-4 py-3 text-sm text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-primary">Todos los servicios</AnchorLink></li>
-          <li><AnchorLink id={SYSTEMS_LINK[1]} home={home} onClick={() => setOpen(false)} className="block px-4 py-3 text-sm text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-primary">{SYSTEMS_LINK[0]}</AnchorLink></li>
           {SERVICE_LINKS.map((link) => (
             <li key={link.to}><Link to={link.to} className="block px-4 py-3 text-sm text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-primary">{link.label}</Link></li>
+          ))}
+          <li aria-hidden="true" className="my-1 border-t border-foreground/10" />
+          {TOOL_NAV.map((link) => (
+            <li key={link.id}><AnchorLink id={link.id} home={home} onClick={() => setOpen(false)} className="block px-4 py-3 text-sm text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-primary">{link.label}</AnchorLink></li>
           ))}
         </ul>
       </div>
@@ -88,15 +92,17 @@ function MobileMenu({ open, onClose, home }: { open: boolean; onClose: () => voi
       </div>
       <nav aria-label="Navegación móvil" className="mt-6">
         <ul>
-          {SECTION_LINKS.slice(0, 2).map(([label, id]) => <li key={id}><AnchorLink id={id} home={home} onClick={onClose} className={itemClass}>{label}</AnchorLink></li>)}
-          <li>
-            <AnchorLink id="servicios" home={home} onClick={onClose} className={itemClass}>Servicios</AnchorLink>
-            <ul className="-mt-1 mb-2 border-b border-foreground/10 pb-3 pl-4">
-              <li><AnchorLink id={SYSTEMS_LINK[1]} home={home} onClick={onClose} className="block py-2.5 text-base text-foreground/75 transition-colors hover:text-primary">{SYSTEMS_LINK[0]}</AnchorLink></li>
-              {SERVICE_LINKS.map((link) => <li key={link.to}><Link to={link.to} onClick={onClose} className="block py-2.5 text-base text-foreground/75 transition-colors hover:text-primary">{link.label}</Link></li>)}
-            </ul>
-          </li>
-          {SECTION_LINKS.slice(2).map(([label, id]) => <li key={id}><AnchorLink id={id} home={home} onClick={onClose} className={itemClass}>{label}</AnchorLink></li>)}
+          {MAIN_NAV.map(({ label, id }) => (
+            <li key={id}>
+              <AnchorLink id={id} home={home} onClick={onClose} className={itemClass}>{label}</AnchorLink>
+              {id === "servicios" && (
+                <ul className="-mt-1 mb-2 border-b border-foreground/10 pb-3 pl-4">
+                  {SERVICE_LINKS.map((link) => <li key={link.to}><Link to={link.to} onClick={onClose} className="block py-2.5 text-base text-foreground/75 transition-colors hover:text-primary">{link.label}</Link></li>)}
+                  {TOOL_NAV.map((link) => <li key={link.id}><AnchorLink id={link.id} home={home} onClick={onClose} className="block py-2.5 text-base text-foreground/75 transition-colors hover:text-primary">{link.label}</AnchorLink></li>)}
+                </ul>
+              )}
+            </li>
+          ))}
         </ul>
       </nav>
       <div className="mt-8 flex flex-col gap-3">
@@ -110,10 +116,11 @@ function MobileMenu({ open, onClose, home }: { open: boolean; onClose: () => voi
 /** Encabezado del sitio. `home={false}` lo adapta a las páginas de servicio (los anclajes vuelven a la home). */
 export function SiteHeader({ home = true }: { home?: boolean }) {
   const scrolled = useScrolled(24);
+  const active = useActiveNav(home);
   const [menuOpen, setMenuOpen] = useState(false);
   const burgerRef = useRef<HTMLButtonElement>(null);
   const closeMenu = useCallback(() => { setMenuOpen(false); burgerRef.current?.focus({ preventScroll: true }); }, []);
-  const logo = <img src={logoSch.url} alt="SCH Construcciones" width={96} height={96} className="size-12 object-contain sm:size-14" />;
+  const logo = <img src={logoSch.url} alt="SCH Construcciones" width={96} height={96} className="logo-enter size-12 object-contain sm:size-14" />;
 
   return (
     <>
@@ -124,10 +131,10 @@ export function SiteHeader({ home = true }: { home?: boolean }) {
           {home
             ? <a href="#inicio" className="flex shrink-0 items-center" aria-label="SCH Construcciones · Inicio">{logo}</a>
             : <Link to="/" className="flex shrink-0 items-center" aria-label="SCH Construcciones · Inicio">{logo}</Link>}
-          <div className="hidden items-center gap-4 xl:flex 2xl:gap-5">
-            <AnchorLink id="nosotros" home={home} className={linkClass}>Nosotros</AnchorLink>
-            <ServicesMenu home={home} />
-            {SECTION_LINKS.slice(1).map(([label, id]) => <AnchorLink key={id} id={id} home={home} className={linkClass}>{label}</AnchorLink>)}
+          <div className="hidden items-center gap-3 xl:flex 2xl:gap-6">
+            {MAIN_NAV.map(({ label, id }) => id === "servicios"
+              ? <ServicesMenu key={id} home={home} current={active === id} />
+              : <AnchorLink key={id} id={id} home={home} current={active === id} className={`${linkClass} inline-flex min-h-11 items-center`}>{label}</AnchorLink>)}
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             <a href={CONTACT.whatsapp} target="_blank" rel="noopener noreferrer" aria-label="Escribir por WhatsApp" className="hidden size-11 items-center justify-center border border-foreground/25 text-foreground transition-colors hover:border-primary hover:text-primary sm:inline-flex xl:hidden"><MessageCircle aria-hidden="true" className="size-[18px]" /></a>
