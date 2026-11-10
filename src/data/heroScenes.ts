@@ -7,12 +7,16 @@ import bosqueSmall from '@/assets/premium/proyecto-2021-800.webp.asset.json';
 import sueno from '@/assets/premium/mi-sueno-1600.webp.asset.json';
 import suenoSmall from '@/assets/premium/mi-sueno-800.webp.asset.json';
 
+/**
+ * `focus`: punto de la foto que se conserva cuando el escritorio recorta arriba y abajo (object-position).
+ * En celular ninguna foto se recorta: se muestra entera sobre un fondo desenfocado de la misma imagen.
+ */
 export const HERO_SCENES = [
-  { id: 'lo-de-cata', name: 'Lo de Cata', src: '/images/hero-obra-1736.webp', small: '/images/hero-obra-movil.webp', alt: 'Casa celeste con piscina de Lo de Cata, Punta del Diablo' },
-  { id: 'laslu', name: 'Laslu', src: laslu.url, small: lasluSmall.url, alt: 'Vivienda Laslu de SCH Construcciones en Punta del Diablo' },
-  { id: 'la-diosa', name: 'La Diosa · La Clave del Diablo', src: diosa.url, small: diosaSmall.url, alt: 'Viviendas La Diosa, La Clave del Diablo, de SCH Construcciones' },
-  { id: 'proyecto-2021', name: 'Proyecto 2021', src: bosque.url, small: bosqueSmall.url, alt: 'Cabaña en el bosque, proyecto 2021 de SCH Construcciones' },
-  { id: 'mi-sueno', name: 'Mi Sueño', src: sueno.url, small: suenoSmall.url, alt: 'Vivienda Mi Sueño de SCH Construcciones en Punta del Diablo' },
+  { id: 'lo-de-cata', focus: '50% 55%', name: 'Lo de Cata', src: '/images/hero-obra-1736.webp', small: '/images/hero-obra-movil.webp', alt: 'Casa celeste con piscina de Lo de Cata, Punta del Diablo' },
+  { id: 'laslu', focus: '50% 62%', name: 'Laslu', src: laslu.url, small: lasluSmall.url, alt: 'Vivienda Laslu de SCH Construcciones en Punta del Diablo' },
+  { id: 'la-diosa', focus: '50% 62%', name: 'La Diosa · La Clave del Diablo', src: diosa.url, small: diosaSmall.url, alt: 'Viviendas La Diosa, La Clave del Diablo, de SCH Construcciones' },
+  { id: 'proyecto-2021', focus: '50% 58%', name: 'Proyecto 2021', src: bosque.url, small: bosqueSmall.url, alt: 'Cabaña en el bosque, proyecto 2021 de SCH Construcciones' },
+  { id: 'mi-sueno', focus: '50% 62%', name: 'Mi Sueño', src: sueno.url, small: suenoSmall.url, alt: 'Vivienda Mi Sueño de SCH Construcciones en Punta del Diablo' },
 ] as const;
 
 /** Pure selection; random value supplied by the browser, never at module scope. */

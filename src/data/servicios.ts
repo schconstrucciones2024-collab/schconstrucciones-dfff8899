@@ -12,13 +12,14 @@ export type ServiceFaq = { question: string; answer: string };
 
 export const localBusinessJsonLd = {
   "@context": "https://schema.org",
-  "@type": "HomeAndConstructionBusiness",
+  "@type": "GeneralContractor",
   name: "SCH Construcciones",
   url: SITE_URL,
   telephone: "+598 95 564 068",
   email: "sch.construcciones2024@gmail.com",
   address: { "@type": "PostalAddress", streetAddress: "Av. Central", addressLocality: "Punta del Diablo", addressRegion: "Rocha", addressCountry: "UY" },
-  areaServed: "Uruguay",
+  areaServed: ["Punta del Diablo", "Rocha", "Uruguay"],
+  slogan: "Construir confianza. Edificar futuro.",
   image: `${SITE_URL}/images/hero-obra-1280.webp`,
   sameAs: [
     "https://www.instagram.com/sch_construcciones_/",
