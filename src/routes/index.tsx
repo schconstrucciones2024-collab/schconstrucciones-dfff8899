@@ -52,11 +52,11 @@ function Index() {
         <Hero />
         <About />
         <CoastBand />
+        <Sistemas />
         <Services />
         <Pillars />
         <Portfolio />
         <Process />
-        <Sistemas />
         <ConfiguratorEntry />
         <Cotizador />
         <Social />
