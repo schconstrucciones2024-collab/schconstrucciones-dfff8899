@@ -96,7 +96,7 @@ function LayerRow({ index, info, present, selected, hidden, onSelect, onToggle }
 }
 
 function InfoCard({ info }: { info: LayerInfo }) {
-  const rows: [string, string][] = [["Qué es", info.description], ["Para qué sirve", info.role], ["Material", info.material], ["Textura", info.texture]];
+  const rows: [string, string][] = [["Qué es", info.description], ["Para qué sirve", info.role], ["Qué te aporta", info.benefit], ["Material", info.material], ["Textura", info.texture]];
   return (
     <div key={info.id + info.short} className="fade-up border border-primary/40 bg-background/[0.04] p-5">
       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">Ficha de la capa</p>
@@ -125,6 +125,9 @@ export function Sistemas() {
   const [locked, setLocked] = useState(false);
   const holder = useRef<HTMLDivElement>(null);
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
+  /** Si la persona ya tocó algún control del visor, no se la "ayuda" con la separación inicial. */
+  const touched = useRef(false);
+  const explodeNow = useRef(0);
 
   // El visor 3D (y sus texturas) se descarga recién cuando la sección está por aparecer.
   useEffect(() => {
@@ -144,6 +147,23 @@ export function Sistemas() {
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+
+  explodeNow.current = state.explode;
+
+  // Una sola vez, cuando el visor ya se ve entero, las capas se separan solas hasta la mitad para mostrar que se pueden
+  // abrir. No toma el scroll de la página: si la persona toca algo o prefiere menos movimiento, no pasa nada.
+  useEffect(() => {
+    const el = holder.current;
+    if (!near || !el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      observer.disconnect();
+      timer = setTimeout(() => { if (!touched.current && explodeNow.current === 0) dispatch({ type: "explode", value: 0.55 }); }, 900);
+    }, { threshold: 0.6 });
+    observer.observe(el);
+    return () => { observer.disconnect(); if (timer) clearTimeout(timer); };
+  }, [near]);
 
   const def = SYSTEMS[state.system];
   const per = state.per[state.system];
@@ -203,7 +223,7 @@ export function Sistemas() {
         <div id="sistema-panel" role="tabpanel" aria-labelledby={`sistema-tab-${state.system}`} className="mt-8 grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-12 lg:gap-10">
           {/* Visor */}
           <div className="min-w-0 lg:col-span-8">
-            <div ref={holder} className="relative isolate flex flex-col overflow-hidden border border-background/15 bg-gradient-to-b from-[#f1eee6] to-[#d8d2c4] shadow-[0_30px_80px_-40px_rgba(0,0,0,0.5)]">
+            <div ref={holder} onPointerDownCapture={() => { touched.current = true; }} onKeyDownCapture={() => { touched.current = true; }} className="relative isolate flex flex-col overflow-hidden border border-background/15 bg-gradient-to-b from-[#f1eee6] to-[#d8d2c4] shadow-[0_30px_80px_-40px_rgba(0,0,0,0.5)]">
               {/* Vistas y comparar: sobre el visor en pantallas grandes, arriba en celulares (así no tapan el modelo) */}
               <div className="order-1 flex min-w-0 flex-wrap items-start justify-between gap-2 p-3 lg:pointer-events-none lg:absolute lg:inset-x-0 lg:top-0 lg:z-10">
                 <div role="group" aria-label="Vista de la cámara" className="flex min-w-0 max-w-full gap-px overflow-x-auto border border-background/20 bg-background/20 lg:pointer-events-auto lg:backdrop-blur-sm">
@@ -367,7 +387,7 @@ export function Sistemas() {
 
             <div className="mt-8" aria-live="polite">
               {selectedInfo ? <InfoCard info={selectedInfo} /> : (
-                <p className="border border-dashed border-background/25 p-5 text-sm leading-6 text-background/65">Tocá una capa en el 3D o en la lista para ver qué es, para qué sirve y de qué material está hecha.</p>
+                <p className="border border-dashed border-background/25 p-5 text-sm leading-6 text-background/65">Tocá una capa en el 3D o en la lista para ver qué es, para qué sirve, qué te aporta y de qué material está hecha.</p>
               )}
             </div>
 
