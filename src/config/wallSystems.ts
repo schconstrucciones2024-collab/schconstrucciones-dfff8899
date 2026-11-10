@@ -54,6 +54,8 @@ export type LayerInfo = {
   short: string;
   description: string;
   role: string;
+  /** Qué le aporta esta capa a la casa y a quien la habita (en términos generales, sin cifras). */
+  benefit: string;
   material: string;
   texture: string;
   /** Si es opcional, la frase que lo aclara. */
@@ -71,51 +73,58 @@ export type SystemDef = {
   compareKey: string;
 };
 
-const INTERIOR_LABELS: Record<string, { name: string; material: string; texture: string; description: string }> = {
+const INTERIOR_LABELS: Record<string, { name: string; material: string; texture: string; description: string; benefit: string }> = {
   yeso: {
     name: "Placa de yeso (Durlock)",
     material: "Placa de yeso con terminación para pintar.",
     texture: "Superficie lisa, blanca y mate, con las juntas entre placas a la vista en el modelo.",
     description: "Placa de yeso que cierra la pared por el lado de adentro. Es la terminación más neutra: se masilla, se pinta y queda lista para cualquier decoración.",
+    benefit: "Superficie pareja y fácil de pintar o renovar el día de mañana, con las instalaciones resueltas detrás.",
   },
   chaponPino: {
     name: "Chapones de pino cepillado",
     material: "Tableros de madera de pino cepillada de primera calidad.",
     texture: "Veta suave de pino, tono claro y cálido, con juntas entre tableros.",
     description: "Tableros de pino cepillado que dejan la madera a la vista en el interior. Aportan calidez y una terminación natural.",
+    benefit: "Ambientes cálidos y acogedores, con la madera como terminación final: no hace falta pintar.",
   },
   chaponEucalipto: {
     name: "Chapones de eucalipto cepillado",
     material: "Tableros de madera de eucalipto cepillada de primera calidad.",
     texture: "Veta marcada de eucalipto, tono más oscuro y rojizo que el pino.",
     description: "Tableros de eucalipto cepillado para un interior de madera de carácter más rústico y de tono más profundo.",
+    benefit: "Un interior con personalidad propia, de tono profundo, que se luce sin agregar otros revestimientos.",
   },
   machimbre: {
     name: "Madera machimbrada de pino",
     material: "Tablas de pino machimbradas (con unión de ranura y lengüeta) de primera calidad.",
     texture: "Tablas verticales de pino con la junta machimbrada marcada.",
     description: "Tablas de pino que encastran unas con otras y dejan un interior de madera continuo y prolijo.",
+    benefit: "Un interior de madera prolijo y continuo, que transmite calidez y se ve cuidado desde el primer día.",
   },
 };
 
-const EXTERIOR_LABELS: Record<string, { name: string; material: string; texture: string; description: string }> = {
+const EXTERIOR_LABELS: Record<string, { name: string; material: string; texture: string; description: string; benefit: string }> = {
   siding: {
     name: "Siding de fibrocemento gris claro",
     material: "Placas de fibrocemento tipo siding, gris claro.",
     texture: "Tablas superpuestas con el relieve del solape y terminación mate.",
     description: "Revestimiento exterior de tablas de fibrocemento superpuestas, de gris claro. Es la terminación predeterminada de SCH: pareja, resistente y de mantenimiento sencillo.",
+    benefit: "Una fachada prolija y duradera que no exige un mantenimiento complicado.",
   },
   tablas: {
     name: "Revestimiento exterior de tablas de madera",
     material: "Tablas de madera.",
     texture: "Tablas superpuestas con veta y nudos a la vista.",
     description: "Tablas de madera que le dan a la fachada un aspecto cálido y natural. Piden un mantenimiento periódico de protección.",
+    benefit: "Una casa que se integra al paisaje, con el calor visual de la madera natural.",
   },
   chapa: {
     name: "Chapa acanalada",
     material: "Chapa metálica acanalada.",
     texture: "Ondas verticales de metal con brillo satinado.",
     description: "Chapa acanalada colocada en vertical. Es una terminación liviana, de estética moderna e industrial.",
+    benefit: "Una fachada liviana y de líneas modernas, con un diseño contemporáneo.",
   },
 };
 
@@ -158,36 +167,42 @@ export const WOOD_FRAME: SystemDef = {
         id: "interior", name: "Revestimiento interior", short: inter.name,
         description: inter.description,
         role: "Es la cara que se ve desde adentro de la casa y protege y cierra el bastidor.",
+        benefit: inter.benefit,
         material: inter.material, texture: inter.texture,
       },
       {
         id: "aislacion", name: "Lana de vidrio", short: "Aislación dentro del bastidor",
         description: "Colchoneta de lana de vidrio que rellena los huecos entre los montantes.",
         role: "Aporta aislación térmica y acústica a la pared.",
+        benefit: "Más confort adentro de la casa y menos ruido y temperatura del exterior.",
         material: "Lana de vidrio.", texture: "Fibras finas entrelazadas, de color amarillo y aspecto esponjoso.",
       },
       {
         id: "estructura", name: "Estructura de madera", short: "Montantes y soleras",
         description: "Bastidor de madera formado por montantes verticales y soleras (piezas horizontales arriba y abajo).",
         role: "Es el esqueleto que sostiene la pared y recibe las demás capas.",
+        benefit: "Una estructura liviana y ordenada, que se arma en seco y se piensa pieza por pieza.",
         material: "Madera de pino tratada.", texture: "Veta longitudinal de pino, con nudos y variaciones de tono.",
       },
       {
         id: "osb", name: "Placa estructural OSB", short: "Cierre rígido del bastidor",
         description: "Placa hecha con virutas de madera orientadas y prensadas con resina, que se fija sobre el bastidor por el lado de afuera.",
         role: "Rigidiza el conjunto y da base firme para las capas exteriores.",
+        benefit: "Una pared firme y estable, con una base pareja para recibir el revestimiento.",
         material: "Virutas de madera orientadas, prensadas.", texture: "Virutas de distintos tonos, con borde y relieve visibles.",
       },
       {
         id: "membrana", name: "Aislante hidrófugo", short: "Membrana contra el agua y el viento",
         description: "Membrana que se coloca sobre la placa estructural, antes del revestimiento exterior.",
         role: "Protege la estructura del agua y del viento que pudiera filtrarse detrás del revestimiento.",
+        benefit: "Una estructura de madera mejor protegida de la humedad y del viento.",
         material: "Membrana hidrófuga. El tipo se define en cada proyecto.", texture: "Lámina liviana de aspecto satinado, con pequeñas arrugas.",
       },
       {
         id: "clavaderas", name: "Clavaderas de madera", short: "Listones sobre la membrana",
         description: "Listones verticales de madera que se fijan sobre la membrana y separan el revestimiento de la pared.",
         role: "Dejan una cámara de aire detrás del revestimiento y le dan dónde fijarse.",
+        benefit: "Un revestimiento mejor fijado y ventilado por detrás, que ayuda a cuidar la pared.",
         material: "Madera de pino.", texture: "Veta longitudinal de pino.",
         optional: "Opcional: se puede construir con o sin clavaderas. Se define en cada proyecto.",
       },
@@ -195,6 +210,7 @@ export const WOOD_FRAME: SystemDef = {
         id: "exterior", name: "Revestimiento exterior", short: exter.name,
         description: exter.description,
         role: "Es la cara que se ve desde afuera: protege la pared de la lluvia y el sol y define la estética de la fachada.",
+        benefit: exter.benefit,
         material: exter.material, texture: exter.texture,
       },
     ];
@@ -237,12 +253,14 @@ export const TRADICIONAL: SystemDef = {
         id: "revoqueInt", name: "Revoque interior", short: "Terminación de adentro",
         description: "Capa de mortero fino que se aplica sobre la mampostería por el lado de adentro y se alisa a llana.",
         role: "Empareja la pared y deja la superficie lista para pintar.",
+        benefit: "Paredes lisas y prolijas, listas para terminar a tu gusto.",
         material: "Mortero de cemento y arena fina.", texture: "Superficie lisa, mate, con leves marcas de llana.",
       },
       {
         id: "mortero", name: "Mortero de asiento", short: "Juntas entre ladrillos",
         description: "Mortero que se coloca entre las piezas, tanto en las juntas horizontales como en las verticales.",
         role: "Une los ladrillos entre sí y reparte las cargas de forma pareja.",
+        benefit: "Una pared trabada y pareja, que funciona como un solo conjunto.",
         material: "Mortero de cemento y arena.", texture: "Superficie granulosa de color gris claro.",
       },
       {
@@ -251,6 +269,9 @@ export const TRADICIONAL: SystemDef = {
           ? "Pared levantada con ladrillos huecos (ticholo): piezas cerámicas con celdas interiores, colocadas trabadas hilada sobre hilada."
           : "Pared levantada con ladrillos comunes macizos, colocados trabados hilada sobre hilada.",
         role: "Cierra y da cuerpo a la pared. Los elementos de hormigón armado la rodean y la refuerzan.",
+        benefit: hueco
+          ? "Una pared de construcción tradicional, sólida y conocida, con cerámica liviana de manejar en obra."
+          : "Una pared maciza y robusta, de aspecto clásico, que da sensación de solidez.",
         material: hueco ? "Cerámica cocida, con huecos interiores." : "Arcilla cocida, maciza.",
         texture: hueco ? "Cara anaranjada con finas estrías de extrusión; los huecos se ven en los cortes." : "Cara rojiza de arcilla cocida, con variaciones de tono entre piezas.",
       },
@@ -258,24 +279,28 @@ export const TRADICIONAL: SystemDef = {
         id: "encadenadoH", name: "Encadenado horizontal", short: "Viga de hormigón armado arriba",
         description: "Viga de hormigón armado que recorre la parte superior de la pared. Se muestra con su armadura de hierros longitudinales y estribos.",
         role: "Ata la pared en todo su largo y reparte lo que se apoya arriba.",
+        benefit: "Una estructura que trabaja unida, con más seguridad para todo lo que se apoya sobre la pared.",
         material: "Hormigón armado.", texture: "Hormigón gris con poros; hierros de acero lisos.",
       },
       {
         id: "encadenadoV", name: "Encadenado vertical", short: "Columnas de hormigón armado",
         description: "Columnas de hormigón armado en los extremos de la pared, con hierros verticales y estribos.",
         role: "Atan la pared de abajo hacia arriba y la vinculan con el resto de la estructura.",
+        benefit: "Una casa mejor atada, con la pared vinculada a la estructura en toda su altura.",
         material: "Hormigón armado.", texture: "Hormigón gris con poros; hierros de acero lisos.",
       },
       {
         id: "dintel", name: "Dintel", short: "Refuerzo sobre la abertura",
         description: "Pieza de hormigón armado que cubre la abertura y apoya a ambos lados.",
         role: "Sostiene la mampostería que queda sobre la ventana.",
+        benefit: "Aberturas bien resueltas, con la pared de arriba firmemente apoyada.",
         material: "Hormigón armado.", texture: "Hormigón gris con poros; hierros de acero lisos.",
       },
       {
         id: "revoqueExt", name: "Revoque exterior", short: "Terminación de afuera",
         description: "Revoque que cubre la mampostería y los elementos de hormigón por el lado de afuera.",
         role: "Protege la pared de la lluvia y da la terminación de la fachada.",
+        benefit: "Una fachada protegida del clima y con terminación pareja, lista para pintar.",
         material: "Mortero de cemento y arena.", texture: "Superficie rugosa de grano fino, color arena grisácea.",
         optional: "Se puede ver la pared con y sin terminación exterior para entender cómo está armada.",
       },
