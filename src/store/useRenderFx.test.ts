@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { NO_LIMITS } from "@/lib/renderQuality";
 import { fxOf, useRenderFx } from "./useRenderFx";
 
 const st = () => useRenderFx.getState();
-const fresh = () => useRenderFx.setState({ quality: "economico", auto: true, failed: null, initialized: false, notice: null, ao: true, bloom: true, reflections: true, cine: true });
+const fresh = () => useRenderFx.setState({ quality: "economico", auto: true, failed: null, initialized: false, limits: NO_LIMITS, notice: null, ao: true, bloom: true, reflections: true, cine: true });
 
 describe("calidad de render (estado)", () => {
   beforeEach(fresh);
@@ -61,5 +62,14 @@ describe("calidad de render (estado)", () => {
   it("una calidad inválida cae en Económico en lugar de romper el visor", () => {
     st().setQuality("inexistente" as never);
     expect(st().quality).toBe("economico");
+  });
+  it("init guarda los límites del equipo y fxOf los aplica (celular: sin MSAA, con sombras en Ultra)", () => {
+    st().init({ mobile: true, cores: 8 });
+    expect(st().limits.limited).toBe(true);
+    st().setQuality("ultra");
+    const fx = fxOf(st());
+    expect(fx.msaa).toBe(0);
+    expect(fx.fxaa).toBe(true);
+    expect(fx.shadows).toEqual({ enabled: true, size: 2048 });
   });
 });

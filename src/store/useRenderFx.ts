@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { ALL_FX, PROFILES, defaultQuality, effectiveFx, lowerQuality, type DeviceInfo, type EffectiveFx, type FxToggles, type QualityId } from "@/lib/renderQuality";
+import { ALL_FX, NO_LIMITS, PROFILES, defaultQuality, deviceLimits, effectiveFx, lowerQuality, type DeviceInfo, type DeviceLimits, type EffectiveFx, type FxToggles, type QualityId } from "@/lib/renderQuality";
 
 /**
  * Calidad de render del visor y efectos de postproducción. Está separado de `useConfigurator` (diseño y precio)
@@ -12,6 +12,8 @@ export type RenderFxState = FxToggles & {
   /** Motivo por el que la postproducción se apagó sola (`null` = funciona). */
   failed: string | null;
   initialized: boolean;
+  /** Límites del equipo (celular, pocos núcleos): se fijan en `init`. */
+  limits: DeviceLimits;
   notice: string | null;
 
   /** Elige la calidad inicial según el equipo (una sola vez por carga de la página). */
@@ -38,11 +40,12 @@ export const useRenderFx = create<RenderFxState>()((set, get) => ({
   auto: true,
   failed: null,
   initialized: false,
+  limits: NO_LIMITS,
   notice: null,
 
   init: (device) => {
     if (get().initialized) return;
-    set({ quality: defaultQuality(device), initialized: true });
+    set({ quality: defaultQuality(device), limits: deviceLimits(device), initialized: true });
   },
   setQuality: (id) => set({ quality: PROFILES[id] ? id : "economico", failed: null, notice: `Calidad de render: ${PROFILES[id]?.label ?? "Económico"}.` }),
   setAuto: (auto) => set({ auto }),
@@ -62,5 +65,5 @@ export const useRenderFx = create<RenderFxState>()((set, get) => ({
 }));
 
 /** Lo que queda activo hoy (perfil + interruptores + falla). Es un valor nuevo en cada llamada: usarlo con `useMemo`. */
-export const fxOf = (s: Pick<RenderFxState, "quality" | "ao" | "bloom" | "reflections" | "cine" | "failed">): EffectiveFx =>
-  effectiveFx(s.quality, { ao: s.ao, bloom: s.bloom, reflections: s.reflections, cine: s.cine }, s.failed !== null);
+export const fxOf = (s: Pick<RenderFxState, "quality" | "ao" | "bloom" | "reflections" | "cine" | "failed"> & { limits?: DeviceLimits }): EffectiveFx =>
+  effectiveFx(s.quality, { ao: s.ao, bloom: s.bloom, reflections: s.reflections, cine: s.cine }, s.failed !== null, s.limits);

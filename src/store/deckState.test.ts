@@ -71,6 +71,35 @@ describe("deck en el estado del diseño", () => {
     expect(st().config.deck.enabled).toBe(true);
   });
 
+  it("la línea Esencial o Premium se elige, se guarda en el diseño, se deshace y no cambia las medidas", () => {
+    expect(st().config.deck.line).toBe("esencial");
+    st().setDeck({ enabled: true, width: 5, depth: 2.5 });
+    st().setDeck({ line: "premium" });
+    expect(st().config.deck).toMatchObject({ enabled: true, line: "premium", width: 5, depth: 2.5 });
+    st().undo();
+    expect(st().config.deck.line).toBe("esencial");
+    st().redo();
+    expect(st().config.deck.line).toBe("premium");
+    // Se puede elegir antes de activar el deck.
+    fresh();
+    st().setDeck({ line: "premium" });
+    expect(st().config.deck).toMatchObject({ enabled: false, line: "premium" });
+    // Un valor que no existe vuelve a Esencial.
+    st().setDeck({ line: "lujo" as never });
+    expect(st().config.deck.line).toBe("esencial");
+  });
+
+  it("la línea viaja en el link compartido y un link viejo, sin línea, se abre en Esencial", () => {
+    st().setDeck({ enabled: true, roofed: true, line: "premium", railFront: true });
+    const back = decodeDesign(encodeDesign(st().config));
+    expect(back?.deck.line).toBe("premium");
+    expect(back?.deck).toEqual(st().config.deck);
+    const { line: _omit, ...viejo } = st().config.deck;
+    const old = decodeDesign(encodeDesign({ ...st().config, deck: viejo as never }));
+    expect(old?.deck.line).toBe("esencial");
+    expect(old?.deck.roofed).toBe(true);
+  });
+
   it("viaja en el link compartido", () => {
     st().setDeck({ enabled: true, roofed: true, width: 6, depth: 3, railLeft: true, steps: true });
     const back = decodeDesign(encodeDesign(st().config));
