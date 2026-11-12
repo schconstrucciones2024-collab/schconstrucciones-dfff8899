@@ -6,7 +6,7 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader.js";
-import { looksBlank, samplePoints, type AoConfig, type FxParams } from "@/lib/renderQuality";
+import { looksBlank, looksWashedOut, samplePoints, type AoConfig, type FxParams } from "@/lib/renderQuality";
 
 /**
  * Cadena de postproducción del visor, armada solo con lo que ya trae Three (sin librerías nuevas):
@@ -200,8 +200,21 @@ export function renderOnce(gl: THREE.WebGLRenderer, scene: THREE.Scene, camera: 
   }
 }
 
-/** `true` si el cuadro que acaba de dibujarse en el canvas está completamente negro (la postproducción no funciona en este equipo). */
-export function frameIsBlank(gl: THREE.WebGLRenderer): boolean {
+/**
+ * La cadena trabaja en alto rango dinámico (HalfFloat): hace falta poder dibujar en texturas de coma flotante. Casi todos los
+ * equipos pueden; los que no, mostraban la imagen vacía o "lavada". Mejor saberlo antes de armar la cadena.
+ */
+export function supportsPostFx(gl: THREE.WebGLRenderer): boolean {
+  try {
+    const ext = gl.extensions;
+    return ext.has("EXT_color_buffer_float") || ext.has("EXT_color_buffer_half_float");
+  } catch {
+    return true;
+  }
+}
+
+/** Qué le pasa al cuadro que acaba de dibujarse en el canvas: `"blank"` (negro) o `"washed"` (blanco lavado); `null` si está bien. */
+export function frameProblem(gl: THREE.WebGLRenderer): "blank" | "washed" | null {
   try {
     const ctx = gl.getContext();
     gl.setRenderTarget(null);
@@ -210,8 +223,9 @@ export function frameIsBlank(gl: THREE.WebGLRenderer): boolean {
       ctx.readPixels(p.x, p.y, 1, 1, ctx.RGBA, ctx.UNSIGNED_BYTE, px);
       all.push(px[0] ?? 0, px[1] ?? 0, px[2] ?? 0, px[3] ?? 0);
     }
-    return looksBlank(all);
+    if (looksBlank(all)) return "blank";
+    return looksWashedOut(all) ? "washed" : null;
   } catch {
-    return false;
+    return null;
   }
 }

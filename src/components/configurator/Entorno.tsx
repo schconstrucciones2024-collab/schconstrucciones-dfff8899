@@ -30,7 +30,7 @@ export class SafeBoundary extends Component<{ children: ReactNode; fallback: Rea
 }
 
 /** Luces y fondo de antes (fijos). Se usan solo si la atmósfera nueva falla. */
-export function StaticLights({ palette, low }: { palette: ScenePalette; low: boolean }) {
+export function StaticLights({ palette, shadows }: { palette: ScenePalette; shadows: boolean }) {
   return (
     <>
       <color attach="background" args={[palette.sky]} />
@@ -39,7 +39,7 @@ export function StaticLights({ palette, low }: { palette: ScenePalette; low: boo
       <directionalLight
         position={[-12, 18, 10]}
         intensity={2.5}
-        castShadow={!low}
+        castShadow={shadows}
         shadow-mapSize={[2048, 2048]}
         shadow-normalBias={0.02}
         shadow-camera-left={-20}
@@ -91,7 +91,8 @@ void main() {
 const CLOUDS: { a: number; y: number; w: number }[] = Array.from({ length: 10 }, (_, i) => ({ a: i * 0.63 + 0.2, y: 30 + (i % 4) * 8, w: 70 + (i % 3) * 25 }));
 
 /** Cielo y luces que siguen la hora del día, con transición progresiva. Reemplaza a las luces fijas de antes. */
-export function Atmosphere({ low, active, shadowSize = 2048 }: { low: boolean; active: boolean; shadowSize?: number }) {
+/** `low`: equipo limitado (sin deriva de nubes). `shadows`: si el sol proyecta sombras (lo decide la calidad de render). */
+export function Atmosphere({ low, active, shadows, shadowSize = 2048 }: { low: boolean; active: boolean; shadows: boolean; shadowSize?: number }) {
   const { scene, gl, invalidate } = useThree();
   const c = useConfigurator((s) => s.config);
   const clouds = useEntorno((s) => s.clouds);
@@ -222,7 +223,7 @@ export function Atmosphere({ low, active, shadowSize = 2048 }: { low: boolean; a
         ref={sun}
         position={[-12, 18, 10]}
         intensity={2.5}
-        castShadow={!low}
+        castShadow={shadows}
         shadow-mapSize={[shadowSize, shadowSize]}
         shadow-normalBias={0.02}
         shadow-camera-left={-20}
@@ -294,7 +295,7 @@ function buildTree(kind: TreeKind): THREE.BufferGeometry {
 }
 
 /** Árboles, arbustos y palmeras. El árbol seleccionado se muestra con un aro y se puede arrastrar. */
-export function Trees({ low, palette }: { low: boolean; palette: ScenePalette }) {
+export function Trees({ shadows, palette }: { shadows: boolean; palette: ScenePalette }) {
   const trees = useEntorno((s) => s.trees);
   const show = useEntorno((s) => s.showVegetation);
   const selected = useEntorno((s) => s.selectedTree);
@@ -314,7 +315,7 @@ export function Trees({ low, palette }: { low: boolean; palette: ScenePalette })
           <mesh
             geometry={geometries[t.kind]}
             material={material}
-            castShadow={!low}
+            castShadow={shadows}
             receiveShadow
             onPointerDown={(e) => {
               if (placing) return;

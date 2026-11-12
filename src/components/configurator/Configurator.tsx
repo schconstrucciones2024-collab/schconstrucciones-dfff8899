@@ -11,10 +11,12 @@ import {
 import { SYSTEMS } from "@/lib/cotizador";
 import { systemOf } from "@/config/systems";
 import { Panels, STEPS } from "./Panels";
+import { DesignerIntro } from "./DesignerIntro";
 import { SystemSelector } from "./SystemSelector";
 import { Summary } from "./Summary";
 import "./configurator.css";
 const Viewer3D = lazy(() => import("./Viewer3D"));
+const PlanStudio = lazy(() => import("./PlanStudio"));
 class ViewerBoundary extends Component<
   { children: ReactNode; onFail: () => void },
   { failed: boolean }
@@ -34,6 +36,8 @@ export default function Configurator() {
   const [step, setStep] = useState(0),
     [failed, setFailed] = useState(false),
     [viewerAttempt, setViewerAttempt] = useState(0),
+    [mode, setMode] = useState<"3d" | "plano">("3d"),
+    [handoff, setHandoff] = useState<string | null>(null),
     s = useConfigurator();
   useEffect(() => {
     // Siempre abrimos con la distribución sugerida (Compacta abierta).
@@ -92,10 +96,53 @@ export default function Configurator() {
               Diseñá tu casa
             </h2>
           </div>
-          <span className="text-xs text-foreground/60">
-            {Number(s.config.m2.toFixed(2))} m² · {s.config.openings.length} aberturas
-          </span>
+          {mode === "3d" && (
+            <span className="text-xs text-foreground/60">
+              {Number(s.config.m2.toFixed(2))} m² · {s.config.openings.length} aberturas
+            </span>
+          )}
         </div>
+        <DesignerIntro />
+        <div role="tablist" aria-label="Modo del diseñador" className="mb-6 grid gap-1 border border-border bg-background p-1 sm:grid-cols-2">
+          {([
+            { id: "3d", name: "Diseñar en 3D", text: "Armá tu casa y recorrela" },
+            { id: "plano", name: "Dibujar plano 1:1", text: "Paredes, puertas y ventanas en medidas reales" },
+          ] as const).map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              role="tab"
+              id={`modo-${m.id}`}
+              aria-selected={mode === m.id}
+              aria-controls="modo-panel"
+              onClick={() => { setMode(m.id); if (m.id === "plano") setHandoff(null); }}
+              className={`flex min-h-14 flex-col items-start justify-center px-4 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${mode === m.id ? "bg-primary text-primary-foreground" : "hover:bg-secondary"}`}
+            >
+              <span className="text-sm font-semibold">{m.name}</span>
+              <span className={`text-[11px] ${mode === m.id ? "text-primary-foreground/85" : "text-foreground/65"}`}>{m.text}</span>
+            </button>
+          ))}
+        </div>
+        <div id="modo-panel" role="tabpanel" aria-labelledby={`modo-${mode}`}>
+        {mode === "plano" ? (
+          <Suspense fallback={<div className="border-y border-border py-10 text-sm text-foreground/70" role="status">Preparando el plano…</div>}>
+            <PlanStudio
+              onShow3D={(message) => {
+                setHandoff(message);
+                setMode("3d");
+                setStep(0);
+                document.getElementById("modo-panel")?.scrollIntoView({ block: "start", behavior: "smooth" });
+              }}
+            />
+          </Suspense>
+        ) : (
+        <>
+        {handoff && (
+          <div role="status" className="mb-4 flex items-start justify-between gap-3 border border-primary/50 bg-primary/5 p-3 text-sm leading-6">
+            <p>{handoff}</p>
+            <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" aria-label="Cerrar aviso" onClick={() => setHandoff(null)}>×</Button>
+          </div>
+        )}
         <SystemSelector />
         <EditorToolbar />
         {!failed && <EntornoToolbar onStep={changeStep} />}
@@ -191,6 +238,9 @@ export default function Configurator() {
             </div>
           </div>
         )}
+        </>
+        )}
+        </div>
       </div>
     </section>
   );

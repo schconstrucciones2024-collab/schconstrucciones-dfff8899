@@ -4,7 +4,7 @@ import { sceneGlow, skyClock } from "@/store/useEntorno";
 import { useRenderFx } from "@/store/useRenderFx";
 import { skyAt } from "@/lib/skyModel";
 import { createGovernor, fxParams, type EffectiveFx, type FxParams } from "@/lib/renderQuality";
-import { createPipeline, frameIsBlank, renderOnce, type Pipeline, type PipelineConfig } from "./renderPipeline";
+import { createPipeline, frameProblem, renderOnce, supportsPostFx, type Pipeline, type PipelineConfig } from "./renderPipeline";
 import { useEffectiveFx } from "./useEffectiveFx";
 
 /**
@@ -45,6 +45,10 @@ export function PostFX({ api }: { api: MutableRefObject<PostApi | null> }) {
   useEffect(() => {
     if (!fx.post) return;
     const config = configOf(fxRef.current);
+    if (!supportsPostFx(gl)) {
+      useRenderFx.getState().fail("este dispositivo no puede dibujar con efectos de alto rango. Se usa el render simple.");
+      return;
+    }
     let made: Pipeline;
     try {
       made = createPipeline({ gl, scene, camera: get().camera, width: sizeRef.current.width, height: sizeRef.current.height, pixelRatio: gl.getPixelRatio(), config, params: paramsRef.current });
@@ -110,9 +114,12 @@ function Frame({ pipeline, paramsRef }: { pipeline: Pipeline; paramsRef: Mutable
       return;
     }
     r.frames++;
-    if (BLANK_CHECKS.includes(r.frames) && frameIsBlank(gl)) {
-      useRenderFx.getState().fail("la imagen con efectos salió vacía en este dispositivo. Se usa el render simple.");
-      return;
+    if (BLANK_CHECKS.includes(r.frames)) {
+      const problem = frameProblem(gl);
+      if (problem) {
+        useRenderFx.getState().fail(problem === "blank" ? "la imagen con efectos salió vacía en este dispositivo. Se usa el render simple." : "la imagen con efectos salió lavada (casi toda blanca) en este dispositivo. Se usa el render simple.");
+        return;
+      }
     }
     const fxState = useRenderFx.getState();
     if (fxState.auto && governor.push(delta * 1000) === "down") fxState.degrade();

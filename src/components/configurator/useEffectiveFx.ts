@@ -10,5 +10,6 @@ export function useEffectiveFx(): EffectiveFx {
   const reflections = useRenderFx((s) => s.reflections);
   const cine = useRenderFx((s) => s.cine);
   const failed = useRenderFx((s) => s.failed);
-  return useMemo(() => fxOf({ quality, ao, bloom, reflections, cine, failed }), [quality, ao, bloom, reflections, cine, failed]);
+  const limits = useRenderFx((s) => s.limits);
+  return useMemo(() => fxOf({ quality, ao, bloom, reflections, cine, failed, limits }), [quality, ao, bloom, reflections, cine, failed, limits]);
 }

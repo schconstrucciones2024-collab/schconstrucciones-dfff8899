@@ -939,7 +939,6 @@ function Roof({ c, palette }: { c: HouseConfig; palette: ScenePalette }) {
  */
 function DeckScene({ c, cut }: { c: HouseConfig; cut: boolean }) {
   const woodMap = useMaterial("pisoPino"),
-    pileMap = useMaterial("maderaPilote"),
     door = c.openings.find((o) => o.floor === 0 && o.wall === DECK_WALL && OPENINGS_CATALOG[o.type].door),
     doorOffset = door ? door.offset : null,
     thickness = exteriorThickness(c.finish),
@@ -956,7 +955,6 @@ function DeckScene({ c, cut }: { c: HouseConfig; cut: boolean }) {
       placement={placement}
       topY={deckTopY(floorBase(c))}
       woodMap={woodMap}
-      pileMap={pileMap}
       showRoofSheet={!cut}
     />
   );

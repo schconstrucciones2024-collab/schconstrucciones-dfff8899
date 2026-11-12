@@ -337,7 +337,8 @@ export default function Viewer3D({ onFail }: { onFail: () => void }) {
   }, []);
   useEffect(() => {
     setPalette(resolvePalette());
-    const mobile = window.matchMedia("(max-width: 767px)").matches;
+    // Celular o tableta: pantalla chica, o pantalla táctil sin mouse (también en horizontal).
+    const mobile = window.matchMedia("(max-width: 767px)").matches || window.matchMedia("(pointer: coarse) and (hover: none)").matches;
     setLow(mobile || navigator.hardwareConcurrency <= 4);
     // Calidad de render inicial según el equipo (una sola vez por carga de la página; después manda lo que elija la persona).
     const nav = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
@@ -458,10 +459,10 @@ export default function Viewer3D({ onFail }: { onFail: () => void }) {
       {palette && (
         <Canvas
           frameloop="demand"
-          shadows={!low}
+          shadows
           dpr={[1, fx.post ? fx.profile.dprMax : low ? 1.5 : 2]}
           camera={{ position: [12, 9, 14], fov: 45, near: 0.08, far: 180 }}
-          gl={{ antialias: true, preserveDrawingBuffer: true, powerPreference: "high-performance" }}
+          gl={{ antialias: true, alpha: false, preserveDrawingBuffer: true, powerPreference: "high-performance" }}
           onPointerMissed={() => {
             // Tocar el terreno vacío deselecciona el árbol (si no se está plantando uno nuevo).
             const e = useEntorno.getState();
@@ -482,8 +483,8 @@ export default function Viewer3D({ onFail }: { onFail: () => void }) {
             </div>
           }
         >
-          <SafeBoundary label="El cielo y las luces" fallback={<StaticLights palette={palette} low={low} />}>
-            <Atmosphere low={low} active={visible} shadowSize={fx.profile.shadowMap} />
+          <SafeBoundary label="El cielo y las luces" fallback={<StaticLights palette={palette} shadows={fx.shadows.enabled} />}>
+            <Atmosphere low={low} active={visible} shadows={fx.shadows.enabled} shadowSize={fx.shadows.size} />
           </SafeBoundary>
           {fx.reflections ? (
             <SafeBoundary label="Los reflejos del cielo" fallback={<StaticEnvironment palette={palette} />}>
@@ -497,7 +498,7 @@ export default function Viewer3D({ onFail }: { onFail: () => void }) {
             <House palette={palette} dragging={dragging} setDragging={setDragging} />
           </Suspense>
           <SafeBoundary label="La vegetación" fallback={null}>
-            <Trees low={low} palette={palette} />
+            <Trees shadows={fx.shadows.enabled} palette={palette} />
             <TreeInteraction palette={palette} />
           </SafeBoundary>
           <CameraRig
