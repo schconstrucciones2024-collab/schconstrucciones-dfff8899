@@ -230,3 +230,131 @@ describe("deck 3D: techo", () => {
     expect(starts[1]! - starts[0]!).toBeCloseTo(0.1, 6);
   });
 });
+
+describe("deck 3D: las dos líneas (misma estructura, distinta calidad)", () => {
+  const cfg = { width: 6, depth: 3, ...base, roofed: true, railFront: true, railLeft: true, railRight: true };
+  const E = deckLayout({ ...cfg, line: "esencial" }, 0.79, 0);
+  const P = deckLayout({ ...cfg, line: "premium" }, 0.79, 0);
+  const all = (L: typeof E) => [...L.boards, ...L.frame, ...L.piles, ...L.steps, ...L.rails, ...L.fascia, ...L.screws];
+
+  it("sin indicar la línea se dibuja la Esencial, igual que siempre", () => {
+    const D = deckLayout(cfg, 0.79, 0);
+    expect(D.line).toBe("esencial");
+    expect(D.boards).toEqual(E.boards);
+    expect(D.frame).toEqual(E.frame);
+    expect(D.roof?.posts).toEqual(E.roof?.posts);
+  });
+
+  it("la estructura es la misma: tablas, pilotes y plano del techo coinciden", () => {
+    expect(P.boards).toHaveLength(E.boards.length);
+    expect(P.boards.map((b) => b.pos)).toEqual(E.boards.map((b) => b.pos));
+    expect(P.piles).toEqual(E.piles);
+    expect(P.roof!.plane).toEqual(E.roof!.plane);
+    expect(P.roof!.sheet.width).toBe(E.roof!.sheet.width);
+    // Los mismos ejes de columnas: la Esencial usa postes dobles y la Premium una columna por eje.
+    expect(E.roof!.posts.length).toBe(P.roof!.posts.length * 2);
+    // La baranda mide 1 m sobre las tablas en las dos.
+    for (const L of [E, P]) {
+      const top = Math.max(...L.rails.map((b) => extent(b).y[1]));
+      expect(top).toBeCloseTo(0.79 + DECK_3D.barandaAltura, 6);
+    }
+  });
+
+  it("Esencial: madera al natural, tornillos a la vista, canto recto y sin zócalo, canaletas ni herrajes", () => {
+    expect(E.screws.length).toBeGreaterThan(100);
+    expect(E.boards.every((b) => b.bevel === undefined)).toBe(true);
+    expect(E.fascia).toHaveLength(0);
+    expect(E.roof!.hardware).toHaveLength(0);
+    expect(E.roof!.trim).toHaveLength(0);
+    expect(E.roof!.planeTrim).toHaveLength(0);
+    // Dos travesaños por tramo y no un listonado.
+    expect(E.rails.filter((b) => b.size[1] === DECK_3D.barandaTravesaño[1])).not.toHaveLength(0);
+  });
+
+  it("Premium: cantos trabajados, zócalo, tirantes más densos y sobredimensionados, sin tornillos a la vista", () => {
+    expect(P.boards.every((b) => (b.bevel ?? 0) > 0)).toBe(true);
+    expect(P.screws).toHaveLength(0);
+    expect(P.fascia.length).toBeGreaterThan(0);
+    const joists = (L: typeof E) => L.frame.filter((b) => b.size[2] > 1 && b.size[0] < 0.1);
+    expect(joists(P).length).toBeGreaterThan(joists(E).length);
+    expect(Math.min(...joists(P).map((b) => b.size[0]))).toBeGreaterThan(
+      Math.min(...joists(E).map((b) => b.size[0])),
+    );
+    // El zócalo tapa el canto de las tablas y de los tirantes: del nivel de las tablas hacia abajo.
+    for (const b of P.fascia) expect(extent(b).y[1]).toBeCloseTo(0.79, 6);
+  });
+
+  it("Premium: la baranda lleva un listonado horizontal denso (hueco libre menor a 10 cm) y un pasamanos biselado", () => {
+    const slats = P.rails.filter((b) => b.size[1] === 0.04 && b.size[2] === 0.03 && b.pos[2] > 2.5);
+    expect(slats.length).toBeGreaterThan(E.rails.length / 3);
+    const ys = [...new Set(slats.map((b) => Math.round(b.pos[1] * 1e4) / 1e4))].sort((a, b) => a - b);
+    expect(ys.length).toBeGreaterThanOrEqual(8);
+    for (let i = 1; i < ys.length; i++) expect(ys[i]! - ys[i - 1]! - 0.04).toBeLessThan(0.1);
+    expect(P.rails.some((b) => (b.bevel ?? 0) >= 0.008 && b.size[1] === 0.05)).toBe(true);
+    expect(P.rails.length).toBeGreaterThan(E.rails.length);
+  });
+
+  it("Premium: columnas únicas de mayor escuadría, herrajes galvanizados, babetas, canaleta y bajadas de agua", () => {
+    const r = P.roof!;
+    const ecol = E.roof!.posts[0]!.size,
+      pcol = r.posts[0]!.size;
+    expect(pcol[0]).toBeGreaterThan(ecol[0] * 1.5);
+    expect(pcol[2]).toBeGreaterThanOrEqual(ecol[2]);
+    expect(r.hardware.length).toBeGreaterThanOrEqual(r.posts.length * 2);
+    expect(r.planeTrim.length).toBeGreaterThanOrEqual(2);
+    // Canaleta al ancho de la chapa y al menos dos bajadas que llegan al suelo.
+    const gutter = r.trim.find((b) => b.size[0] > 1)!;
+    expect(gutter.size[0]).toBeCloseTo(r.sheet.width, 6);
+    const downs = r.trim.filter((b) => b.size[0] === 0.07);
+    expect(downs.length).toBeGreaterThanOrEqual(2);
+    for (const d of downs) {
+      expect(extent(d).y[0]).toBeCloseTo(0, 6);
+      expect(extent(d).y[1]).toBeLessThanOrEqual(extent(gutter).y[1] + EPS);
+    }
+    // La canaleta queda al frente del techo, más allá del deck.
+    expect(gutter.pos[2]).toBeGreaterThan(cfg.depth);
+  });
+
+  it("las bajadas de agua no caen sobre los escalones", () => {
+    for (const [W, doorX] of [[6, 2.5], [6, -2.5], [8, 0], [10, 1]] as const) {
+      const L = deckLayout({ ...cfg, width: W, steps: true, line: "premium" }, 0.79, doorX);
+      const xEsc = Math.max(-(W - 1.2) / 2, Math.min((W - 1.2) / 2, doorX));
+      for (const d of L.roof!.trim.filter((b) => b.size[0] === 0.07))
+        expect(Math.abs(d.pos[0] - xEsc), `W=${W} puerta ${doorX}`).toBeGreaterThanOrEqual(0.6);
+    }
+  });
+
+  it("en las dos líneas nada queda bajo el suelo ni pasa de 3,30 m de madera", () => {
+    for (const L of [E, P]) {
+      for (const b of [...all(L), ...(L.roof?.hardware ?? []), ...(L.roof?.trim ?? [])])
+        expect(extent(b).y[0]).toBeGreaterThanOrEqual(-EPS);
+      for (const b of [...L.boards, ...L.frame, ...L.fascia, ...(L.roof?.planeBoxes ?? [])])
+        expect(Math.max(...b.size)).toBeLessThanOrEqual(DECK_3D.largoMadera + 0.1);
+    }
+  });
+
+  it("un deck de 100 × 50 m en Premium se calcula liviano: sin bisel en las tablas y menos de 80.000 piezas", () => {
+    const L = deckLayout(
+      { width: 100, depth: 50, ...base, roofed: true, railFront: true, railLeft: true, railRight: true, steps: true, line: "premium" },
+      0.99,
+      0,
+    );
+    const total =
+      all(L).length + (L.roof ? L.roof.posts.length + L.roof.planeBoxes.length + L.roof.hardware.length + L.roof.trim.length : 0);
+    expect(total).toBeLessThan(80000);
+    expect(L.boards.every((b) => b.bevel === undefined)).toBe(true);
+  });
+
+  it("un deck de 100 × 50 m en Esencial no dibuja tornillos (serían miles)", () => {
+    const L = deckLayout({ width: 100, depth: 50, ...base, line: "esencial" }, 0.99, 0);
+    expect(L.screws).toHaveLength(0);
+  });
+
+  it("la chapa acanalada tiene onda de 7,6 cm y 1,8 cm de altura", () => {
+    const p = sheetProfile(4, 0.076, 0.018, "acanalada");
+    expect(Math.max(...p.map(([, h]) => h))).toBeCloseTo(0.018, 6);
+    expect(Math.min(...p.map(([, h]) => h))).toBeCloseTo(0, 9);
+    const crests = p.filter(([, h]) => h > 0.0179).map(([x]) => x);
+    expect(crests[1]! - crests[0]!).toBeCloseTo(0.076, 6);
+  });
+});

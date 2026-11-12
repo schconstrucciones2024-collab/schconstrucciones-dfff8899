@@ -9,7 +9,7 @@ import {
   withExtras,
   type LogisticsSelection,
 } from "@/lib/cotizador";
-import { BARANDA_PRECIO_ML, DECK_TEXTOS, deckLabel, type DeckConfig } from "./deck";
+import { DECK_TEXTOS, deckLabel, deckLineName, type DeckConfig } from "./deck";
 import type { FinishId } from "./materials";
 import { systemOf } from "./systems";
 
@@ -116,8 +116,8 @@ export function configWhatsAppText(input: PriceInput & { openings: number }) {
       parts = [`Extras opcionales (no incluidos en el presupuesto de la vivienda): ${deckLabel(input.deck)}`];
     if (extra.subtotal === null) parts.push(`Deck: ${DECK_TEXTOS.escalonesPrecio}`);
     else {
-      parts.push(`${input.deck.roofed ? "Deck techado" : "Deck"}: ${formatUSD(extra.deck ?? 0)}`);
-      if (extra.railMl > 0) parts.push(`Barandas: ${extra.railMl} ml × USD ${BARANDA_PRECIO_ML} = ${formatUSD(extra.rails ?? 0)}`);
+      parts.push(`${input.deck.roofed ? "Deck techado" : "Deck"} ${deckLineName(input.deck.line)}: ${formatUSD(extra.deck ?? 0)}`);
+      if (extra.railMl > 0) parts.push(`Barandas ${deckLineName(input.deck.line)}: ${extra.railMl} ml × USD ${extra.railRate} = ${formatUSD(extra.rails ?? 0)}`);
     }
     if (input.deck.steps) parts.push(`Escalones: ${DECK_TEXTOS.escalonesPrecio}`);
     if (extra.total !== null && extra.percentage > 0) parts.push(`Logística del extra (${extra.percentage}%): ${formatUSD(extra.surcharge ?? 0)}`);
