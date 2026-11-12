@@ -2,18 +2,22 @@ import { useState, type ReactNode } from "react";
 import { Check, ChevronDown, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import {
-  BARANDA_PRECIO_ML,
   DECK_A_COTIZAR,
-  DECK_INCLUYE,
   DECK_LIMITES,
-  DECK_NO_INCLUYE,
-  DECK_TECHADO_PRECIO_M2,
+  DECK_LINEAS,
+  DECK_LINES,
+  DECK_NOTA_TECHO,
   DECK_TEXTOS,
   DEFAULT_DECK,
   deckArea,
+  deckLineName,
+  deckNoIncluye,
   deckPrice,
   deckRailMl,
+  deckRates,
   type DeckConfig,
+  type DeckLine,
+  type DeckSpecGroup,
 } from "@/config/deck";
 import { deckExtra, formatUSD, type LogisticsSelection } from "@/lib/cotizador";
 
@@ -43,7 +47,8 @@ export function DeckPanel({
   /** Lo que va entre el precio del extra y los desplegables (en el cotizador, el resumen por categoría). */
   children?: ReactNode;
 }) {
-  const page = variant === "page";
+  const page = variant === "page",
+    rates = deckRates(deck.line);
   return (
     <section aria-labelledby={`${idPrefix}-title`} className={page ? "mt-16" : ""}>
       {page ? (
@@ -84,21 +89,27 @@ export function DeckPanel({
             : "mt-4 space-y-4"
         }
       >
-        <div className="space-y-3">
+        <div className="min-w-0 space-y-3">
+          <LineSelector
+            idPrefix={idPrefix}
+            value={deck.line}
+            onChange={(line) => onChange({ line })}
+          />
           <ToggleRow
             id={`${idPrefix}-deck`}
             label={DECK_TEXTOS.deckTitulo}
-            description={DECK_TEXTOS.deck}
+            description={DECK_TEXTOS.deckDescripcion[deck.line]}
+            hint={`USD ${rates.deck}/m² · línea ${deckLineName(deck.line)}.`}
             checked={deck.enabled}
             onChange={(on) => onChange({ enabled: on, ...(on ? {} : { roofed: false }) })}
           />
           <ToggleRow
             id={`${idPrefix}-techo`}
             label={DECK_TEXTOS.techoTitulo}
-            description={DECK_TEXTOS.techo}
+            description={DECK_TEXTOS.techoDescripcion[deck.line]}
             hint={
               deck.enabled
-                ? `USD ${DECK_TECHADO_PRECIO_M2}/m², ya incluye el deck.`
+                ? `USD ${rates.techado}/m², ya incluye el deck.`
                 : DECK_TEXTOS.techoNecesitaDeck
             }
             checked={deck.roofed}
@@ -108,7 +119,7 @@ export function DeckPanel({
 
           {deck.enabled && (
             <div className="space-y-4 border border-border bg-card p-4">
-              <fieldset>
+              <fieldset className="min-w-0">
                 <legend className="text-xs uppercase tracking-[0.15em] text-foreground/60">
                   {DECK_TEXTOS.medidas}
                 </legend>
@@ -154,7 +165,7 @@ export function DeckPanel({
                 </p>
               </fieldset>
 
-              <fieldset>
+              <fieldset className="min-w-0">
                 <legend className="text-xs uppercase tracking-[0.15em] text-foreground/60">
                   {DECK_TEXTOS.barandas}
                 </legend>
@@ -179,7 +190,7 @@ export function DeckPanel({
                   />
                 </div>
                 <p className="mt-1 text-xs text-foreground/60">
-                  {DECK_TEXTOS.barandaNota} USD {BARANDA_PRECIO_ML} por metro lineal
+                  {DECK_TEXTOS.barandaNota} USD {rates.baranda} por metro lineal
                   {deckRailMl(deck) > 0 ? ` · ${fmt(deckRailMl(deck))} ml elegidos` : ""}.
                 </p>
               </fieldset>
@@ -205,18 +216,149 @@ export function DeckPanel({
       {children}
 
       <div className="mt-6 space-y-2">
-        <Disclosure title={DECK_TEXTOS.incluyeTitulo}>
-          <p className="text-sm font-semibold text-foreground">{DECK_INCLUYE.deckTitulo}</p>
-          <List items={DECK_INCLUYE.deck} icon="check" />
-          <p className="mt-4 text-sm font-semibold text-foreground">{DECK_INCLUYE.techoTitulo}</p>
-          <List items={DECK_INCLUYE.techo} icon="check" />
-          <p className="mt-4 text-xs leading-5 text-foreground/70">{DECK_INCLUYE.nota}</p>
+        <Disclosure title={`${DECK_TEXTOS.incluyeTitulo} · línea ${deckLineName(deck.line)}`}>
+          <LineSpecs line={deck.line} />
+          <p className="mt-4 text-xs leading-5 text-foreground/70">{DECK_NOTA_TECHO}</p>
         </Disclosure>
-        <Disclosure title={DECK_TEXTOS.noIncluyeTitulo}>
-          <List items={DECK_NO_INCLUYE} icon="x" />
+        <Disclosure title={DECK_TEXTOS.compararTitulo}>
+          <LineComparison />
+        </Disclosure>
+        <Disclosure title={`${DECK_TEXTOS.noIncluyeTitulo} · línea ${deckLineName(deck.line)}`}>
+          <List items={deckNoIncluye(deck.line)} icon="x" />
         </Disclosure>
       </div>
     </section>
+  );
+}
+
+/** Las tres fichas técnicas de una línea (deck solo, deck techado y barandas), renglón por renglón. */
+function LineSpecs({ line }: { line: DeckLine }) {
+  const { specs } = DECK_LINEAS[line];
+  return (
+    <div className="space-y-5">
+      {(["deck", "techado", "baranda"] as const).map((k) => (
+        <SpecGroup key={k} group={specs[k]} />
+      ))}
+    </div>
+  );
+}
+
+function SpecGroup({ group }: { group: DeckSpecGroup }) {
+  return (
+    <div>
+      <p className="text-sm font-semibold text-foreground">{group.titulo}</p>
+      <dl className="mt-2 space-y-2">
+        {group.items.map((it) => (
+          <div key={it.label} className="flex gap-3 text-sm leading-6 text-foreground/85">
+            <Check size={16} aria-hidden="true" className="mt-1 shrink-0 text-primary" />
+            <div>
+              <dt className="inline font-semibold text-foreground">{it.label}: </dt>
+              <dd className="inline">{it.text}</dd>
+            </div>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+/** Las dos líneas lado a lado, renglón por renglón, para ver el salto de calidad. */
+function LineComparison() {
+  return (
+    <div className="space-y-6">
+      <div className="hidden grid-cols-2 gap-4 text-xs font-semibold uppercase tracking-[0.12em] text-primary sm:grid">
+        {DECK_LINES.map((l) => (
+          <p key={l}>
+            {DECK_LINEAS[l].nombre} · {DECK_LINEAS[l].apodo}
+          </p>
+        ))}
+      </div>
+      {(["deck", "techado", "baranda"] as const).map((k) => (
+        <div key={k}>
+          <p className="text-sm font-semibold text-foreground">{DECK_LINEAS.esencial.specs[k].titulo}</p>
+          <div className="mt-2 space-y-3">
+            {DECK_LINEAS.esencial.specs[k].items.map((base, i) => (
+              <div key={base.label}>
+                <p className="text-xs font-medium uppercase tracking-[0.1em] text-foreground/60">{base.label}</p>
+                <div className="mt-1 grid gap-2 sm:grid-cols-2 sm:gap-4">
+                  {DECK_LINES.map((l) => (
+                    <p key={l} className="text-sm leading-6 text-foreground/85">
+                      <span className="font-semibold text-primary sm:hidden">{DECK_LINEAS[l].nombre}: </span>
+                      {DECK_LINEAS[l].specs[k].items[i]?.text}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Elección de la línea del deck: Esencial (accesible) o Premium. Son dos tarjetas con sus precios; cambian los precios, la
+ * ficha técnica y cómo se ve el deck en el 3D.
+ */
+function LineSelector({
+  idPrefix,
+  value,
+  onChange,
+}: {
+  idPrefix: string;
+  value: DeckLine;
+  onChange: (line: DeckLine) => void;
+}) {
+  return (
+    <fieldset className="min-w-0">
+      <legend className="text-xs uppercase tracking-[0.15em] text-foreground/60">
+        {DECK_TEXTOS.lineaTitulo}
+      </legend>
+      <div className="mt-2 grid gap-3 sm:grid-cols-2">
+        {DECK_LINES.map((l) => {
+          const info = DECK_LINEAS[l],
+            id = `${idPrefix}-linea-${l}`;
+          return (
+            <label key={l} htmlFor={id} className="block cursor-pointer">
+              <input
+                id={id}
+                type="radio"
+                name={`${idPrefix}-linea`}
+                value={l}
+                checked={value === l}
+                onChange={() => onChange(l)}
+                className="peer sr-only"
+              />
+              <span className="flex h-full flex-col border border-border bg-card p-4 transition-colors hover:border-primary/60 peer-checked:border-primary peer-checked:bg-primary/5 peer-checked:ring-1 peer-checked:ring-primary peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary">
+                <span className="flex items-baseline justify-between gap-2">
+                  <span className="text-base font-semibold text-foreground">{info.nombre}</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
+                    {info.apodo}
+                  </span>
+                </span>
+                <span className="mt-1 text-xs leading-5 text-foreground/70">{info.resumen}</span>
+                <span className="mt-3 space-y-0.5 text-xs text-foreground/80">
+                  <span className="flex justify-between gap-2">
+                    <span>{DECK_TEXTOS.lineaDeckSolo}</span>
+                    <span className="font-semibold">USD {info.precios.deck}/m²</span>
+                  </span>
+                  <span className="flex justify-between gap-2">
+                    <span>{DECK_TEXTOS.lineaDeckTechado}</span>
+                    <span className="font-semibold">USD {info.precios.techado}/m²</span>
+                  </span>
+                  <span className="flex justify-between gap-2">
+                    <span>{DECK_TEXTOS.lineaBaranda}</span>
+                    <span className="font-semibold">USD {info.precios.baranda}/ml</span>
+                  </span>
+                </span>
+              </span>
+            </label>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-xs text-foreground/60">{DECK_TEXTOS.lineaAyuda}</p>
+    </fieldset>
   );
 }
 
@@ -332,7 +474,7 @@ function Measure({
   const boton =
     "h-11 w-11 shrink-0 border border-border bg-background text-xl font-semibold leading-none text-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40";
   return (
-    <div>
+    <div className="min-w-0">
       <label htmlFor={id} className="block text-xs text-foreground/70">
         {label}
       </label>
@@ -399,7 +541,7 @@ function Measure({
 /** Precio del extra: m² × tarifa + barandas, con el costo logístico de la zona de la obra. Los escalones no suman. */
 function PriceBlock({ deck, logistics }: { deck: DeckConfig; logistics: LogisticsSelection }) {
   const extra = deckExtra(deck, logistics);
-  const sample = deckPrice({ ...DEFAULT_DECK, enabled: true });
+  const sample = deckPrice({ ...DEFAULT_DECK, enabled: true, line: deck.line });
   return (
     <div className="border border-border bg-card p-5" aria-live="polite" aria-atomic="true">
       {!deck.enabled ? (
@@ -409,8 +551,8 @@ function PriceBlock({ deck, logistics }: { deck: DeckConfig; logistics: Logistic
             Desde {formatUSD(sample.subtotal ?? 0)}
           </p>
           <p className="mt-1 text-xs text-foreground/70">
-            Deck de {fmt(sample.area)} m² ({fmt(DEFAULT_DECK.width)} × {fmt(DEFAULT_DECK.depth)} m).
-            Activá el deck para calcular el tuyo.
+            Deck {deckLineName(sample.line)} de {fmt(sample.area)} m² ({fmt(DEFAULT_DECK.width)} ×{" "}
+            {fmt(DEFAULT_DECK.depth)} m). Activá el deck para calcular el tuyo.
           </p>
         </>
       ) : !extra.quotable ? (
@@ -423,12 +565,12 @@ function PriceBlock({ deck, logistics }: { deck: DeckConfig; logistics: Logistic
         <>
           <dl className="space-y-3 text-sm">
             <Row
-              label={`${deck.roofed ? "Deck techado" : "Deck"} · ${fmt(extra.area)} m² × USD ${extra.rate}`}
+              label={`${deck.roofed ? "Deck techado" : "Deck"} ${deckLineName(deck.line)} · ${fmt(extra.area)} m² × USD ${extra.rate}`}
               value={formatUSD(extra.deck ?? 0)}
             />
             {extra.railMl > 0 && (
               <Row
-                label={`Barandas · ${fmt(extra.railMl)} ml × USD ${BARANDA_PRECIO_ML}`}
+                label={`Barandas ${deckLineName(deck.line)} · ${fmt(extra.railMl)} ml × USD ${extra.railRate}`}
                 value={formatUSD(extra.rails ?? 0)}
               />
             )}
