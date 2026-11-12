@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useRef, type CSSProperties } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { CountUp, Words, delay, useHeroExit, useParallax } from "@/lib/motion";
 import { MagneticLink } from "./MagneticLink";
 import { Button } from "@/components/ui/button";
-import { HERO_SCENES, chooseHeroScene } from "@/data/heroScenes";
+import { HERO_MAIN_ID, type HeroScene } from "@/data/heroScenes";
+import { useHeroRotation } from "./useHeroRotation";
 import { whatsappUrl } from "@/lib/contactInquiry";
 
 const HERO_ALT = "Casa celeste con piscina, obra Lo de Cata de SCH Construcciones en Punta del Diablo";
@@ -15,29 +16,25 @@ const TIMELINE: [label: string, text: string][] = [
   ["Hoy", "Construimos cabañas y viviendas en woodframe y tradicional, reformas, ampliaciones y mobiliario a medida."],
 ];
 
+/** Una obra encima de la foto principal: entra con fundido, se mantiene debajo de la siguiente o se va con fundido. */
+function HeroLayer({ scene, phase, onError }: { scene: HeroScene; phase: "in" | "hold" | "out"; onError?: () => void }) {
+  return (
+    <div className={`hero-scene hero-scene--${phase} absolute inset-0`} style={{ "--focus": scene.focus } as CSSProperties} aria-hidden={phase === "in" ? undefined : true}>
+      {/* Celular: la foto se ve entera (sin recortar la casa) sobre un fondo desenfocado de la misma imagen. */}
+      <img aria-hidden="true" alt="" src={scene.small} decoding="async" className="hero-scene-backdrop absolute inset-0 size-full object-cover md:hidden" />
+      <picture className="block size-full">
+        <source media="(max-width: 767px)" srcSet={scene.small} />
+        <img src={scene.src} alt={phase === "in" ? scene.alt : ""} width={1600} height={1200} decoding="async" className="hero-scene-image relative size-full object-contain md:object-cover md:[object-position:var(--focus)]" onError={onError} />
+      </picture>
+    </div>
+  );
+}
+
 export function Hero() {
   const sectionRef = useRef<HTMLElement>(null);
   const parallaxRef = useRef<HTMLDivElement>(null);
   useParallax(parallaxRef, 0.14, 90);
-  const [scene, setScene] = useState<(typeof HERO_SCENES)[number]>(HERO_SCENES[0]);
-  useEffect(() => {
-    let active = true;
-    let session: string | null = null;
-    let previous: string | null = null;
-    try { session = sessionStorage.getItem('sch-hero-session'); previous = localStorage.getItem('sch-hero-previous'); } catch { /* storage blocked */ }
-    const id = chooseHeroScene(session, previous, Math.random());
-    const next = HERO_SCENES.find(item => item.id === id) ?? HERO_SCENES[0];
-    const image = new Image();
-    image.src = window.matchMedia('(max-width: 767px)').matches ? next.small : next.src;
-    image.decode().then(() => {
-      if (!active) return;
-      setScene(next);
-      try { sessionStorage.setItem('sch-hero-session', next.id); localStorage.setItem('sch-hero-previous', next.id); } catch { /* no storage needed for rendering */ }
-      const preload = () => HERO_SCENES.filter(item => item.id !== next.id).forEach(item => { const cached = new Image(); cached.src = window.matchMedia('(max-width: 767px)').matches ? item.small : item.src; });
-      window.setTimeout(preload, 5000);
-    }).catch(() => { /* visible Lo de Cata fallback stays in place */ });
-    return () => { active = false; };
-  }, []);
+  const { current: scene, leaving, skip } = useHeroRotation(sectionRef);
   useHeroExit(sectionRef);
 
   return (
@@ -58,16 +55,8 @@ export function Hero() {
             className="hero-settle h-full w-full object-cover object-[80%_50%] md:object-[62%_50%] xl:object-center"
           />
         </picture>
-        {scene.id !== "lo-de-cata" && (
-          <div key={scene.id} className="hero-scene absolute inset-0" style={{ "--focus": scene.focus } as CSSProperties}>
-            {/* Celular: la foto se ve entera (sin recortar la casa) sobre un fondo desenfocado de la misma imagen. */}
-            <img aria-hidden="true" alt="" src={scene.small} decoding="async" className="hero-scene-backdrop absolute inset-0 size-full object-cover md:hidden" />
-            <picture className="block size-full">
-              <source media="(max-width: 767px)" srcSet={scene.small} />
-              <img src={scene.src} alt={scene.alt} width={1600} height={1200} decoding="async" className="hero-scene-image relative size-full object-contain md:object-cover md:[object-position:var(--focus)]" onError={() => setScene(HERO_SCENES[0])} />
-            </picture>
-          </div>
-        )}
+        {leaving && leaving.id !== HERO_MAIN_ID && <HeroLayer key={leaving.id} scene={leaving} phase={scene.id === HERO_MAIN_ID ? "out" : "hold"} />}
+        {scene.id !== HERO_MAIN_ID && <HeroLayer key={scene.id} scene={scene} phase="in" onError={skip} />}
       </div>
       <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-10 h-[calc(100vw+1.5rem)] bg-gradient-to-t from-background via-background/35 to-background/10 md:hidden" />
       <div aria-hidden="true" className="absolute inset-0 -z-10 hidden bg-gradient-to-r from-background/95 via-background/70 to-background/10 md:block" />
