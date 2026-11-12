@@ -1,4 +1,4 @@
-import { BARANDA_PRECIO_ML, DECK_A_COTIZAR, DECK_TEXTOS, deckLabel, deckPrice, type DeckConfig, type DeckPrice } from "@/config/deck";
+import { DECK_A_COTIZAR, DECK_TEXTOS, deckLabel, deckLineName, deckPrice, type DeckConfig, type DeckPrice } from "@/config/deck";
 
 export const AREA_MIN = 10;
 export const AREA_MAX = 500;
@@ -147,8 +147,8 @@ function deckSummary(deck: DeckConfig, logistics: LogisticsSelection, viviendas:
   const lines = [`Extras opcionales (no incluidos en el presupuesto de la vivienda)`, deckLabel(deck)];
   if (extra.subtotal === null) lines.push(`Deck: ${DECK_A_COTIZAR}`);
   else {
-    lines.push(`${deck.roofed ? "Deck techado" : "Deck"}: ${extra.area} m² × USD ${extra.rate}/m² = ${formatUSD(extra.deck ?? 0)}`);
-    if (extra.railMl > 0) lines.push(`Barandas: ${extra.railMl} ml × USD ${BARANDA_PRECIO_ML}/ml = ${formatUSD(extra.rails ?? 0)}`);
+    lines.push(`${deck.roofed ? "Deck techado" : "Deck"} ${deckLineName(deck.line)}: ${extra.area} m² × USD ${extra.rate}/m² = ${formatUSD(extra.deck ?? 0)}`);
+    if (extra.railMl > 0) lines.push(`Barandas ${deckLineName(deck.line)}: ${extra.railMl} ml × USD ${extra.railRate}/ml = ${formatUSD(extra.rails ?? 0)}`);
   }
   if (deck.steps) lines.push(`Escalones: ${DECK_TEXTOS.escalonesPrecio}`);
   if (extra.subtotal !== null) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  ALL_FX, PROFILES, QUALITY_IDS, createGovernor, defaultQuality, effectiveFx, fxParams, isQualityId, looksBlank, lowerQuality, samplePoints,
+  ALL_FX, NO_LIMITS, PROFILES, QUALITY_IDS, createGovernor, defaultQuality, deviceLimits, effectiveFx, fxParams, isQualityId, looksBlank, looksWashedOut, lowerQuality, samplePoints,
 } from "./renderQuality";
 
 describe("perfiles de calidad", () => {
@@ -205,5 +205,57 @@ describe("detección de cuadro negro", () => {
   });
   it("sin datos no se puede afirmar que esté vacío", () => {
     expect(looksBlank([])).toBe(false);
+  });
+});
+
+describe("límites del equipo (celular)", () => {
+  const phone = deviceLimits({ mobile: true, cores: 8 });
+  it("un celular o un equipo de 4 núcleos o menos queda limitado; uno potente, no", () => {
+    expect(phone.limited).toBe(true);
+    expect(deviceLimits({ mobile: false, cores: 4 }).limited).toBe(true);
+    expect(deviceLimits({ mobile: false, cores: 8 })).toEqual(NO_LIMITS);
+  });
+  it("en el celular Ultra no usa MSAA (dejaba la imagen transparente o lavada) y el suavizado lo hace FXAA", () => {
+    const fx = effectiveFx("ultra", ALL_FX, false, phone);
+    expect(fx.post).toBe(true);
+    expect(fx.msaa).toBe(0);
+    expect(fx.fxaa).toBe(true);
+    // En una compu potente sigue con MSAA y sin FXAA, como antes.
+    const pc = effectiveFx("ultra", ALL_FX, false);
+    expect(pc.msaa).toBe(4);
+    expect(pc.fxaa).toBe(false);
+  });
+  it("en el celular Ultra y Alto SÍ tienen sombras del sol (con mapa de 2048 px como máximo)", () => {
+    expect(effectiveFx("ultra", ALL_FX, false, phone).shadows).toEqual({ enabled: true, size: 2048 });
+    expect(effectiveFx("alto", ALL_FX, false, phone).shadows).toEqual({ enabled: true, size: 2048 });
+    expect(effectiveFx("ultra", ALL_FX, false).shadows).toEqual({ enabled: true, size: 4096 });
+  });
+  it("Económico en un celular no proyecta sombras (liviano), pero en una compu sí", () => {
+    expect(effectiveFx("economico", ALL_FX, false, phone).shadows.enabled).toBe(false);
+    expect(effectiveFx("economico", ALL_FX, false).shadows.enabled).toBe(true);
+  });
+  it("la oclusión ambiental usa menos muestras en el celular y no cambia en una compu potente", () => {
+    expect(effectiveFx("ultra", ALL_FX, false, phone).ao?.samples).toBe(8);
+    expect(effectiveFx("ultra", ALL_FX, false).ao?.samples).toBe(16);
+    expect(effectiveFx("alto", ALL_FX, false, phone).ao?.samples).toBe(8);
+  });
+  it("cambiar de límites rearma la cadena (la clave cambia)", () => {
+    expect(effectiveFx("ultra", ALL_FX, false, phone).key).not.toBe(effectiveFx("ultra", ALL_FX, false).key);
+  });
+});
+
+describe("imagen lavada", () => {
+  const px = (r: number, g: number, b: number, n: number) => Array.from({ length: n }, () => [r, g, b, 255]).flat();
+  it("detecta una imagen casi toda blanca", () => {
+    expect(looksWashedOut(px(255, 255, 255, 9))).toBe(true);
+    expect(looksWashedOut([...px(255, 255, 255, 8), ...px(90, 120, 80, 1)])).toBe(true);
+  });
+  it("una escena normal (cielo claro, pasto, pared) no se considera lavada", () => {
+    expect(looksWashedOut([...px(250, 250, 250, 3), ...px(90, 130, 70, 3), ...px(180, 170, 160, 3)])).toBe(false);
+    expect(looksWashedOut(px(120, 130, 140, 9))).toBe(false);
+  });
+  it("con pocas muestras no se pronuncia", () => {
+    expect(looksWashedOut(px(255, 255, 255, 2))).toBe(false);
+    expect(looksWashedOut([])).toBe(false);
   });
 });

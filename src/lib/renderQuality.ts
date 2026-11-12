@@ -51,13 +51,13 @@ export const PROFILES: Record<QualityId, RenderProfile> = {
   economico: {
     id: "economico",
     label: "Económico",
-    hint: "Render simple y liviano. Es el recomendado para celulares y equipos modestos.",
+    hint: "Render simple y liviano, sin sombras en celulares. Probá Alto o Ultra para verlas.",
     post: false, msaa: 0, fxaa: false, ao: null, bloom: false, shadowMap: 2048, dprMax: 1.5, reflections: false, reflectionRes: 256,
   },
   alto: {
     id: "alto",
     label: "Alto",
-    hint: "Sombras suaves en esquinas, brillo de luces, reflejos del cielo y tono de cine.",
+    hint: "Sombras del sol y suaves en esquinas, brillo de luces, reflejos del cielo y tono de cine.",
     post: true, msaa: 0, fxaa: true,
     ao: { samples: 8, radius: 0.5, scale: 1, thickness: 1, distanceExponent: 1, intensity: 0.7, denoiseSamples: 8 },
     bloom: true, shadowMap: 2048, dprMax: 1.75, reflections: true, reflectionRes: 256,
@@ -65,7 +65,7 @@ export const PROFILES: Record<QualityId, RenderProfile> = {
   ultra: {
     id: "ultra",
     label: "Ultra",
-    hint: "Lo más cercano a un render: suavizado de bordes, sombras de 4096 px y más muestras de oclusión.",
+    hint: "Lo más cercano a un render: bordes suaves, sombras nítidas (4096 px en compu, 2048 px en celular) y más oclusión ambiental.",
     post: true, msaa: 4, fxaa: false,
     ao: { samples: 16, radius: 0.5, scale: 1, thickness: 1, distanceExponent: 1, intensity: 0.85, denoiseSamples: 16 },
     bloom: true, shadowMap: 4096, dprMax: 1.75, reflections: true, reflectionRes: 512,
@@ -75,6 +75,23 @@ export const PROFILES: Record<QualityId, RenderProfile> = {
 export const isQualityId = (value: unknown): value is QualityId => typeof value === "string" && (QUALITY_IDS as readonly string[]).includes(value);
 
 export type DeviceInfo = { mobile: boolean; cores: number; memoryGB?: number; saveData?: boolean };
+
+/**
+ * Límites que impone el equipo a cualquier perfil. En un celular (o un equipo de 4 núcleos o menos):
+ *  - sin suavizado MSAA: los buffers multisample de alto rango no andan bien en muchas GPU móviles y dejaban la imagen
+ *    transparente o blanquecina. Se usa FXAA, que da un resultado muy parecido y funciona en todos lados;
+ *  - mapa de sombras de 2048 px como máximo (el de 4096 no entra en la memoria de muchos celulares);
+ *  - oclusión ambiental con menos muestras (el cálculo de 16 muestras por píxel es muy pesado para una GPU móvil).
+ */
+export type DeviceLimits = { limited: boolean; msaa: boolean; maxShadowMap: 1024 | 2048 | 4096; maxAoSamples: number };
+
+export const NO_LIMITS: DeviceLimits = { limited: false, msaa: true, maxShadowMap: 4096, maxAoSamples: 16 };
+
+export function deviceLimits(device: Pick<DeviceInfo, "mobile" | "cores">): DeviceLimits {
+  const cores = Number.isFinite(device.cores) && device.cores > 0 ? device.cores : 4;
+  if (device.mobile || cores <= 4) return { limited: true, msaa: false, maxShadowMap: 2048, maxAoSamples: 8 };
+  return NO_LIMITS;
+}
 
 /** Calidad inicial según el equipo. Un celular o un equipo de 4 núcleos o menos arranca en Económico; uno potente, en Ultra. */
 export function defaultQuality(device: DeviceInfo): QualityId {
@@ -107,22 +124,27 @@ export type EffectiveFx = {
   fxaa: boolean;
   msaa: 0 | 4;
   reflections: boolean;
+  /** Sombras del sol: en Económico se apagan en equipos limitados; en Alto y Ultra siempre se ven. */
+  shadows: { enabled: boolean; size: 1024 | 2048 | 4096 };
   /** Cambia solo cuando hay que rearmar la cadena de postproducción (no con los ajustes que varían por cuadro). */
   key: string;
 };
 
-export function effectiveFx(quality: QualityId, toggles: FxToggles, failed: boolean): EffectiveFx {
+export function effectiveFx(quality: QualityId, toggles: FxToggles, failed: boolean, limits: DeviceLimits = NO_LIMITS): EffectiveFx {
   const profile = PROFILES[failed ? "economico" : quality];
-  const ao = profile.ao && toggles.ao ? profile.ao : null;
+  const ao = profile.ao && toggles.ao ? (limits.maxAoSamples < profile.ao.samples ? { ...profile.ao, samples: limits.maxAoSamples, denoiseSamples: limits.maxAoSamples } : profile.ao) : null;
   const bloom = profile.bloom && toggles.bloom;
   const cine = profile.post && toggles.cine;
   // Si no queda ningún efecto activo, se dibuja como en Económico: no tiene sentido pagar la cadena entera.
   const post = profile.post && (!!ao || bloom || cine);
-  const msaa = post ? profile.msaa : 0;
-  const fxaa = post && profile.fxaa;
+  const msaa = post && limits.msaa ? profile.msaa : 0;
+  // Si el equipo no admite MSAA, el suavizado de bordes lo hace FXAA.
+  const fxaa = post && (profile.fxaa || (profile.msaa > 0 && msaa === 0));
+  const shadowSize = Math.min(profile.shadowMap, limits.maxShadowMap) as 1024 | 2048 | 4096;
+  const shadows = { enabled: profile.id !== "economico" || !limits.limited, size: shadowSize };
   const reflections = profile.reflections && toggles.reflections;
   const key = post ? `post|${ao ? `ao${ao.samples}-${ao.denoiseSamples}-${ao.radius}` : "noao"}|${bloom ? "bl" : "nobl"}|${cine ? "ci" : "noci"}|m${msaa}|${fxaa ? "fx" : "nofx"}` : "plain";
-  return { quality: profile.id, profile, post, ao, bloom, cine, fxaa, msaa, reflections, key };
+  return { quality: profile.id, profile, post, ao, bloom, cine, fxaa, msaa, reflections, shadows, key };
 }
 
 /** Ajustes que cambian con la hora del día (se recalculan solo cuando cambia el cielo). */
@@ -216,4 +238,17 @@ export function looksBlank(rgba: ArrayLike<number>): boolean {
     if ((rgba[i] ?? 0) > 1 || (rgba[i + 1] ?? 0) > 1 || (rgba[i + 2] ?? 0) > 1) return false;
   }
   return true;
+}
+
+/**
+ * `true` si casi todos los puntos muestreados son blanco puro: la imagen salió "lavada" (señal de que un efecto se rompió
+ * en la GPU del equipo). Una escena real siempre tiene tierra, pasto, sombras o paredes bien por debajo de ese blanco.
+ */
+export function looksWashedOut(rgba: ArrayLike<number>): boolean {
+  let total = 0, white = 0;
+  for (let i = 0; i + 2 < rgba.length; i += 4) {
+    total++;
+    if ((rgba[i] ?? 0) >= 240 && (rgba[i + 1] ?? 0) >= 240 && (rgba[i + 2] ?? 0) >= 240) white++;
+  }
+  return total >= 4 && white / total >= 0.8;
 }
