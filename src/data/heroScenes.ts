@@ -19,10 +19,26 @@ export const HERO_SCENES = [
   { id: 'mi-sueno', focus: '50% 62%', name: 'Mi Sueño', src: sueno.url, small: suenoSmall.url, alt: 'Vivienda Mi Sueño de SCH Construcciones en Punta del Diablo' },
 ] as const;
 
-/** Pure selection; random value supplied by the browser, never at module scope. */
-export function chooseHeroScene(sessionId: string | null, previousId: string | null, random: number): string {
-  if (HERO_SCENES.some(scene => scene.id === sessionId)) return sessionId as string;
-  const candidates = HERO_SCENES.filter(scene => scene.id !== previousId);
-  const index = Math.min(candidates.length - 1, Math.max(0, Math.floor(random * candidates.length)));
-  return candidates[index]?.id ?? 'lo-de-cata';
+/** La casa principal del sitio: siempre abre el hero y es la que más tiempo se queda. */
+export const HERO_MAIN_ID = 'lo-de-cata';
+
+/** Tiempos del hero (milisegundos). La casa principal se queda más del doble que cada una de las otras obras. */
+export const HERO_TIMING = { mainMs: 11000, otherMs: 4500, fadeMs: 1400 } as const;
+
+export type HeroScene = (typeof HERO_SCENES)[number];
+
+/**
+ * Orden de una vuelta completa: la casa principal abre, pasan dos obras, vuelve la principal, pasan las otras dos
+ * y la principal queda fija al final. Así nunca se mueve sola más de una vuelta y siempre termina en Lo de Cata.
+ */
+export function heroPlaylist(scenes: readonly { id: string }[] = HERO_SCENES): string[] {
+  const others = scenes.filter(scene => scene.id !== HERO_MAIN_ID).map(scene => scene.id);
+  const order: string[] = [HERO_MAIN_ID];
+  for (let i = 0; i < others.length; i += 2) order.push(...others.slice(i, i + 2), HERO_MAIN_ID);
+  return order;
+}
+
+/** Cuánto tiempo se queda una obra a la vista antes de pasar a la siguiente. */
+export function heroDwellMs(id: string): number {
+  return id === HERO_MAIN_ID ? HERO_TIMING.mainMs : HERO_TIMING.otherMs;
 }
