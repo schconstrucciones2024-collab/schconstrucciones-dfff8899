@@ -614,8 +614,10 @@
 }
 
 /* Premium editorial refinements: all colors inherit SCH tokens. */
-.hero-scene { animation: sch-crossfade 1.4s ease both; }
-.hero-scene-image { animation: sch-ken-burns 22s ease-out both; will-change: transform; }
+.hero-scene--in { animation: sch-crossfade 1.4s ease both; }
+.hero-scene--out { animation: sch-fadeout 1.4s ease both; }
+.hero-scene-image { animation: sch-ken-burns 9s ease-out both; will-change: transform; }
+@keyframes sch-fadeout { from { opacity: 1; } to { opacity: 0; } }
 @keyframes sch-crossfade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes sch-ken-burns { from { transform: scale(1.07) translate3d(1.4%, .8%, 0); } to { transform: scale(1) translate3d(0, 0, 0); } }
 .surface-light::before, .surface-dark::before, .texture-dark::before { opacity: .12; }
