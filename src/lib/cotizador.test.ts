@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { CATEGORIES, SYSTEMS, EXTERIOR_REVESTIMIENTO, LOGISTICS_ZONES, buildSummary, buildWhatsAppUrl, calculateLogistics, clampArea, createAreas, updateAreas, estimate, formatUSD } from "./cotizador";
+import { CATEGORIES, SYSTEMS, EXTERIOR_REVESTIMIENTO, LOGISTICS_ZONES, buildSummary, buildWhatsAppUrl, calculateLogistics, clampArea, createAreas, updateAreas, estimate, estimateFor, formatUSD, nextBonusHint, rateFor, volumeBonus } from "./cotizador";
+import { TRADICIONAL_TEXTOS, VOLUME_TIERS, volumeDiscount, volumeTierRows } from "@/config/tradicional";
 
 
 const price = (id: string) => {
@@ -82,16 +83,16 @@ describe("logística", () => {
 });
 
 describe("sistemas compartidos", () => {
-  it("tradicional tiene tarifas 1300 y 1500", () => {
-    expect(SYSTEMS.tradicional.categories.map((c) => c.price)).toEqual([1300, 1500]);
+  it("tradicional tiene tarifas base 1200 (techo liviano) y 1400 (losa)", () => {
+    expect(SYSTEMS.tradicional.categories.map((c) => c.price)).toEqual([1200, 1400]);
   });
-  it.each([[0, 52000], [1, 60000]])("tradicional categoría %i a 40 m² en Punta del Diablo", (index, base) => {
+  it.each([[0, 48000], [1, 56000]])("tradicional categoría %i a 40 m² en Punta del Diablo", (index, base) => {
     const category = SYSTEMS.tradicional.categories[index];
     expect(category).toBeDefined();
     expect(calculateLogistics(estimate(40, category?.price ?? 0), { zoneId: "local", separateTrip: false })).toMatchObject({ surcharge: 0, total: base });
   });
-  it("Esencial 40 m² al 10% suma 5200 y totaliza 57200", () => {
-    expect(calculateLogistics(52000, { zoneId: "medium", separateTrip: false })).toMatchObject({ surcharge: 5200, total: 57200 });
+  it("Esencial 40 m² al 10% suma 4800 y totaliza 52800", () => {
+    expect(calculateLogistics(48000, { zoneId: "medium", separateTrip: false })).toMatchObject({ surcharge: 4800, total: 52800 });
   });
   it("un cambio de porcentaje se refleja en ambos sistemas y mensajes", () => {
     const zone = LOGISTICS_ZONES.find((z) => z.id === "medium");
@@ -101,8 +102,8 @@ describe("sistemas compartidos", () => {
       Object.assign(zone, { max: 12 });
       const selection = { zoneId: "medium", separateTrip: false } as const;
       expect(calculateLogistics(34000, selection).surcharge).toBe(4080);
-      expect(calculateLogistics(52000, selection).total).toBe(58240);
-      expect(buildSummary(createAreas(), selection, "tradicional")).toContain("Costo logístico extra (12%): USD 6.240");
+      expect(calculateLogistics(48000, selection).total).toBe(53760);
+      expect(buildSummary(createAreas(), selection, "tradicional")).toContain("Costo logístico extra (12%): USD 5.760");
       expect(decodeURIComponent(buildWhatsAppUrl(createAreas(), selection, "woodframe"))).toContain("Costo logístico extra (12%): USD 4.080");
     } finally { Object.assign(zone, { max: original }); }
   });
@@ -114,21 +115,98 @@ describe("sistemas compartidos", () => {
     expect(traditional).toEqual({ rustica: 65, moderna: 40, allwood: 40, esencial: 100, clasica: 100 });
     expect(updateAreas(traditional, "tradicional", "clasica", 999, false).clasica).toBe(500);
   });
-  it("incluye firma UTE y sanitaria hasta primera cámara en tradicional", () => {
-    expect(SYSTEMS.tradicional.included).toEqual(["Instalación eléctrica interior completa con firma de UTE.", "Instalación sanitaria completa hasta la primera cámara."]);
+  it("tradicional incluye platea, estructura, instalaciones completas (UTE y primera cámara), terminaciones y operativa local", () => {
+    const included = SYSTEMS.tradicional.included.join("\n");
+    expect(SYSTEMS.tradicional.included).toHaveLength(5);
+    expect(included).toContain("Platea de hormigón armado ejecutada in situ");
+    expect(included).toContain("En opción Techo Liviano: estructura de madera 100% curada");
+    expect(included).toContain("En opción Losa: estructura portante reforzada");
+    expect(included).toContain("firma de UTE");
+    expect(included).toContain("hasta la primera cámara sanitaria");
+    expect(included).toContain("Aberturas completas y mesadas principales de cocina y baño");
+    expect(included).toContain("sin sorpresas por fletes externos ni alquiler de maquinaria pesada");
     expect(SYSTEMS.woodframe.categories).toBe(CATEGORIES);
+    expect(SYSTEMS.woodframe.excluded).toContain("Pintura.");
   });
   it("copia individual y WhatsApp usan el mismo desglose del sistema activo", () => {
     const selection = { zoneId: "medium", separateTrip: false } as const;
     const summary = buildSummary(createAreas(), selection, "tradicional", "esencial");
     expect(summary).toContain("Sistema: Construcción tradicional");
-    expect(summary).toContain("Obra base: USD 52.000");
+    expect(summary).toContain("Obra base: USD 48.000");
     expect(summary).toContain("Zona logística: 50–150 km (Rocha, La Paloma)");
-    expect(summary).toContain("Costo logístico extra (10%): USD 5.200\nTotal estimado con logística: USD 57.200");
+    expect(summary).toContain("Costo logístico extra (10%): USD 4.800\nTotal estimado con logística: USD 52.800");
+    expect(summary).toContain(TRADICIONAL_TEXTOS.exclusiones);
+    expect(summary).not.toContain("Bonificación por superficie");
     expect(summary).not.toContain("CLÁSICA");
     expect(summary).not.toContain("siding");
     const url = new URL(buildWhatsAppUrl(createAreas(), selection, "tradicional", "esencial"));
     expect(url.pathname).toBe("/59895564068");
     expect(url.searchParams.get("text")).toBe(summary);
+  });
+});
+
+describe("construcción tradicional: descuento por superficie", () => {
+  const [esencial, clasica] = SYSTEMS.tradicional.categories as [(typeof CATEGORIES)[number], (typeof CATEGORIES)[number]];
+  it("tramos: 0% hasta 64 m², 5% de 65 a 89 m², 8% desde 90 m²", () => {
+    expect(VOLUME_TIERS.map((t) => [t.from, t.discount])).toEqual([[90, 8], [65, 5]]);
+    for (const [area, pct] of [[10, 0], [35, 0], [64, 0], [64.9, 0], [65, 5], [89, 5], [89.9, 5], [90, 8], [150, 8], [500, 8]] as const) expect(volumeDiscount(area)).toBe(pct);
+  });
+  it("tabla de referencia: 40, 60, 70 y 95 m²", () => {
+    const row = (area: number) => [esencial, clasica].map((c) => [formatUSD(estimateFor(c, area)), formatUSD(rateFor(c.id, c.price, area))]);
+    expect(row(40)).toEqual([["USD 48.000", "USD 1.200"], ["USD 56.000", "USD 1.400"]]);
+    expect(row(60)).toEqual([["USD 72.000", "USD 1.200"], ["USD 84.000", "USD 1.400"]]);
+    expect(row(70)).toEqual([["USD 79.800", "USD 1.140"], ["USD 93.100", "USD 1.330"]]);
+    expect(row(95)).toEqual([["USD 104.880", "USD 1.104"], ["USD 122.360", "USD 1.288"]]);
+  });
+  it("precios por m² efectivos enteros: 1.140 / 1.330 (5%) y 1.104 / 1.288 (8%)", () => {
+    expect([esencial, clasica].map((c) => rateFor(c.id, c.price, 65))).toEqual([1140, 1330]);
+    expect([esencial, clasica].map((c) => rateFor(c.id, c.price, 90))).toEqual([1104, 1288]);
+  });
+  it("el límite exacto de cada tramo cambia el precio total", () => {
+    expect(estimateFor(esencial, 64)).toBe(64 * 1200);
+    expect(estimateFor(esencial, 65)).toBe(65 * 1140);
+    expect(estimateFor(esencial, 89)).toBe(89 * 1140);
+    expect(estimateFor(esencial, 90)).toBe(90 * 1104);
+    expect(estimateFor(clasica, 500)).toBe(500 * 1288);
+  });
+  it("woodframe no tiene descuento por superficie", () => {
+    for (const c of CATEGORIES) {
+      for (const area of [40, 65, 90, 100, 500]) {
+        expect(rateFor(c.id, c.price, area)).toBe(c.price);
+        expect(estimateFor(c, area)).toBe(estimate(area, c.price));
+        expect(volumeBonus(c, area)).toBeNull();
+        expect(nextBonusHint(c, area)).toBeNull();
+      }
+    }
+  });
+  it("bonificación: porcentaje, precio por m² efectivo y ahorro", () => {
+    expect(volumeBonus(esencial, 64)).toBeNull();
+    expect(volumeBonus(esencial, 70)).toEqual({ discount: 5, area: 70, baseRate: 1200, rate: 1140, saving: 70 * 60 });
+    expect(volumeBonus(clasica, 95)).toEqual({ discount: 8, area: 95, baseRate: 1400, rate: 1288, saving: 95 * 112 });
+  });
+  it("pista del próximo tramo según los m²", () => {
+    expect(nextBonusHint(esencial, 40)).toBe(TRADICIONAL_TEXTOS.pista({ from: 65, discount: 5 }));
+    expect(nextBonusHint(esencial, 70)).toBe(TRADICIONAL_TEXTOS.pista({ from: 90, discount: 8 }));
+    expect(nextBonusHint(esencial, 95)).toBeNull();
+  });
+  it("mensaje de bonificación", () => {
+    expect(TRADICIONAL_TEXTOS.bonificacion(5)).toBe("¡Bonificación por superficie aplicada! (-5% por optimización de escala de obra)");
+    expect(TRADICIONAL_TEXTOS.bonificacion(8)).toBe("¡Bonificación por superficie aplicada! (-8% por optimización de escala de obra)");
+  });
+  it("etiquetas de tramos para la web", () => {
+    expect(volumeTierRows().map((r) => r.etiqueta)).toEqual(["35 a 64 m²: tarifa base", "65 a 89 m²: -5%", "90 m² o más: -8%"]);
+  });
+  it("la logística se calcula sobre el total ya bonificado", () => {
+    expect(calculateLogistics(estimateFor(esencial, 70), { zoneId: "medium", separateTrip: false })).toMatchObject({ percentage: 10, surcharge: 7980, total: 87780 });
+  });
+  it("el resumen muestra el precio por m² efectivo, la bonificación y las exclusiones", () => {
+    const s = buildSummary({ ...createAreas(), esencial: 70, clasica: 95 }, undefined, "tradicional");
+    expect(s).toContain("ESENCIAL\nSuperficie: 70 m²\nPrecio: USD 1.140/m² (tarifa base USD 1.200/m²)\n¡Bonificación por superficie aplicada! (-5% por optimización de escala de obra)\nInversión estimada: USD 79.800");
+    expect(s).toContain("CLÁSICA\nSuperficie: 95 m²\nPrecio: USD 1.288/m² (tarifa base USD 1.400/m²)\n¡Bonificación por superficie aplicada! (-8% por optimización de escala de obra)\nInversión estimada: USD 122.360");
+    expect(s).toContain("El presupuesto cubre hasta la primera cámara sanitaria");
+    expect(s).toContain("terreno firme y nivelado");
+  });
+  it("no queda ninguna tarifa vieja de tradicional", () => {
+    expect(SYSTEMS.tradicional.categories.some((c) => c.price === 1300 || c.price === 1500)).toBe(false);
   });
 });

@@ -1,4 +1,21 @@
-import { DECK_A_COTIZAR, DECK_TEXTOS, deckLabel, deckLineName, deckPrice, type DeckConfig, type DeckPrice } from "@/config/deck";
+import { TRADICIONAL_EXCLUIDO, TRADICIONAL_TEXTOS, discountedRate, incluyeFor, nextVolumeTier, volumeDiscount } from "@/config/tradicional";
+import { DEFAULT_DECK, DECK_A_COTIZAR, DECK_TEXTOS, deckLabel, deckLineName, deckPrice, type DeckConfig, type DeckPrice } from "@/config/deck";
+import {
+  PAINT_TEXTOS,
+  coatsLabel,
+  colorName,
+  colorText,
+  estimatePaintSurfaces,
+  formatRate,
+  paintIsActive,
+  paintLineName,
+  paintPrice,
+  paintTarget,
+  woodStain,
+  type PaintConfig,
+  type PaintPrice,
+  type PaintSurfaces,
+} from "@/config/paint";
 
 export const AREA_MIN = 10;
 export const AREA_MAX = 500;
@@ -41,18 +58,32 @@ export const CATEGORIES: Category[] = [
   },
 ];
 
+/** Lo que no incluye el precio de una cabaña woodframe. */
 export const EXCLUDED = ["Grifería.", "Artefactos de sanitaria.", "Pintura.", "Decks.", "Pérgolas.", "Parrilleros."];
-export const SYSTEMS: Record<SystemId, { name: string; count: string; categories: Category[]; materialsLabel: string; included: string[] }> = {
+export type SystemConfig = {
+  name: string;
+  count: string;
+  categories: Category[];
+  materialsLabel: string;
+  included: string[];
+  excluded: readonly string[];
+};
+export const SYSTEMS: Record<SystemId, SystemConfig> = {
   woodframe: {
     name: "Woodframe", count: "tres", categories: CATEGORIES, materialsLabel: "Revestimientos interiores",
     included: ["Madera 100 % curada y tratada.", "Instalación eléctrica interior completa.", "Instalación sanitaria completa hasta la primera cámara.", "Mobiliario principal: mesada de cocina.", "Mobiliario principal: mesada de baño."],
+    excluded: EXCLUDED,
   },
   tradicional: {
     name: "Construcción tradicional", count: "dos", materialsLabel: "Materiales y terminaciones",
-    included: ["Instalación eléctrica interior completa con firma de UTE.", "Instalación sanitaria completa hasta la primera cámara."],
+    // Los mismos cinco puntos que justifican el valor (config/tradicional.ts), con el detalle de las dos opciones.
+    included: incluyeFor().map((item) => `${item.titulo}: ${item.texto}`),
+    excluded: TRADICIONAL_EXCLUIDO,
+    // Tarifas base por m² (Punta del Diablo, terreno firme y nivelado). Desde 65 m² rige el descuento por superficie
+    // (config/tradicional.ts → VOLUME_TIERS): se calcula con `rateFor` / `estimateFor`, nunca con `price` a secas.
     categories: [
-      { id: "esencial", name: "ESENCIAL", price: 1300, description: "Una alternativa sólida y accesible para construir en ladrillo con una inversión inicial más económica.", interior: "Muros de ladrillo hueco (ticholo) o ladrillo común, con revoque común · Cielorraso de yeso · Piso cerámico estándar · Aberturas · Techo liviano de chapa con aislación básica" },
-      { id: "clasica", name: "CLÁSICA", price: 1500, description: "Una alternativa de mayor terminación, con losa de hormigón y piso porcelanato.", interior: "Muros de ladrillo hueco (ticholo) o ladrillo común, con revoque fino · Losa de hormigón con aislación térmica y membrana asfáltica · Piso porcelanato · Aberturas" },
+      { id: "esencial", name: "ESENCIAL", price: 1200, description: "Una alternativa sólida y accesible para construir en ladrillo, con techo liviano y una inversión inicial más económica.", interior: "Muros de ladrillo hueco (ticholo) o ladrillo común, con revoque común · Cielorraso de yeso · Piso cerámico estándar · Aberturas · Techo liviano de chapa con aislación térmica/hidrófuga reforzada" },
+      { id: "clasica", name: "CLÁSICA", price: 1400, description: "Una alternativa de mayor terminación, con losa de hormigón armado y piso porcelanato.", interior: "Muros de ladrillo hueco (ticholo) o ladrillo común, con revoque fino · Losa llena de hormigón armado con aislación térmica y membrana asfáltica · Piso porcelanato · Aberturas" },
     ],
   },
 };
@@ -76,7 +107,54 @@ export function clampArea(value: unknown): number {
   return Math.min(AREA_MAX, Math.max(AREA_MIN, Math.round(n)));
 }
 
+/** Superficie × tarifa a secas, SIN descuento por superficie. Para una categoría usá `estimateFor`. */
 export const estimate = (area: number, price: number) => clampArea(area) * price;
+
+/** Solo la construcción tradicional tiene descuento por superficie (65 m² → 5%, 90 m² → 8%); woodframe no. */
+export const hasVolumeDiscount = (id: CategoryId): boolean => id === "esencial" || id === "clasica";
+
+/** Precio por m² que se cobra para esa superficie: la tarifa base, o la bonificada en tradicional (1.200 → 1.140 → 1.104). */
+export const rateFor = (id: CategoryId, price: number, area: number): number => (hasVolumeDiscount(id) ? discountedRate(price, area) : price);
+
+/** Precio de la vivienda de esa categoría y superficie (m² entre 10 y 500). Lo usan el cotizador y el diseñador 3D. */
+export const estimateFor = (category: Pick<Category, "id" | "price">, area: number): number => {
+  const m2 = clampArea(area);
+  return m2 * rateFor(category.id, category.price, m2);
+};
+
+export type VolumeBonus = {
+  /** 5 u 8. */
+  discount: number;
+  area: number;
+  /** Tarifa base por m². */
+  baseRate: number;
+  /** Precio por m² efectivo, ya con el descuento. */
+  rate: number;
+  /** Lo que se ahorra en total respecto de la tarifa base. */
+  saving: number;
+};
+
+/** La bonificación que corresponde a esa superficie, o null si no aplica (woodframe o menos de 65 m²). */
+export function volumeBonus(category: Pick<Category, "id" | "price">, area: number): VolumeBonus | null {
+  if (!hasVolumeDiscount(category.id)) return null;
+  const discount = volumeDiscount(area);
+  if (discount === 0) return null;
+  const rate = rateFor(category.id, category.price, area);
+  return { discount, area, baseRate: category.price, rate, saving: area * (category.price - rate) };
+}
+
+/** Pista de cuántos m² faltan para el próximo tramo de descuento (solo tradicional). */
+export function nextBonusHint(category: Pick<Category, "id">, area: number): string | null {
+  if (!hasVolumeDiscount(category.id)) return null;
+  const next = nextVolumeTier(area);
+  return next ? TRADICIONAL_TEXTOS.pista(next) : null;
+}
+
+/** Líneas de texto de la bonificación para el resumen: mensaje, precio por m² efectivo y ahorro. */
+export const volumeBonusLines = (bonus: VolumeBonus): string[] => [
+  TRADICIONAL_TEXTOS.bonificacion(bonus.discount),
+  `${TRADICIONAL_TEXTOS.precioEfectivo}: ${formatUSD(bonus.rate)}/m² (${TRADICIONAL_TEXTOS.tarifaBase} ${formatUSD(bonus.baseRate)}/m²)`,
+];
 
 export const LOGISTICS_ZONES = [
   { id: "local", label: "Punta del Diablo", places: "Sin costo logístico extra", min: 0, max: 0 },
@@ -133,13 +211,116 @@ export function deckExtra(deck: DeckConfig, logistics: LogisticsSelection = DEFA
   };
 }
 
-/** Las tres líneas del resumen: la vivienda (su total no cambia por el extra), los extras y el total con extras. */
-export function withExtras(vivienda: number | null, extra: DeckExtraQuote) {
+/**
+ * Extra opcional «Pintura»: igual que el deck, no forma parte del presupuesto de la vivienda y lleva el mismo costo logístico.
+ * Las paredes de construcción tradicional (revoque) no están en la lista de precios: quedan «A cotizar» y no suman al total.
+ */
+export type PaintExtraQuote = PaintPrice & {
+  percentage: number;
+  separateTrip: boolean;
+  surcharge: number | null;
+  /** Total con logística de las paredes que tienen precio; null si hay viaje a cotizar aparte. */
+  total: number | null;
+};
+
+export function paintExtra(
+  paint: PaintConfig,
+  finish: CategoryId,
+  surfaces: PaintSurfaces,
+  logistics: LogisticsSelection = DEFAULT_LOGISTICS,
+): PaintExtraQuote {
+  const price = paintPrice(paint, finish, surfaces),
+    result = calculateLogistics(price.subtotal, logistics),
+    surcharge = result.surcharge === null ? null : Math.round(result.surcharge);
+  return {
+    ...price,
+    percentage: result.percentage,
+    separateTrip: result.separateTrip,
+    surcharge,
+    total: surcharge === null ? null : price.subtotal + surcharge,
+  };
+}
+
+/** ¿La pintura suma algo al total? (está activa y al menos una pared tiene precio). */
+export const paintCounts = (q: PaintExtraQuote | undefined): q is PaintExtraQuote =>
+  !!q && q.active && q.lines.some((l) => l.subtotal !== null);
+
+/** Las tres líneas del resumen: la vivienda (su total no cambia por los extras), los extras y el total con extras. */
+export function withExtras(vivienda: number | null, extra: DeckExtraQuote, paint?: PaintExtraQuote) {
+  const items = [extra.active ? extra : null, paintCounts(paint) ? paint : null].filter(
+    (q): q is DeckExtraQuote | PaintExtraQuote => q !== null,
+  );
+  const extras = items.length === 0 ? 0 : items.some((q) => q.total === null) ? null : items.reduce((n, q) => n + (q.total ?? 0), 0);
   return {
     vivienda,
-    extras: extra.active ? extra.total : 0,
-    totalConExtras: vivienda === null || !extra.active ? vivienda : extra.total === null ? null : vivienda + extra.total,
+    extras,
+    totalConExtras: vivienda === null || items.length === 0 ? vivienda : extras === null ? null : vivienda + extras,
   };
+}
+
+/** Las paredes que se pintan en una opción, con el color elegido: «Exterior: Gris perla (#CFD3D6 · RGB 207, 211, 214)». */
+export function paintColorLines(paint: PaintConfig, finishes: CategoryId[]): string[] {
+  const lines: string[] = [];
+  if (paint.exterior) lines.push(`Color exterior: ${colorName(paint.exteriorColor, "exterior")} (${colorText(paint.exteriorColor)})`);
+  if (paint.interior) {
+    const targets = finishes.map((f) => paintTarget(f, "interior"));
+    if (targets.some((t) => t.kind === "color"))
+      lines.push(`Color interior (yeso/drywall o revoque): ${colorName(paint.interiorColor, "interior")} (${colorText(paint.interiorColor)})`);
+    if (targets.some((t) => t.kind === "madera")) lines.push(`Tono de la madera interior: ${woodStain(paint.woodColor).nombre}`);
+  }
+  return lines;
+}
+
+/** Líneas de una opción: «Exterior · siding (acrílico exterior): 46 m² × USD 8,75/m² = USD 403». */
+export function paintQuoteLines(q: PaintExtraQuote): string[] {
+  return q.lines.map((l) =>
+    l.rate === null || l.subtotal === null
+      ? `${paintLineName(l)}: ${l.area} m² — ${PAINT_TEXTOS.aCotizar}`
+      : `${paintLineName(l)}: ${l.area} m² × ${formatRate(l.rate)}/m² = ${formatUSD(l.subtotal)}`,
+  );
+}
+
+type SummaryRow = { id: CategoryId; name: string; area: number; total: number | null };
+
+/** Bloque de extras cuando hay pintura (con o sin deck): el deck igual para todas las opciones y la pintura de cada una. */
+function extrasWithPaintSummary(
+  deck: DeckConfig | undefined,
+  paint: PaintConfig,
+  system: SystemId,
+  logistics: LogisticsSelection,
+  rows: SummaryRow[],
+): string {
+  const lines = ["Extras opcionales (no incluidos en el presupuesto de la vivienda)"];
+  const dq = deck?.enabled ? deckExtra(deck, logistics) : null;
+  if (deck && dq) {
+    lines.push(deckLabel(deck));
+    if (dq.subtotal === null) lines.push(`Deck: ${DECK_A_COTIZAR}`);
+    else {
+      lines.push(`${deck.roofed ? "Deck techado" : "Deck"} ${deckLineName(deck.line)}: ${dq.area} m² × USD ${dq.rate}/m² = ${formatUSD(dq.deck ?? 0)}`);
+      if (dq.railMl > 0) lines.push(`Barandas ${deckLineName(deck.line)}: ${dq.railMl} ml × USD ${dq.railRate}/ml = ${formatUSD(dq.rails ?? 0)}`);
+    }
+    if (deck.steps) lines.push(`Escalones: ${DECK_TEXTOS.escalonesPrecio}`);
+  }
+  lines.push(`Pintura: ${coatsLabel(paint.coats)} (mano de obra y materiales incluidos)`);
+  const quotes = rows.map((r) => ({ row: r, q: paintExtra(paint, r.id, estimatePaintSurfaces(r.area, system), logistics) }));
+  const multi = rows.length > 1;
+  for (const { row, q } of quotes) {
+    for (const text of paintQuoteLines(q)) lines.push(multi ? `${row.name} — ${text}` : text);
+  }
+  lines.push(...paintColorLines(paint, rows.map((r) => r.id)));
+  lines.push("Superficie estimada según los m² de cada opción (una planta); se confirma con la visita.");
+  for (const { row, q } of quotes) {
+    const withDeck = withExtras(row.total, dq ?? deckExtra(DEFAULT_DECK, logistics), q);
+    const tag = multi ? ` (${row.name})` : "";
+    if (withDeck.extras === null) lines.push(`Total de los extras${tag}: a confirmar (viaje a cotizar aparte)`);
+    else {
+      lines.push(`Total de los extras${tag}: ${formatUSD(withDeck.extras)}${q.percentage > 0 && !q.separateTrip ? ` (incluye logística ${q.percentage}%)` : ""}`);
+      lines.push(`Total con extras${tag}: ${withDeck.totalConExtras === null ? "a confirmar" : formatUSD(withDeck.totalConExtras)}`);
+    }
+    if (q.pending) lines.push(`La pintura de las paredes marcadas «A cotizar»${tag} se presupuesta aparte y no está sumada.`);
+  }
+  lines.push(PAINT_TEXTOS.letraChica);
+  return lines.join("\n");
 }
 
 function deckSummary(deck: DeckConfig, logistics: LogisticsSelection, viviendas: { name: string; total: number | null }[]): string {
@@ -164,30 +345,43 @@ function deckSummary(deck: DeckConfig, logistics: LogisticsSelection, viviendas:
   return lines.join("\n");
 }
 
-export function buildSummary(areas: Areas, logistics?: LogisticsSelection, system: SystemId = "woodframe", categoryId?: CategoryId, deck?: DeckConfig): string {
+export function buildSummary(areas: Areas, logistics?: LogisticsSelection, system: SystemId = "woodframe", categoryId?: CategoryId, deck?: DeckConfig, paint?: PaintConfig): string {
   const config = SYSTEMS[system];
-  const blocks = config.categories.filter((c) => categoryId === undefined || c.id === categoryId).map(
-    (c) =>
-      `${c.name}\nSuperficie: ${clampArea(areas[c.id] ?? AREA_DEFAULT)} m²\nPrecio: USD ${c.price}/m²\nInversión estimada: ${formatUSD(estimate(areas[c.id] ?? AREA_DEFAULT, c.price))}\n${system === "woodframe" ? "Terminaciones interiores" : config.materialsLabel}: ${c.interior}\nObra base: ${formatUSD(estimate(areas[c.id] ?? AREA_DEFAULT, c.price))}${logistics ? logisticsSummary(estimate(areas[c.id] ?? AREA_DEFAULT, c.price), logistics) : ""}`,
+  const selected = config.categories
+    .filter((c) => categoryId === undefined || c.id === categoryId)
+    .map((c) => {
+      const area = clampArea(areas[c.id] ?? AREA_DEFAULT),
+        base = estimateFor(c, area);
+      return { category: c, area, base, bonus: volumeBonus(c, area) };
+    });
+  const rows: SummaryRow[] = selected.map(({ category: c, area, base }) => ({
+    id: c.id,
+    name: c.name,
+    area,
+    total: logistics ? calculateLogistics(base, logistics).total : base,
+  }));
+  // Precio por m² que se cobra: en tradicional, con la bonificación por superficie si corresponde.
+  const blocks = selected.map(({ category: c, area, base, bonus }) =>
+    [
+      c.name,
+      `Superficie: ${area} m²`,
+      `Precio: ${formatUSD(bonus ? bonus.rate : c.price)}/m²${bonus ? ` (${TRADICIONAL_TEXTOS.tarifaBase} ${formatUSD(bonus.baseRate)}/m²)` : ""}`,
+      ...(bonus ? [TRADICIONAL_TEXTOS.bonificacion(bonus.discount)] : []),
+      `Inversión estimada: ${formatUSD(base)}`,
+      `${system === "woodframe" ? "Terminaciones interiores" : config.materialsLabel}: ${c.interior}`,
+      `Obra base: ${formatUSD(base)}${logistics ? logisticsSummary(base, logistics) : ""}`,
+    ].join("\n"),
   );
   return [
     "SCH CONSTRUCCIONES — RESUMEN DE COTIZACIÓN",
     `Sistema: ${config.name}`,
     ...blocks,
-    ...(deck?.enabled
-      ? [
-          deckSummary(
-            deck,
-            logistics ?? DEFAULT_LOGISTICS,
-            config.categories
-              .filter((c) => categoryId === undefined || c.id === categoryId)
-              .map((c) => {
-                const base = estimate(areas[c.id] ?? AREA_DEFAULT, c.price);
-                return { name: c.name, total: logistics ? calculateLogistics(base, logistics).total : base };
-              }),
-          ),
-        ]
-      : []),
+    ...(system === "tradicional" ? [TRADICIONAL_TEXTOS.exclusiones] : []),
+    ...(paint && paintIsActive(paint)
+      ? [extrasWithPaintSummary(deck, paint, system, logistics ?? DEFAULT_LOGISTICS, rows)]
+      : deck?.enabled
+        ? [deckSummary(deck, logistics ?? DEFAULT_LOGISTICS, rows.map((r) => ({ name: r.name, total: r.total })))]
+        : []),
     ...(system === "woodframe" ? [EXTERIOR_REVESTIMIENTO] : []),
     "Hola, SCH CONSTRUCCIONES. Quisiera solicitar un presupuesto personalizado para mi proyecto.",
     "Estas son las alternativas que estuve evaluando.",
@@ -196,8 +390,8 @@ export function buildSummary(areas: Areas, logistics?: LogisticsSelection, syste
   ].join("\n\n");
 }
 
-export function buildWhatsAppUrl(areas: Areas, logistics: LogisticsSelection, system: SystemId, categoryId?: CategoryId, deck?: DeckConfig) {
-  return `${WHATSAPP_MESSAGE_DESTINATION}?text=${encodeURIComponent(buildSummary(areas, logistics, system, categoryId, deck))}`;
+export function buildWhatsAppUrl(areas: Areas, logistics: LogisticsSelection, system: SystemId, categoryId?: CategoryId, deck?: DeckConfig, paint?: PaintConfig) {
+  return `${WHATSAPP_MESSAGE_DESTINATION}?text=${encodeURIComponent(buildSummary(areas, logistics, system, categoryId, deck, paint))}`;
 }
 
 function logisticsSummary(base: number, selection: LogisticsSelection): string {
