@@ -97,10 +97,10 @@ describe("diseñador 3D con construcción tradicional", () => {
     const c = { ...initialConfig(), extraOpenings: 0 };
     expect(
       configPrice({ ...c, finish: "esencial", foundation: "platea", roofType: "una" }).total,
-    ).toBe(48 * 1300);
+    ).toBe(48 * 1200);
     expect(
       configPrice({ ...c, finish: "clasica", foundation: "hormigon", roofType: "plano" }).total,
-    ).toBe(48 * 1500);
+    ).toBe(48 * 1400);
   });
 
   it("el mensaje de WhatsApp describe la vivienda tradicional", () => {
@@ -118,7 +118,7 @@ describe("diseñador 3D con construcción tradicional", () => {
       "CLÁSICA",
       "platea de hormigón",
       "Losa de hormigón",
-      "USD 72.000",
+      "USD 67.200",
     ])
       expect(text).toContain(part);
   });

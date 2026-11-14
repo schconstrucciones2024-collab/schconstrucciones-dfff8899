@@ -31,6 +31,7 @@ import {
 enablePatches();
 import { clampArea, DEFAULT_LOGISTICS, type LogisticsSelection } from "@/lib/cotizador";
 import { DEFAULT_DECK, normalizeDeck, type DeckConfig } from "@/config/deck";
+import { DEFAULT_PAINT, normalizePaint, type PaintConfig } from "@/config/paint";
 import type { FinishId } from "@/config/materials";
 import type { FoundationId, RoofId } from "@/config/pricing";
 import {
@@ -86,6 +87,8 @@ export type HouseConfig = {
   rotation: number;
   /** Extra opcional «Deck y techado»: no forma parte del presupuesto de la vivienda. */
   deck: DeckConfig;
+  /** Pintura opcional: manos, qué paredes y colores. Apagada por defecto. */
+  paint: PaintConfig;
 };
 export const WALL_HEIGHT = 2.65;
 export const FLOOR_BASE = 0.85;
@@ -738,6 +741,7 @@ export function initialConfig(system: SystemId = "woodframe"): HouseConfig {
     position: { x: 0, z: 0 },
     rotation: 0,
     deck: { ...DEFAULT_DECK },
+    paint: { ...DEFAULT_PAINT },
   };
   const starter = tradicional ? PLAN_CATALOG.find((p) => p.id === TRADICIONAL_STARTER_ID) : undefined;
   return buildLayoutProposal(c, starter ?? COMPACTA_PROPOSAL);
@@ -891,6 +895,8 @@ type ConfiguratorStore = {
   duplicateOpening: (id: string) => void;
   /** Cambia el deck sin tocar nada más del diseño (entra al historial de deshacer). */
   setDeck: (patch: Partial<DeckConfig>) => void;
+  /** Cambia la pintura (manos, paredes y colores) sin tocar nada más del diseño (entra al historial de deshacer). */
+  setPaint: (patch: Partial<PaintConfig>) => void;
   reset: () => void;
 };
 export const useConfigurator = create<ConfiguratorStore>((set, get) => {
@@ -1280,6 +1286,10 @@ export const useConfigurator = create<ConfiguratorStore>((set, get) => {
       const c = get().config;
       commit({ ...c, deck: normalizeDeck({ ...c.deck, ...patch }) });
     },
+    setPaint: (patch) => {
+      const c = get().config;
+      commit({ ...c, paint: normalizePaint({ ...c.paint, ...patch }) });
+    },
     reset: () => {
       commit(initialConfig(systemOf(get().config.finish)));
       set({ view: "exterior", activeFloor: 0, selectedId: null, placing: null });
@@ -1404,6 +1414,8 @@ export function decodeDesign(text: string): HouseConfig | null {
     if (!["una", "dos", "plano"].includes(candidate.roofType)) candidate.roofType = "dos";
     // Los diseños guardados antes del deck no lo traen: arrancan con el deck apagado.
     candidate.deck = normalizeDeck(source.deck);
+    // Igual con la pintura: los diseños y links anteriores arrancan con la pintura apagada.
+    candidate.paint = normalizePaint(source.paint);
     const parsed = designSchema.safeParse(candidate);
     if (!parsed.success) return null;
     const c = coherentSystem(parsed.data as HouseConfig);

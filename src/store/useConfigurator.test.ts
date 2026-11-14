@@ -9,9 +9,9 @@ describe('configurador paramétrico', () => {
     const c = initialConfig(); expect(c.m2).toBe(48);
     for (const [finish, total] of [['rustica', 40800], ['moderna', 43200], ['allwood', 47520]] as const) expect(configPrice({ ...c, finish, extraOpenings: 0 }).total).toBe(total);
   });
-  it('conserva las tarifas de tradicional: Esencial 1.300 y Clásica 1.500 por m²', () => {
+  it('tarifas de tradicional: Esencial 1.200 y Clásica 1.400 por m² (48 m², sin bonificación)', () => {
     const c = initialConfig();
-    for (const [finish, total] of [['esencial', 62400], ['clasica', 72000]] as const) expect(configPrice({ ...c, finish, extraOpenings: 0 }).total).toBe(total);
+    for (const [finish, total] of [['esencial', 57600], ['clasica', 67200]] as const) expect(configPrice({ ...c, finish, extraOpenings: 0 }).total).toBe(total);
   });
   it('el diseño inicial tiene ventanal corredizo en la entrada', () => {
     const c = initialConfig();
