@@ -18,8 +18,8 @@ import { SiteHeader } from "@/components/home/SiteHeader";
 import { Social } from "@/components/home/Social";
 import { Sistemas } from "@/components/sistemas/Sistemas";
 
-const TITLE = "SCH Construcciones | Construcción en Rocha";
-const DESCRIPTION = "Viviendas woodframe y tradicionales, reformas y mobiliario a medida. SCH Construcciones en Punta del Diablo, Rocha, con obras en todo Uruguay.";
+const TITLE = "Cabañas y casas en todo Uruguay | SCH Construcciones";
+const DESCRIPTION = "Cabañas woodframe, casas tradicionales, reformas y mobiliario a medida en todo Uruguay, con base en Punta del Diablo (Rocha). Presupuesto sin costo.";
 const SOCIAL_IMAGE = `${SITE_URL}/images/hero-obra-1280.webp`;
 
 export const Route = createFileRoute("/")({

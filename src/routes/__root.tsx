@@ -13,6 +13,8 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Analytics } from "../components/home/Analytics";
+import { ImageGuard } from "../components/home/ImageGuard";
+import { copyrightNotice } from "../config/legal";
 
 function NotFoundComponent() {
   return (
@@ -81,6 +83,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { name: "author", content: "SCH Construcciones" },
+      { name: "copyright", content: copyrightNotice() },
       { name: "google-site-verification", content: "x188Ch_oRn0G-UjBioQpY_tgduqliVTpo4EFl15DUxc" },
       { property: "og:type", content: "website" },
       { property: "og:locale", content: "es_UY" },
@@ -130,6 +133,7 @@ function RootComponent() {
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <Analytics />
+      <ImageGuard />
     </QueryClientProvider>
   );
 }
