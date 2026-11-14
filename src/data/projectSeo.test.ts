@@ -16,6 +16,14 @@ describe("SEO de cada obra", () => {
     }
   });
 
+  it("cada obra declara a SCH Construcciones como titular de los derechos", () => {
+    for (const story of PROJECT_STORIES) {
+      const [work] = projectJsonLd(story) as any[];
+      expect(work.copyrightHolder.name, story.slug).toBe("SCH Construcciones");
+      expect(work.copyrightNotice, story.slug).toContain("Todos los derechos reservados");
+    }
+  });
+
   it("el JSON-LD se puede serializar sin perder información", () => {
     const json = JSON.stringify(projectJsonLd(PROJECT_STORIES[0]!));
     expect(JSON.parse(json)).toHaveLength(2);

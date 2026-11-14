@@ -1,3 +1,4 @@
+import { COPYRIGHT_HOLDER, copyrightNotice } from "@/config/legal";
 import { SITE_URL } from "./servicios";
 import type { ProjectStory } from "./projectStories";
 
@@ -15,6 +16,8 @@ export function projectJsonLd(project: Pick<ProjectStory, "slug" | "name" | "des
       image,
       ...(project.location ? { locationCreated: { "@type": "Place", name: project.location } } : {}),
       creator: { "@type": "GeneralContractor", name: "SCH Construcciones", url: SITE_URL },
+      copyrightHolder: { "@type": "Organization", name: COPYRIGHT_HOLDER, url: SITE_URL },
+      copyrightNotice: copyrightNotice(),
     },
     {
       "@context": "https://schema.org",
