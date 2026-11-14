@@ -1,4 +1,7 @@
 import { DECK_TEXTOS } from "@/config/deck";
+import { PAINT_TEXTOS } from "@/config/paint";
+import { TARIFA_BASE_DESDE, TRADICIONAL_OPCION, TRADICIONAL_TEXTOS, discountedRate, incluyeFor, volumeTierRows } from "@/config/tradicional";
+import { SYSTEMS, formatUSD } from "@/lib/cotizador";
 
 export const FAQ_CATEGORIES = ["Todas", "Plazos y pagos", "Alcance", "Técnica"] as const;
 export type FaqCategory = (typeof FAQ_CATEGORIES)[number];
@@ -18,6 +21,16 @@ export type Faq = {
 };
 
 export const FAQ_WHATSAPP = "https://wa.me/59895564068?text=Hola%20SCH%20Construcciones%2C%20vi%20las%20preguntas%20frecuentes%20en%20la%20web%20y%20quiero%20consultar%20por%20una%20caba%C3%B1a.";
+
+const [esencial, clasica] = SYSTEMS.tradicional.categories;
+
+/** Una fila por tramo de superficie, con el precio por m² de cada opción ya bonificado (mismo cálculo que el cotizador y el diseñador). */
+const tradicionalRows = (): string[][] =>
+  volumeTierRows().map((tier) => {
+    const area = tier.desde;
+    const label = tier.descuento === 0 ? tier.etiqueta.replace(": tarifa base", "") : tier.etiqueta.replace(/: -(\d+)%/, " · -$1%");
+    return [label, `${formatUSD(discountedRate(esencial?.price ?? 0, area))}/m²`, `${formatUSD(discountedRate(clasica?.price ?? 0, area))}/m²`];
+  });
 
 export const faqs: Faq[] = [
   {
@@ -43,6 +56,16 @@ export const faqs: Faq[] = [
     ],
   },
   {
+    id: "faq-precio-tradicional", category: "Plazos y pagos", icon: "payment",
+    question: "¿Cuánto cuesta la construcción tradicional y hay descuento por superficie?",
+    blocks: [
+      { type: "paragraph", text: `La construcción tradicional parte de ${formatUSD(esencial?.price ?? 0)}/m² con techo liviano (${esencial?.name ?? "Esencial"}) y ${formatUSD(clasica?.price ?? 0)}/m² con losa de hormigón armado (${clasica?.name ?? "Clásica"}). Desde ${volumeTierRows()[1]?.desde ?? 65} m² el precio por m² baja solo.` },
+      { type: "table", caption: "Precio por m² según la superficie", headers: ["Superficie", `${esencial?.name ?? "Esencial"} · ${TRADICIONAL_OPCION.esencial}`, `${clasica?.name ?? "Clásica"} · ${TRADICIONAL_OPCION.clasica}`], rows: tradicionalRows() },
+      { type: "highlight", text: TRADICIONAL_TEXTOS.tramosIntro },
+      { type: "note", text: `Con menos de ${TARIFA_BASE_DESDE} m² rige la tarifa base. Fuera de Punta del Diablo se suma el costo logístico sobre el total de la obra. ${TRADICIONAL_TEXTOS.exclusiones}` },
+    ],
+  },
+  {
     id: "faq-incluye", category: "Alcance", icon: "included",
     question: "¿Qué incluye una cabaña completa?",
     blocks: [
@@ -51,11 +74,23 @@ export const faqs: Faq[] = [
     ],
   },
   {
+    id: "faq-incluye-tradicional", category: "Alcance", icon: "included",
+    question: "¿Qué incluye una vivienda de construcción tradicional?",
+    blocks: [
+      { type: "paragraph", title: TRADICIONAL_TEXTOS.incluyeTitulo, text: "El precio por m² de la construcción tradicional incluye:" },
+      { type: "list", checked: true, items: incluyeFor().map((item) => `${item.titulo}: ${item.texto}`) },
+      { type: "highlight", text: "Materiales y ejecución integrados en Punta del Diablo: sin sorpresas por fletes externos ni alquiler de maquinaria pesada." },
+      { type: "note", text: TRADICIONAL_TEXTOS.exclusiones },
+    ],
+  },
+  {
     id: "faq-no-incluye", category: "Alcance", icon: "excluded",
     question: "¿Qué no incluye?",
     blocks: [
+      { type: "paragraph", title: "Cabaña woodframe", text: "No incluye:" },
       { type: "list", checked: false, items: ["Grifería", "Artefactos sanitarios", "Pintura", "Decks", "Pérgolas", "Parrilleros"] },
-      { type: "paragraph", text: "Lo importante es saberlo antes de empezar. Si querés sumar alguno a tu proyecto, consultanos." },
+      { type: "paragraph", title: "Construcción tradicional", text: TRADICIONAL_TEXTOS.exclusiones },
+      { type: "paragraph", text: "Lo importante es saberlo antes de empezar. El deck y la pintura se pueden sumar como extras opcionales desde el cotizador y el diseñador 3D; para cualquier otro agregado, consultanos." },
     ],
   },
   {
@@ -64,6 +99,14 @@ export const faqs: Faq[] = [
     blocks: [
       { type: "paragraph", text: DECK_TEXTOS.faqRespuesta },
       { type: "note", text: `${DECK_TEXTOS.aviso} ${DECK_TEXTOS.letraChica}` },
+    ],
+  },
+  {
+    id: "faq-pintura", category: "Alcance", icon: "excluded",
+    question: PAINT_TEXTOS.faqPregunta,
+    blocks: [
+      { type: "paragraph", text: PAINT_TEXTOS.faqRespuesta },
+      { type: "note", text: `${PAINT_TEXTOS.aviso} ${PAINT_TEXTOS.letraChica}` },
     ],
   },
   {
@@ -81,6 +124,7 @@ export const faqs: Faq[] = [
         ["Humedad y ventilación", "Vivienda elevada y ventilada", "Contacto más cercano con el suelo"],
         ["Cuándo se recomienda", "Suelo arenoso o costero", "Suelo firme, si el proyecto técnico lo indica"],
       ] },
+      { type: "paragraph", title: "En construcción tradicional", text: "La construcción tradicional se cotiza sobre platea de hormigón armado ejecutada in situ, calculada para terreno firme y nivelado. Si tu terreno es de arena o costero, consultanos antes de definir la fundación." },
       { type: "highlight", text: "Nuestro criterio, respaldado por los ingenieros con los que trabajamos: en suelo arenoso recomendamos pilotes de hormigón o de madera curada. La platea la hacemos sin inconvenientes cuando el suelo es firme y el proyecto técnico lo indica." },
       { type: "note", text: "Explicación general. La definición final depende de las condiciones reales del terreno (tipo de suelo, nivel de napa, cota y drenaje) y del proyecto técnico." },
     ],
