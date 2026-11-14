@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { isOrthogonal } from "@/config/geometry";
 import { Copy, Trash2, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,8 +7,11 @@ import {
   FINISH_NAMES,
   FOUNDATION_NAMES,
   RATES,
+  configRate,
   roofName,
 } from "@/config/pricing";
+import { IncluyeAccordion } from "@/components/cotizador/PrecioTradicional";
+import type { TradicionalId } from "@/config/tradicional";
 import {
   FINISHES_BY_SYSTEM,
   FOUNDATIONS_BY_SYSTEM,
@@ -25,8 +29,10 @@ import {
   placedRooms,
   type WallId,
 } from "@/store/useConfigurator";
-import { DeckPanel } from "@/components/cotizador/DeckExtra";
+import { ExtrasSection } from "@/components/cotizador/ExtrasSection";
 import { deckFrontSpan, resolveDeck } from "@/config/deckGeometry";
+import { PAINT_TEXTOS } from "@/config/paint";
+import { paintSurfacesOf } from "./paintSurfaces";
 import { MaterialsSheet } from "./MaterialsSheet";
 import { Summary } from "./Summary";
 export const STEPS = [
@@ -36,7 +42,7 @@ export const STEPS = [
   "Terminación",
   "Techo",
   "Aberturas",
-  "Deck y techado (opcional)",
+  "Extras y opcionales",
   "Resumen",
 ];
 const WALLS: { id: WallId; label: string }[] = [
@@ -229,14 +235,21 @@ export function Panels({ step }: { step: number }) {
                 onClick={() => s.update({ finish: id })}
               >
                 {FINISH_NAMES[id]}
-                <span className="text-[10px]">{formatUSD(RATES[id])}/m²</span>
+                <span className="text-[10px]">{formatUSD(configRate(id, c.m2))}/m²</span>
+                {system === "tradicional" && configRate(id, c.m2) !== RATES[id] && (
+                  <s className="text-[10px] font-normal opacity-60">{formatUSD(RATES[id])}/m²</s>
+                )}
               </Button>
             ))}
           </div>
           {system === "tradicional" && (
-            <p className="mt-4 text-xs leading-6 text-foreground/70">
-              {SYSTEMS.tradicional.categories.find((x) => x.id === c.finish)?.interior}
-            </p>
+            <>
+              <p className="mt-4 text-xs leading-6 text-foreground/70">
+                {SYSTEMS.tradicional.categories.find((x) => x.id === c.finish)?.interior}
+              </p>
+              {/* La bonificación por superficie y las exclusiones se muestran debajo del total (Summary). */}
+              <IncluyeAccordion className="mt-3" variant="panel" option={c.finish as TradicionalId} />
+            </>
           )}
           <MaterialsSheet finish={c.finish} />
         </>
@@ -265,8 +278,8 @@ export function Panels({ step }: { step: number }) {
           {system === "tradicional" && (
             <p className="mt-3 text-xs leading-6 text-foreground/70">
               {c.finish === "clasica"
-                ? "La Clásica lleva losa de hormigón plana con antepecho, aislación térmica y membrana asfáltica."
-                : "La Esencial lleva techo liviano de chapa con aislación básica, cenefa y canaleta."}
+                ? "La Clásica lleva losa llena de hormigón armado ejecutada en obra, con antepecho, aislación térmica e impermeabilización de azotea con membrana asfáltica (planta baja)."
+                : "La Esencial lleva techo liviano: estructura de madera 100% curada, aislación térmica/hidrófuga reforzada y cubierta de chapa con zinguería completa (cenefa y canaleta)."}
             </p>
           )}
           {c.finish !== "clasica" && (
@@ -461,7 +474,7 @@ export function Panels({ step }: { step: number }) {
           )}
         </>
       )}
-      {step === 6 && <DeckStep />}
+      {step === 6 && <ExtrasStep />}
       {step === 7 && <Summary full />}
       {s.error && (
         <p role="alert" className="mt-4 text-xs leading-6 text-destructive">
@@ -472,25 +485,35 @@ export function Panels({ step }: { step: number }) {
   );
 }
 
-/** Paso «Deck y techado (opcional)»: el mismo extra del cotizador, leyendo y guardando en el diseño. */
-function DeckStep() {
-  const stored = useConfigurator((s) => s.config.deck),
-    contour = useConfigurator((s) => s.config.contour),
-    finish = useConfigurator((s) => s.config.finish),
-    logistics = useConfigurator((s) => s.config.logistics),
+/**
+ * Paso «Extras y opcionales»: los mismos extras del cotizador (deck y pintura), leyendo y guardando en el diseño. La pintura
+ * se mide sobre las paredes reales del diseño y el color elegido se ve enseguida sobre la casa en 3D.
+ */
+function ExtrasStep() {
+  const config = useConfigurator((s) => s.config),
     setDeck = useConfigurator((s) => s.setDeck),
+    setPaint = useConfigurator((s) => s.setPaint),
+    setView = useConfigurator((s) => s.setView),
+    { deck: stored, contour, finish, logistics, paint } = config,
     thickness = exteriorThickness(finish),
     deck = resolveDeck(stored, contour, thickness),
-    frontLength = deckFrontSpan(contour, thickness)?.length ?? null;
+    frontLength = deckFrontSpan(contour, thickness)?.length ?? null,
+    // Medir las paredes recorre el diseño: solo se hace con la pintura agregada.
+    surfaces = useMemo(() => (paint.enabled ? paintSurfacesOf(config) : { exterior: 0, interior: 0 }), [config, paint.enabled]);
   return (
-    <DeckPanel
+    <ExtrasSection
+      variant="panel"
+      idPrefix="config-extras"
+      logistics={logistics}
       deck={deck}
       // Al dejar de cubrir todo el frente, el deck conserva el ancho que tenía en ese momento (no salta a otra medida).
-      onChange={(patch) => setDeck(patch.fullFront === false && patch.width === undefined ? { ...patch, width: deck.width } : patch)}
+      onDeckChange={(patch) => setDeck(patch.fullFront === false && patch.width === undefined ? { ...patch, width: deck.width } : patch)}
       frontLength={frontLength === null ? null : Math.round(frontLength * 100) / 100}
-      logistics={logistics}
-      variant="panel"
-      idPrefix="config-deck"
+      paint={paint}
+      onPaintChange={setPaint}
+      paintOptions={[{ finish, name: FINISH_NAMES[finish], surfaces }]}
+      paintNota={PAINT_TEXTOS.superficieDiseno}
+      onPaintLook={(zone) => setView(zone)}
     />
   );
 }

@@ -7,6 +7,7 @@ import { BATHROOM_MATERIALS, drawMaterial, FINISH_MATERIALS, type MaterialKind }
 import { OPENINGS_CATALOG } from "@/config/openingsCatalog";
 import { Html } from "@react-three/drei";
 import { createPBR, pbrProps, disposePBR, loadPBR, repeatPBR } from "./pbr";
+import { lookProps, usePaintLooks, type SurfaceLooks } from "./paintLooks3d";
 import { SceneEditor, useObjectDrag } from "./SceneEditor";
 import { sceneGlow } from "@/store/useEntorno";
 import { Button } from '@/components/ui/button';
@@ -337,6 +338,7 @@ function Wall({
   floor,
   interiorMap,
   sidingMap,
+  looks,
   palette,
   dragging,
   setDragging,
@@ -346,6 +348,8 @@ function Wall({
   floor: number;
   interiorMap: THREE.Texture;
   sidingMap: THREE.Texture;
+  /** Pintura elegida: color de las caras exterior e interior (null = textura sin tocar). */
+  looks: SurfaceLooks;
   palette: ScenePalette;
   dragging: string | null;
   setDragging: (v: string | null) => void;
@@ -449,13 +453,13 @@ function Wall({
           map={interior ? interiorMap : sidingMap}
           {...(selected ? { emissive: palette.accent, emissiveIntensity: 0.15 } : {})}
           side={THREE.DoubleSide}
-          roughness={1}
+          {...lookProps(interior ? looks.interior : looks.exterior)}
         />
       </mesh>
       {!interior && (
         <mesh position-z={thickness / 2 + 0.002}>
           <shapeGeometry args={[shape]} />
-          <meshStandardMaterial {...pbrProps(interiorMap)} map={interiorMap} side={THREE.FrontSide} roughness={1} />
+          <meshStandardMaterial {...pbrProps(interiorMap)} map={interiorMap} side={THREE.FrontSide} {...lookProps(looks.interior)} />
         </mesh>
       )}
       {openings.map((o) => (
@@ -873,7 +877,8 @@ function Roof({ c, palette }: { c: HouseConfig; palette: ScenePalette }) {
   // Esencial lleva techo liviano de chapa; la Clásica, losa de hormigón con membrana asfáltica.
   const losa = c.finish === "clasica";
   const map = useMaterial(losa ? "membrana" : "chapa"),
-    siding = useMaterial(FINISH_MATERIALS[c.finish].siding);
+    siding = useMaterial(FINISH_MATERIALS[c.finish].siding),
+    looks = usePaintLooks(c.paint, c.finish);
   const geo = useMemo(() => {
     const pts: number[] = [],
       uv: number[] = [],
@@ -928,7 +933,7 @@ function Roof({ c, palette }: { c: HouseConfig; palette: ScenePalette }) {
         <meshStandardMaterial {...pbrProps(map)} map={map} metalness={losa ? 0 : 0.55} roughness={1} side={THREE.DoubleSide} />
       </mesh>
       <mesh geometry={geo.ends}>
-        <meshStandardMaterial {...pbrProps(siding)} map={siding} side={THREE.DoubleSide} />
+        <meshStandardMaterial {...pbrProps(siding)} map={siding} side={THREE.DoubleSide} {...(looks.exterior ? lookProps(looks.exterior) : {})} />
       </mesh>
     </group>
   );
@@ -963,8 +968,9 @@ function DeckScene({ c, cut }: { c: HouseConfig; cut: boolean }) {
 function TradEnvelope({ c }: { c: HouseConfig }) {
   const concrete = useMaterial("hormigon"),
     plaster = useMaterial(FINISH_MATERIALS[c.finish].siding),
-    roof = useMaterial(c.finish === "clasica" ? "membrana" : "chapa");
-  return <TraditionalEnvelope c={c} maps={{ concrete, plaster, roof }} />;
+    roof = useMaterial(c.finish === "clasica" ? "membrana" : "chapa"),
+    looks = usePaintLooks(c.paint, c.finish);
+  return <TraditionalEnvelope c={c} maps={{ concrete, plaster, roof }} plasterLook={looks.exterior} />;
 }
 export function House({
   palette,
@@ -978,7 +984,8 @@ export function House({
   const c = useConfigurator((s) => s.config),
     view = useConfigurator((s) => s.view),
     activeFloor = useConfigurator((s) => s.activeFloor),
-    finish = FINISH_MATERIALS[c.finish];
+    finish = FINISH_MATERIALS[c.finish],
+    looks = usePaintLooks(c.paint, c.finish);
   const [stairPreview,setStairPreview]=useState<{id:string;p:Point}|null>(null);
   const previewStair=(id:string,p:Point|null)=>setStairPreview(p?{id,p}:null);
   const sceneStairs=c.stairs.map(s=>stairPreview?.id===s.id?{...s,...stairPreview.p}:s);
@@ -1019,6 +1026,7 @@ export function House({
                   floor={floor}
                   interiorMap={interiorMap}
                   sidingMap={sidingMap}
+                  looks={looks}
                   palette={palette}
                   dragging={dragging}
                   setDragging={setDragging}

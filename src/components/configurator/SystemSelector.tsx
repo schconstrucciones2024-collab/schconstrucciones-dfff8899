@@ -1,7 +1,14 @@
 import { Check, Hammer, TreePine } from "lucide-react";
-import { SYSTEMS, type SystemId } from "@/lib/cotizador";
+import { SYSTEMS, formatUSD, type SystemId } from "@/lib/cotizador";
 import { systemOf, systemPatch } from "@/config/systems";
+import { VOLUME_TIERS, type TradicionalId } from "@/config/tradicional";
+import { IncluyeAccordion } from "@/components/cotizador/PrecioTradicional";
 import { useConfigurator } from "@/store/useConfigurator";
+
+/** «Desde USD 1.200/m²» y los tramos de bonificación, leídos de la misma tarifa y los mismos tramos que usa el cálculo. */
+const tradicionalPrecio = () =>
+  `Desde ${formatUSD(Math.min(...SYSTEMS.tradicional.categories.map((c) => c.price)))}/m² · ` +
+  [...VOLUME_TIERS].sort((a, b) => a.from - b.from).map((t) => `-${t.discount}% desde ${t.from} m²`).join(" · ");
 
 const OPTIONS: { id: SystemId; icon: typeof Hammer; lines: string[] }[] = [
   {
@@ -12,7 +19,7 @@ const OPTIONS: { id: SystemId; icon: typeof Hammer; lines: string[] }[] = [
   {
     id: "tradicional",
     icon: Hammer,
-    lines: ["Mampostería con revoque", "Sobre platea de hormigón, obra húmeda"],
+    lines: ["Mampostería con revoque", "Sobre platea de hormigón armado, obra húmeda"],
   },
 ];
 
@@ -52,7 +59,7 @@ export function SystemSelector() {
                 <span className="block font-display text-lg font-medium leading-tight">
                   {SYSTEMS[id].name}
                 </span>
-                {lines.map((line) => (
+                {(id === "tradicional" ? [...lines, tradicionalPrecio()] : lines).map((line) => (
                   <span
                     key={line}
                     className={`block text-xs leading-5 ${active ? "opacity-85" : "text-foreground/65"}`}
@@ -66,6 +73,7 @@ export function SystemSelector() {
           );
         })}
       </div>
+      {system === "tradicional" && <IncluyeAccordion className="mt-3" variant="panel" option={config.finish as TradicionalId} />}
       <p className="mt-3 px-1 text-xs leading-6 text-foreground/60">
         Al cambiar de sistema se conserva tu diseño; se adaptan los materiales, la base y el techo.
         Cada sistema tiene sus propias distribuciones.

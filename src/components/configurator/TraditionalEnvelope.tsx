@@ -11,6 +11,7 @@ import {
   type HouseConfig,
 } from "@/store/useConfigurator";
 import { pbrProps } from "./pbr";
+import { lookProps, type SurfaceLook } from "./paintLooks3d";
 
 export type EnvelopeMaps = { concrete: THREE.Texture; plaster: THREE.Texture; roof: THREE.Texture };
 
@@ -18,10 +19,12 @@ function Surface({
   style,
   clasica,
   maps,
+  plasterLook,
 }: {
   style: PartStyle;
   clasica: boolean;
   maps: EnvelopeMaps;
+  plasterLook?: SurfaceLook | null;
 }) {
   if (style === "metal")
     return (
@@ -48,8 +51,10 @@ function Surface({
     );
   }
   const map = style === "concrete" ? maps.concrete : maps.plaster;
+  // El hormigón del zócalo no se pinta: solo el revoque (cintas y antepecho) toma el color elegido para el exterior.
+  const look = style === "concrete" ? null : plasterLook;
   return (
-    <meshStandardMaterial {...pbrProps(map)} map={map} roughness={1} side={THREE.DoubleSide} />
+    <meshStandardMaterial {...pbrProps(map)} map={map} side={THREE.DoubleSide} {...lookProps(look)} />
   );
 }
 
@@ -57,7 +62,16 @@ function Surface({
  * Zócalo, cintas entre plantas y techo de la construcción tradicional (ver `config/envelope.ts`). Reemplaza al techo
  * de woodframe: la casa se ve de mampostería, con losa plana y antepecho (Clásica) o chapa prolija con cenefa y canaleta (Esencial).
  */
-export function TraditionalEnvelope({ c, maps }: { c: HouseConfig; maps: EnvelopeMaps }) {
+export function TraditionalEnvelope({
+  c,
+  maps,
+  plasterLook = null,
+}: {
+  c: HouseConfig;
+  maps: EnvelopeMaps;
+  /** Pintura exterior elegida (null = revoque tal cual). */
+  plasterLook?: SurfaceLook | null;
+}) {
   const base = floorBase(c),
     ground = foundationHeight(c);
   const parts = useMemo(
@@ -99,7 +113,7 @@ export function TraditionalEnvelope({ c, maps }: { c: HouseConfig; maps: Envelop
     <group>
       {parts.map((p) => (
         <mesh key={p.id} geometry={p.geometry} castShadow receiveShadow>
-          <Surface style={p.style} clasica={c.finish === "clasica"} maps={maps} />
+          <Surface style={p.style} clasica={c.finish === "clasica"} maps={maps} plasterLook={plasterLook} />
         </mesh>
       ))}
     </group>

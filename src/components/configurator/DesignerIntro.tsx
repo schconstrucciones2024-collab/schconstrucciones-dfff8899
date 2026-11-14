@@ -1,16 +1,20 @@
 import { useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { VOLUME_TIERS } from "@/config/tradicional";
 
 const STORAGE_KEY = "sch-guia-disenador-v1";
+
+/** Desde qué superficie baja el precio por m² en construcción tradicional (config/tradicional.ts). */
+const DESCUENTO_DESDE = Math.min(...VOLUME_TIERS.map((t) => t.from));
 
 const STEPS: { title: string; text: string }[] = [
   {
     title: "Elegí cómo querés construir",
-    text: "Woodframe (paneles de madera curada, sobre pilotes, obra seca y rápida) o Tradicional (mampostería con revoque, sobre platea de hormigón).",
+    text: `Woodframe (paneles de madera curada, sobre pilotes, obra seca y rápida) o Tradicional (mampostería con revoque, sobre platea de hormigón armado). En Tradicional, desde ${DESCUENTO_DESDE} m² el precio por m² baja solo.`,
   },
   {
     title: "Definí la casa en el panel de la derecha",
-    text: "Metros cuadrados, cantidad de plantas (de 1 a 3), fundación, terminación, techo, aberturas y, si querés, un deck con o sin techo, en línea Esencial o Premium. Todo se actualiza en el momento.",
+    text: "Metros cuadrados, cantidad de plantas (de 1 a 3), fundación, terminación, techo, aberturas y, si querés, extras opcionales: un deck con o sin techo (línea Esencial o Premium) y la pintura, con el color que elijas. Todo se actualiza en el momento.",
   },
   {
     title: "Armá la distribución",
@@ -30,7 +34,8 @@ const CAN: string[] = [
   "Ver los materiales y terminaciones de cada sistema",
   "Elegir el deck en línea Esencial (accesible) o Premium y ver en 3D la diferencia de calidad",
   "Probar el render en calidad Económico, Alto o Ultra",
-  "Ver los metros cuadrados y la inversión estimada mientras diseñás",
+  "Elegir los extras opcionales: pintura de las paredes en el color que quieras (1, 2 o 3 manos) y verla en 3D",
+  "Ver los metros cuadrados y la inversión estimada mientras diseñás, con la bonificación por superficie en construcción tradicional",
 ];
 
 /**

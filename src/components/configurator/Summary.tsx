@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Copy, Share2, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,8 +10,12 @@ import {
   roofName,
 } from "@/config/pricing";
 import { exteriorThickness, systemOf } from "@/config/systems";
-import { LOGISTICS_ZONES, SYSTEMS, deckExtra, formatUSD, withExtras } from "@/lib/cotizador";
+import { LOGISTICS_ZONES, SYSTEMS, deckExtra, formatUSD, nextBonusHint, paintCounts, paintExtra, withExtras } from "@/lib/cotizador";
+import { BonusNote, ExclusionNote, IncluyeAccordion } from "@/components/cotizador/PrecioTradicional";
+import type { TradicionalId } from "@/config/tradicional";
 import { DECK_TEXTOS } from "@/config/deck";
+import { PAINT_TEXTOS, coatsLabel, paintIsActive } from "@/config/paint";
+import { paintSurfacesOf } from "./paintSurfaces";
 import { resolveDeck } from "@/config/deckGeometry";
 import { detectRooms } from "@/config/geometry";
 import { designUrl, suggestedOpenings, useConfigurator } from "@/store/useConfigurator";
@@ -24,9 +28,14 @@ export function Summary({ full = false }: { full?: boolean }) {
   const link = origin ? designUrl(c, origin) : "";
   // El deck tal cual se ve y se cotiza: con «frente completo», del ancho del frente de la casa.
   const deck = resolveDeck(c.deck, c.contour, exteriorThickness(c.finish));
+  // La pintura se mide sobre las paredes del diseño solo si está agregada (recorrer el diseño no es gratis).
+  const paintOn = paintIsActive(c.paint),
+    paintSurfaces = useMemo(() => (paintOn ? paintSurfacesOf(c) : { exterior: 0, interior: 0 }), [c, paintOn]),
+    paintQuote = paintOn ? paintExtra(c.paint, c.finish, paintSurfaces, c.logistics) : undefined;
   const input = {
       ...c,
       deck,
+      paintSurfaces,
       extraOpenings: Math.max(0, c.openings.length - suggestedOpenings(c).length),
       openings: c.openings.length,
       roomsCount: c.walls.reduce((n, w) => n + detectRooms(c.contour, w).length, 0),
@@ -36,7 +45,10 @@ export function Summary({ full = false }: { full?: boolean }) {
     },
     p = configPrice(input),
     text = configWhatsAppText(input),
-    rows = withExtras(p.total, deckExtra(deck, c.logistics));
+    rows = withExtras(p.total, deckExtra(deck, c.logistics), paintQuote),
+    extrasOn = deck.enabled || paintOn,
+    tradicional = systemOf(c.finish) === "tradicional",
+    paintPending = !!paintQuote && !paintCounts(paintQuote);
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(text);
@@ -71,6 +83,7 @@ export function Summary({ full = false }: { full?: boolean }) {
               ["Superficie", `${Number(c.m2.toFixed(2))} m²`],
               ["Plantas", `${c.floors} · ${(c.m2 / c.floors).toFixed(1)} m² por planta`],
               ["Sistema", SYSTEMS[systemOf(c.finish)].name],
+              ["Precio por m²", `${formatUSD(p.rate)}/m²${p.bonus ? ` (-${p.bonus.discount}%)` : ""}`],
               ["Terminación", FINISH_NAMES[c.finish]],
               ["Fundación", FOUNDATION_NAMES[c.foundation]],
               ["Techo", roofName(c.roofType, c.finish)],
@@ -80,6 +93,7 @@ export function Summary({ full = false }: { full?: boolean }) {
               ["Escaleras", String(input.stairsCount)],
               ["Mesadas", String(input.countersCount)],
               ["Deck y techado", deck.enabled ? `${deck.roofed ? "Deck techado" : "Deck"} · ${Number(deck.width)} × ${Number(deck.depth)} m` : "No agregado"],
+              ["Pintura", paintOn ? `${coatsLabel(c.paint.coats)} · ${[c.paint.exterior && "exterior", c.paint.interior && "interior"].filter(Boolean).join(" e ")}` : "No agregada"],
             ].map(([k, v]) => (
               <div key={k}>
                 <dt className="mb-1 text-xs text-foreground/60">{k}</dt>
@@ -145,21 +159,50 @@ export function Summary({ full = false }: { full?: boolean }) {
           {Number(c.m2.toFixed(2))} m² · {c.floors} planta{c.floors > 1 ? "s" : ""}
         </span>
       </div>
-      {deck.enabled && (
+      {tradicional && (
+        <div className="mb-4 space-y-3">
+          {/* Bonificación por superficie (5% desde 65 m², 8% desde 90 m²), la misma que aplica el cotizador. */}
+          <BonusNote variant="panel" compact={!full} className="" bonus={p.bonus} hint={nextBonusHint({ id: c.finish }, c.m2)} />
+          <ExclusionNote />
+          {full && <IncluyeAccordion variant="panel" option={c.finish as TradicionalId} />}
+        </div>
+      )}
+      {extrasOn && (
         <dl aria-label="Vivienda y extras opcionales" className="mb-4 space-y-2 border-t border-border pt-4 text-sm">
           <div className="flex justify-between gap-2">
             <dt>{DECK_TEXTOS.vivienda}{p.total === null ? " · obra base" : ""}</dt>
             <dd>{formatUSD(p.total ?? p.obra)}</dd>
           </div>
-          <div className="flex justify-between gap-2">
-            <dt>{DECK_TEXTOS.extras}</dt>
-            <dd>{rows.extras === null ? "A cotizar" : formatUSD(rows.extras)}</dd>
-          </div>
+          {deck.enabled && paintOn && (
+            <>
+              <div className="flex justify-between gap-2 pl-3 text-xs text-foreground/70">
+                <dt>Deck y techado</dt>
+                <dd>{deckExtra(deck, c.logistics).total === null ? "A cotizar" : formatUSD(deckExtra(deck, c.logistics).total ?? 0)}</dd>
+              </div>
+              <div className="flex justify-between gap-2 pl-3 text-xs text-foreground/70">
+                <dt>Pintura</dt>
+                <dd>{paintQuote && paintCounts(paintQuote) ? (paintQuote.total === null ? "A cotizar aparte" : formatUSD(paintQuote.total)) : PAINT_TEXTOS.aCotizar}</dd>
+              </div>
+            </>
+          )}
+          {!(paintPending && !deck.enabled) && (
+            <div className="flex justify-between gap-2">
+              <dt>{DECK_TEXTOS.extras}</dt>
+              <dd>{rows.extras === null ? "A cotizar" : formatUSD(rows.extras)}</dd>
+            </div>
+          )}
+          {paintPending && !deck.enabled && (
+            <div className="flex justify-between gap-2">
+              <dt>Pintura</dt>
+              <dd>{PAINT_TEXTOS.aCotizar}</dd>
+            </div>
+          )}
           <div className="flex justify-between gap-2 font-semibold text-primary">
             <dt>{DECK_TEXTOS.totalConExtras}</dt>
             <dd>{rows.totalConExtras === null ? "A cotizar" : formatUSD(rows.totalConExtras)}</dd>
           </div>
-          <p className="pt-1 text-[11px] font-normal leading-5 text-foreground/60">{DECK_TEXTOS.letraChica}</p>
+          {paintPending && <p className="pt-1 text-[11px] font-normal leading-5 text-foreground/60">{PAINT_TEXTOS.revoque}</p>}
+          <p className="pt-1 text-[11px] font-normal leading-5 text-foreground/60">{paintOn ? PAINT_TEXTOS.letraChica : DECK_TEXTOS.letraChica}</p>
         </dl>
       )}
       <Button
