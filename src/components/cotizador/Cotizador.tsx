@@ -4,13 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Reveal } from "@/lib/motion";
 import { LogisticsCalculator } from "./LogisticsCalculator";
-import { DeckPanel } from "./DeckExtra";
-import { DECK_TEXTOS, DEFAULT_DECK, normalizeDeck, type DeckConfig } from "@/config/deck";
+import { ExtrasSection } from "./ExtrasSection";
+import { ExtrasTotals } from "./ExtrasTotals";
+import { EXTRAS_TEXTOS } from "@/config/extras";
+import { DEFAULT_DECK, normalizeDeck, type DeckConfig } from "@/config/deck";
+import { DEFAULT_PAINT, PAINT_TEXTOS, estimatePaintSurfaces, normalizePaint, type PaintConfig } from "@/config/paint";
 import { CATEGORY_COLOR, SYSTEM_COLOR, tone } from "./palette";
 import {
-  AREA_CONSULT_URL, AREA_MAX, AREA_MIN, SYSTEMS, EXCLUDED, createAreas, updateAreas, buildWhatsAppUrl,
-  DEFAULT_LOGISTICS, buildSummary, calculateLogistics, clampArea, deckExtra, estimate, formatUSD, withExtras, type CategoryId, type LogisticsSelection, type SystemId,
+  AREA_CONSULT_URL, AREA_MAX, AREA_MIN, SYSTEMS, createAreas, updateAreas, buildWhatsAppUrl,
+  DEFAULT_LOGISTICS, buildSummary, clampArea, estimateFor, formatUSD, hasVolumeDiscount, nextBonusHint, rateFor, volumeBonus,
+  type CategoryId, type LogisticsSelection, type SystemId,
 } from "@/lib/cotizador";
+import { TRADICIONAL_TEXTOS, type TradicionalId } from "@/config/tradicional";
+import { BonusNote, ExclusionNote, IncluyeAccordion } from "./PrecioTradicional";
 
 type Areas = Record<CategoryId, number>;
 
@@ -57,6 +63,9 @@ export function Cotizador() {
   // Extra opcional «Deck y techado»: arranca apagado y no cambia ningún precio de la vivienda.
   const [deck, setDeck] = useState<DeckConfig>(DEFAULT_DECK);
   const changeDeck = (patch: Partial<DeckConfig>) => { setDeck((prev) => normalizeDeck({ ...prev, ...patch })); setCopyState("idle"); setFallback(""); };
+  // Extra opcional «Pintura»: también arranca apagado. Los m² de pared se estiman según los m² de cada opción.
+  const [paint, setPaint] = useState<PaintConfig>(DEFAULT_PAINT);
+  const changePaint = (patch: Partial<PaintConfig>) => { setPaint((prev) => normalizePaint({ ...prev, ...patch })); setCopyState("idle"); setFallback(""); };
 
   const setArea = (id: CategoryId, v: number) => {
     setAreas((prev) => updateAreas(prev, system, id, v, sync));
@@ -69,7 +78,7 @@ export function Cotizador() {
     setCopyState("idle"); setFallback("");
   };
   const copy = async (categoryId?: CategoryId) => {
-    const text = buildSummary(areas, logistics, system, categoryId, deck);
+    const text = buildSummary(areas, logistics, system, categoryId, deck, paint);
     try {
       if (!navigator.clipboard) throw new Error("no clipboard");
       await navigator.clipboard.writeText(text);
@@ -79,7 +88,11 @@ export function Cotizador() {
     }
   };
   const equal = categories.every((c) => areas[c.id] === areas[categories[0]?.id ?? "rustica"]);
-  const valueFor = (id: CategoryId) => estimate(areas[id], categories.find((category) => category.id === id)?.price ?? 0);
+  // Con la misma regla que el diseñador 3D: tarifa de la categoría, con la bonificación por superficie si corresponde (tradicional).
+  const valueFor = (id: CategoryId) => {
+    const category = categories.find((c) => c.id === id);
+    return category ? estimateFor(category, areas[id]) : 0;
+  };
   const r = valueFor("rustica"), m = valueFor("moderna"), w = valueFor("allwood");
   const maxValue = Math.max(1, ...categories.map((c) => valueFor(c.id)));
 
@@ -110,7 +123,7 @@ export function Cotizador() {
         <div key={system} className={`fade-up mt-8 grid gap-5 ${system === "woodframe" ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
           {categories.map((c, i) => (
             <Reveal key={c.id} delay={i * 90} className="flex">
-            <CategoryCard id={c.id} name={c.name} description={c.description} price={c.price} interior={c.interior} area={areas[c.id]} onChange={(v) => setArea(c.id, v)} materialsLabel={config.materialsLabel} onCopy={() => copy(c.id)} whatsappUrl={buildWhatsAppUrl(areas, logistics, system, c.id, deck)} />
+            <CategoryCard id={c.id} name={c.name} description={c.description} price={c.price} interior={c.interior} area={areas[c.id]} onChange={(v) => setArea(c.id, v)} materialsLabel={config.materialsLabel} onCopy={() => copy(c.id)} whatsappUrl={buildWhatsAppUrl(areas, logistics, system, c.id, deck, paint)} />
             </Reveal>
           ))}
         </div>
@@ -126,7 +139,7 @@ export function Cotizador() {
             <table className="w-full text-left text-sm">
               <thead className="hidden text-xs uppercase tracking-[0.15em] text-foreground/50 sm:table-header-group"><tr><th className="py-3 pr-4">Categoría</th><th className="py-3 pr-4">Precio por m²</th><th className="py-3 pr-4">Superficie</th><th className="py-3 text-right">Inversión estimada</th></tr></thead>
               <tbody>{categories.map((c) => (
-                <tr key={c.id} style={tone(CATEGORY_COLOR[c.id])} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 border-t border-border py-4 text-foreground sm:table-row sm:py-0"><td className="col-span-2 pb-2 font-semibold sm:py-4 sm:pr-4"><span aria-hidden="true" className="mr-3 inline-block size-2.5 rounded-full bg-(--tone) align-baseline" />{c.name}</td><td className="py-1 sm:py-4 sm:pr-4">USD {c.price}/m²</td><td className="py-1 text-right sm:py-4 sm:pr-4 sm:text-left">{areas[c.id]} m²</td><td className="col-span-2 pt-2 font-semibold text-(--tone) sm:py-4 sm:text-right"><span className="mr-2 font-normal text-foreground/75 sm:hidden">Inversión estimada</span><span key={valueFor(c.id)} className="tone-tick inline-block">{formatUSD(estimate(areas[c.id], c.price))}</span><span aria-hidden="true" className="mt-2 block h-1 overflow-hidden bg-foreground/10 sm:ml-auto sm:w-56"><span className="block h-full origin-left bg-(--tone) transition-transform duration-700 ease-out motion-reduce:transition-none" style={{ transform: `scaleX(${valueFor(c.id) / maxValue})` }} /></span></td></tr>
+                <tr key={c.id} style={tone(CATEGORY_COLOR[c.id])} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 border-t border-border py-4 text-foreground sm:table-row sm:py-0"><td className="col-span-2 pb-2 font-semibold sm:py-4 sm:pr-4"><span aria-hidden="true" className="mr-3 inline-block size-2.5 rounded-full bg-(--tone) align-baseline" />{c.name}</td><td className="py-1 sm:py-4 sm:pr-4">{formatUSD(rateFor(c.id, c.price, areas[c.id]))}/m²{volumeBonus(c, areas[c.id]) && <span className="ml-2 text-xs font-semibold text-(--tone)">-{volumeBonus(c, areas[c.id])?.discount}%</span>}</td><td className="py-1 text-right sm:py-4 sm:pr-4 sm:text-left">{areas[c.id]} m²</td><td className="col-span-2 pt-2 font-semibold text-(--tone) sm:py-4 sm:text-right"><span className="mr-2 font-normal text-foreground/75 sm:hidden">Inversión estimada</span><span key={valueFor(c.id)} className="tone-tick inline-block">{formatUSD(valueFor(c.id))}</span><span aria-hidden="true" className="mt-2 block h-1 overflow-hidden bg-foreground/10 sm:ml-auto sm:w-56"><span className="block h-full origin-left bg-(--tone) transition-transform duration-700 ease-out motion-reduce:transition-none" style={{ transform: `scaleX(${valueFor(c.id) / maxValue})` }} /></span></td></tr>
               ))}</tbody>
             </table>
           </div>
@@ -147,30 +160,19 @@ export function Cotizador() {
 
         <LogisticsCalculator categories={categories} areas={areas} selection={logistics} onChange={(next) => { setLogistics(next); setCopyState("idle"); setFallback(""); }} />
 
-        <DeckPanel deck={deck} onChange={changeDeck} logistics={logistics} variant="page" idPrefix="cotiza-deck">
-          {deck.enabled && (
-            <div className="mt-6" aria-live="polite">
-              <h4 className="text-xs uppercase tracking-[0.15em] text-foreground/60">{DECK_TEXTOS.vivienda} + {DECK_TEXTOS.extras}</h4>
-              <div className={`mt-3 grid gap-5 ${categories.length === 3 ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
-                {categories.map((category) => {
-                  const base = estimate(areas[category.id], category.price);
-                  const rows = withExtras(calculateLogistics(base, logistics).total, deckExtra(deck, logistics));
-                  const money = (v: number | null, pending: string) => (v === null ? pending : formatUSD(v));
-                  return (
-                    <article key={category.id} style={tone(CATEGORY_COLOR[category.id])} className="border border-border border-t-2 border-t-(--tone) bg-card p-5">
-                      <h5 className="flex items-center gap-3 font-semibold text-foreground"><span aria-hidden="true" className="size-2.5 shrink-0 rounded-full bg-(--tone)" />{category.name} · {areas[category.id]} m²</h5>
-                      <dl className="mt-4 space-y-3 text-sm">
-                        <div className="flex flex-wrap justify-between gap-2"><dt className="text-foreground/60">{DECK_TEXTOS.vivienda}</dt><dd className="font-semibold text-foreground">{money(rows.vivienda, "A cotizar aparte")}</dd></div>
-                        <div className="flex flex-wrap justify-between gap-2"><dt className="text-foreground/60">{DECK_TEXTOS.extras}</dt><dd className="font-semibold text-foreground">{money(rows.extras, "A cotizar")}</dd></div>
-                        <div className="border-t border-border pt-4"><dt className="text-xs text-foreground/60">{DECK_TEXTOS.totalConExtras}</dt><dd className="mt-2 text-2xl font-semibold text-(--tone)">{money(rows.totalConExtras, "A cotizar")}</dd></div>
-                      </dl>
-                    </article>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </DeckPanel>
+        <ExtrasSection
+          variant="page"
+          idPrefix="cotiza-extras"
+          logistics={logistics}
+          deck={deck}
+          onDeckChange={changeDeck}
+          paint={paint}
+          onPaintChange={changePaint}
+          paintOptions={categories.map((c) => ({ finish: c.id, name: c.name, tone: tone(CATEGORY_COLOR[c.id]), surfaces: estimatePaintSurfaces(areas[c.id], system) }))}
+          paintNota={PAINT_TEXTOS.superficieEstimada}
+        >
+          <ExtrasTotals categories={categories} areas={areas} system={system} logistics={logistics} deck={deck} paint={paint} />
+        </ExtrasSection>
 
         <div className="mt-16 grid gap-5 md:grid-cols-2">
           <div className="border border-primary/30 bg-card p-6 sm:p-8">
@@ -182,7 +184,8 @@ export function Cotizador() {
           <div className="border border-border bg-card p-6 sm:p-8">
             <h3 className="text-xl font-semibold text-foreground">ELEMENTOS NO INCLUIDOS EN EL PRECIO BASE</h3>
             <p className="mt-3 text-sm text-foreground/60">Para que puedas planificar tu inversión con transparencia, estos elementos no están incluidos en ninguna de nuestras {config.count} categorías y deben evaluarse por separado.</p>
-            <ul className="mt-6 grid grid-cols-2 gap-3">{EXCLUDED.map((t) => <li key={t} className="flex gap-3 text-sm text-foreground/85"><X size={18} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />{t}</li>)}</ul>
+            <ul className="mt-6 grid grid-cols-2 gap-3">{config.excluded.map((t) => <li key={t} className="flex gap-3 text-sm text-foreground/85"><X size={18} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />{t}</li>)}</ul>
+            <p className="mt-5 text-xs leading-5 text-foreground/60">{EXTRAS_TEXTOS.nota}</p>
           </div>
         </div>
 
@@ -204,7 +207,7 @@ export function Cotizador() {
           <h3 className="text-3xl font-semibold text-foreground">¿LISTO PARA HACER REALIDAD TU PROYECTO?</h3>
           <p className="mx-auto mt-4 max-w-2xl text-foreground/70">Ya conocés el valor estimado de tu futura vivienda.</p>
           <p className="mx-auto mt-2 max-w-2xl text-foreground/70">El próximo paso es conversar con SCH CONSTRUCCIONES para evaluar los detalles de tu proyecto y solicitar un presupuesto personalizado.</p>
-          <a href={buildWhatsAppUrl(areas, logistics, system, undefined, deck)} target="_blank" rel="noopener noreferrer" className="mt-8 inline-flex w-full items-center justify-center gap-2 bg-whatsapp px-7 py-4 text-sm font-semibold text-background sm:w-auto">
+          <a href={buildWhatsAppUrl(areas, logistics, system, undefined, deck, paint)} target="_blank" rel="noopener noreferrer" className="mt-8 inline-flex w-full items-center justify-center gap-2 bg-whatsapp px-7 py-4 text-sm font-semibold text-background sm:w-auto">
             <MessageCircle size={18} aria-hidden="true" /> SOLICITAR PRESUPUESTO POR WHATSAPP
           </a>
         </div>
@@ -227,6 +230,12 @@ function CategoryCard({ id, name, description, price, interior, area, onChange, 
   const invalid = draft !== null && (draft.trim() === "" || !Number.isFinite(Number(draft)) || Number(draft) < AREA_MIN || Number(draft) > AREA_MAX);
   const commit = () => { if (draft !== null) { onChange(clampArea(draft === "" ? area : draft)); setDraft(null); } };
   const inputId = `area-${id}`;
+  // Total y precio por m² salen de la misma función que usa el diseñador 3D (`estimateFor` / `rateFor`).
+  const category = { id, price },
+    total = estimateFor(category, area),
+    rate = rateFor(id, price, area),
+    bonus = volumeBonus(category, area),
+    tradicional = hasVolumeDiscount(id);
   return (
     <article style={tone(CATEGORY_COLOR[id])} className="tone-card flex w-full flex-col bg-card p-6 sm:p-7">
       <h3 className="flex items-center gap-3 text-2xl font-semibold tracking-wide text-foreground"><span aria-hidden="true" className="size-2.5 shrink-0 rounded-full bg-(--tone) shadow-[0_0_0_5px_color-mix(in_oklab,var(--tone)_22%,transparent)]" />{name}</h3>
@@ -236,8 +245,11 @@ function CategoryCard({ id, name, description, price, interior, area, onChange, 
       <p className="mt-2 min-h-[144px] text-sm leading-6 text-foreground/85">{interior}</p>
 
 
-      <p className="mt-6 text-xs uppercase tracking-[0.15em] text-foreground/50">Precio por metro cuadrado</p>
-      <p className="mt-1 text-lg font-semibold text-foreground">USD {price}/m²</p>
+      <p className="mt-6 text-xs uppercase tracking-[0.15em] text-foreground/50">{bonus ? TRADICIONAL_TEXTOS.precioEfectivo : "Precio por metro cuadrado"}</p>
+      <p className="mt-1 flex flex-wrap items-baseline gap-x-3 text-lg font-semibold text-foreground" aria-live="polite">
+        <span key={rate} className="tone-tick inline-block">{formatUSD(rate)}/m²</span>
+        {bonus && <s className="text-sm font-normal text-foreground/50">{formatUSD(bonus.baseRate)}/m²</s>}
+      </p>
 
 
       <label htmlFor={inputId} className="mt-6 text-xs uppercase tracking-[0.15em] text-foreground/50">Superficie de tu proyecto</label>
@@ -258,8 +270,15 @@ function CategoryCard({ id, name, description, price, interior, area, onChange, 
 
       <div className="mt-6 border-t border-border pt-5">
         <p className="text-xs uppercase tracking-[0.15em] text-foreground/50">Inversión estimada · {area} m²</p>
-        <p className="mt-1 text-3xl font-semibold text-(--tone) sm:text-4xl" aria-live="polite"><span key={estimate(area, price)} className="tone-tick inline-block">{formatUSD(estimate(area, price))}</span></p>
+        <p className="mt-1 text-3xl font-semibold text-(--tone) sm:text-4xl" aria-live="polite"><span key={total} className="tone-tick inline-block">{formatUSD(total)}</span></p>
+        {tradicional && <BonusNote bonus={bonus} hint={nextBonusHint(category, area)} />}
       </div>
+      {tradicional && (
+        <div className="mt-4 space-y-3">
+          <ExclusionNote />
+          <IncluyeAccordion option={id as TradicionalId} />
+        </div>
+      )}
       <div className="mt-6 grid gap-2">
         <Button variant="ghost" type="button" onClick={onCopy} className="inline-flex h-auto min-h-11 rounded-none items-center justify-center gap-2 border border-border px-4 py-3 text-xs font-semibold text-foreground transition-colors hover:border-(--tone) hover:text-(--tone)"><Copy size={14} aria-hidden="true" /> Copiar cotización</Button>
         <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-2 bg-whatsapp px-4 py-3 text-xs font-semibold text-background"><MessageCircle size={14} aria-hidden="true" /> CONSULTAR ESTA OPCIÓN</a>

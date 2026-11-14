@@ -1,6 +1,6 @@
 import { MapPin, Truck } from "lucide-react";
 import {
-  LOGISTICS_ZONES, calculateLogistics, estimate, formatUSD,
+  LOGISTICS_ZONES, calculateLogistics, clampArea, estimateFor, formatUSD, volumeBonus,
   getLogisticsZone, logisticsPercentage, type Category, type Areas, type LogisticsSelection, type LogisticsZoneId,
 } from "@/lib/cotizador";
 import { CATEGORY_COLOR, ZONE_COLOR, tone } from "./palette";
@@ -53,12 +53,15 @@ export function LogisticsCalculator({ categories, areas, selection, onChange }: 
 
       <div className={`mt-8 grid gap-5 ${categories.length === 3 ? "lg:grid-cols-3" : "lg:grid-cols-2"}`} aria-live="polite" aria-atomic="true">
         {categories.map((category) => {
-          const base = estimate(areas[category.id] ?? 40, category.price);
+          const area = areas[category.id] ?? 40,
+            base = estimateFor(category, area),
+            bonus = volumeBonus(category, clampArea(area));
           const result = calculateLogistics(base, selection);
           return <article key={category.id} style={tone(CATEGORY_COLOR[category.id])} className="rounded-sm border border-border border-t-2 border-t-(--tone) bg-card p-5">
             <h4 className="flex items-center gap-3 font-semibold text-foreground"><span aria-hidden="true" className="size-2.5 shrink-0 rounded-full bg-(--tone)" />{category.name} · {areas[category.id]} m²</h4>
             <dl className="mt-5 space-y-3 text-sm">
               <div className="flex flex-wrap justify-between gap-2"><dt className="text-foreground/60">Obra base</dt><dd className="font-semibold text-foreground">{formatUSD(base)}</dd></div>
+              {bonus && <div className="-mt-1 text-[11px] leading-5 text-foreground/60">Con bonificación por superficie (-{bonus.discount}%): {formatUSD(bonus.rate)}/m² en vez de {formatUSD(bonus.baseRate)}/m².</div>}
               <div className="flex flex-wrap justify-between gap-2"><dt className="text-foreground/60">Logística{separateTrip ? "" : ` · ${result.percentage}%`}</dt><dd className="font-semibold text-foreground">{result.surcharge === null ? "A cotizar aparte" : formatUSD(result.surcharge)}</dd></div>
               <div className="border-t border-border pt-4"><dt className="text-xs text-foreground/60">Total estimado con logística</dt><dd className="mt-2 text-2xl font-semibold text-(--tone)"><span key={result.total ?? "pendiente"} className="tone-tick inline-block">{result.total === null ? "Pendiente de cotización" : formatUSD(result.total)}</span></dd></div>
             </dl>

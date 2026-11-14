@@ -35,6 +35,7 @@ export function DeckPanel({
   variant,
   idPrefix,
   frontLength = null,
+  embedded = false,
   children,
 }: {
   deck: DeckConfig;
@@ -44,14 +45,16 @@ export function DeckPanel({
   frontLength?: number | null;
   variant: "page" | "panel";
   idPrefix: string;
+  /** Dentro de «Extras y opcionales»: sin título ni margen propios (los pone la sección). */
+  embedded?: boolean;
   /** Lo que va entre el precio del extra y los desplegables (en el cotizador, el resumen por categoría). */
   children?: ReactNode;
 }) {
   const page = variant === "page",
     rates = deckRates(deck.line);
   return (
-    <section aria-labelledby={`${idPrefix}-title`} className={page ? "mt-16" : ""}>
-      {page ? (
+    <section aria-labelledby={`${idPrefix}-title`} className={page && !embedded ? "mt-16" : ""}>
+      {page && !embedded ? (
         <>
           <p className="flex items-center gap-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-primary sm:text-xs">
             <span aria-hidden="true" className="h-px w-10 shrink-0 bg-primary" />
@@ -362,7 +365,7 @@ function LineSelector({
   );
 }
 
-function ToggleRow({
+export function ToggleRow({
   id,
   label,
   description,
@@ -409,7 +412,7 @@ function ToggleRow({
   );
 }
 
-function Check3({
+export function Check3({
   id,
   label,
   checked,
@@ -599,7 +602,7 @@ function PriceBlock({ deck, logistics }: { deck: DeckConfig; logistics: Logistic
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+export function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
       <dt className="text-foreground/70">{label}</dt>
@@ -608,7 +611,7 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Disclosure({ title, children }: { title: string; children: ReactNode }) {
+export function Disclosure({ title, children }: { title: string; children: ReactNode }) {
   return (
     <details className="group border border-border bg-card">
       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-foreground [&::-webkit-details-marker]:hidden">
@@ -624,7 +627,7 @@ function Disclosure({ title, children }: { title: string; children: ReactNode })
   );
 }
 
-function List({ items, icon }: { items: readonly string[]; icon: "check" | "x" }) {
+export function List({ items, icon }: { items: readonly string[]; icon: "check" | "x" }) {
   const Icon = icon === "check" ? Check : X;
   return (
     <ul className="mt-2 space-y-2">
