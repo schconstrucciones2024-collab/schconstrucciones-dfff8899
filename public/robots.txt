@@ -1,3 +1,5 @@
+# Buscadores, vista previa de enlaces y asistentes de IA que buscan para responder: bienvenidos.
+# Googlebot también alimenta las respuestas con IA de Google en el buscador; Bingbot, a Copilot.
 User-agent: Googlebot
 Allow: /
 
@@ -10,8 +12,79 @@ Allow: /
 User-agent: facebookexternalhit
 Allow: /
 
+# ChatGPT: OAI-SearchBot decide si el sitio aparece en las respuestas de búsqueda de ChatGPT;
+# ChatGPT-User es el que abre la página cuando una persona le pide que la lea.
 User-agent: OAI-SearchBot
 Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+# Gemini (Google): Google-Extended permite que Gemini use el sitio para responder.
+User-agent: Google-Extended
+Allow: /
+
+# Claude (Anthropic) y Perplexity: sus rastreadores de búsqueda y de consulta directa.
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+# Siri y Spotlight (Apple) y las respuestas con IA de DuckDuckGo.
+User-agent: Applebot
+Allow: /
+
+User-agent: DuckAssistBot
+Allow: /
+
+# Rastreadores que solo reúnen contenido para ENTRENAR modelos de IA: sin autorización (ver /aviso-legal).
+# No hacen que el sitio aparezca en las respuestas. Respetar este archivo es voluntario;
+# el aviso legal es lo que respalda el reclamo.
+User-agent: GPTBot
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: Applebot-Extended
+Disallow: /
+
+User-agent: Meta-ExternalAgent
+Disallow: /
+
+User-agent: FacebookBot
+Disallow: /
+
+User-agent: cohere-ai
+Disallow: /
+
+User-agent: Diffbot
+Disallow: /
+
+User-agent: ImagesiftBot
+Disallow: /
+
+User-agent: Omgilibot
+Disallow: /
+
+User-agent: Timpibot
+Disallow: /
 
 User-agent: *
 Allow: /
