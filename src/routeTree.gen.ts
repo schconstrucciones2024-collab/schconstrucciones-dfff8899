@@ -11,7 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ConstruccionTradicionalRouteImport } from './routes/construccion-tradicional'
+import { Route as AvisoLegalRouteImport } from './routes/aviso-legal'
 import { Route as MobiliarioRouteImport } from './routes/mobiliario'
+import { Route as PrivacidadRouteImport } from './routes/privacidad'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as WoodframeRouteImport } from './routes/woodframe'
 import { Route as ProyectosSlugRouteImport } from './routes/proyectos.$slug'
@@ -24,6 +26,16 @@ const IndexRoute = IndexRouteImport.update({
 const ConstruccionTradicionalRoute = ConstruccionTradicionalRouteImport.update({
   id: '/construccion-tradicional',
   path: '/construccion-tradicional',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AvisoLegalRoute = AvisoLegalRouteImport.update({
+  id: '/aviso-legal',
+  path: '/aviso-legal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacidadRoute = PrivacidadRouteImport.update({
+  id: '/privacidad',
+  path: '/privacidad',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MobiliarioRoute = MobiliarioRouteImport.update({
@@ -50,7 +62,9 @@ const ProyectosSlugRoute = ProyectosSlugRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/construccion-tradicional': typeof ConstruccionTradicionalRoute
+  '/aviso-legal': typeof AvisoLegalRoute
   '/mobiliario': typeof MobiliarioRoute
+  '/privacidad': typeof PrivacidadRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/woodframe': typeof WoodframeRoute
   '/proyectos/$slug': typeof ProyectosSlugRoute
@@ -58,7 +72,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/construccion-tradicional': typeof ConstruccionTradicionalRoute
+  '/aviso-legal': typeof AvisoLegalRoute
   '/mobiliario': typeof MobiliarioRoute
+  '/privacidad': typeof PrivacidadRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/woodframe': typeof WoodframeRoute
   '/proyectos/$slug': typeof ProyectosSlugRoute
@@ -67,7 +83,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/construccion-tradicional': typeof ConstruccionTradicionalRoute
+  '/aviso-legal': typeof AvisoLegalRoute
   '/mobiliario': typeof MobiliarioRoute
+  '/privacidad': typeof PrivacidadRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/woodframe': typeof WoodframeRoute
   '/proyectos/$slug': typeof ProyectosSlugRoute
@@ -77,7 +95,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/construccion-tradicional'
+    | '/aviso-legal'
     | '/mobiliario'
+    | '/privacidad'
     | '/sitemap.xml'
     | '/woodframe'
     | '/proyectos/$slug'
@@ -85,7 +105,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/construccion-tradicional'
+    | '/aviso-legal'
     | '/mobiliario'
+    | '/privacidad'
     | '/sitemap.xml'
     | '/woodframe'
     | '/proyectos/$slug'
@@ -93,7 +115,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/construccion-tradicional'
+    | '/aviso-legal'
     | '/mobiliario'
+    | '/privacidad'
     | '/sitemap.xml'
     | '/woodframe'
     | '/proyectos/$slug'
@@ -102,7 +126,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ConstruccionTradicionalRoute: typeof ConstruccionTradicionalRoute
+  AvisoLegalRoute: typeof AvisoLegalRoute
   MobiliarioRoute: typeof MobiliarioRoute
+  PrivacidadRoute: typeof PrivacidadRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   WoodframeRoute: typeof WoodframeRoute
   ProyectosSlugRoute: typeof ProyectosSlugRoute
@@ -122,6 +148,20 @@ declare module '@tanstack/react-router' {
       path: '/construccion-tradicional'
       fullPath: '/construccion-tradicional'
       preLoaderRoute: typeof ConstruccionTradicionalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aviso-legal': {
+      id: '/aviso-legal'
+      path: '/aviso-legal'
+      fullPath: '/aviso-legal'
+      preLoaderRoute: typeof AvisoLegalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacidad': {
+      id: '/privacidad'
+      path: '/privacidad'
+      fullPath: '/privacidad'
+      preLoaderRoute: typeof PrivacidadRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mobiliario': {
@@ -158,7 +198,9 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ConstruccionTradicionalRoute: ConstruccionTradicionalRoute,
+  AvisoLegalRoute: AvisoLegalRoute,
   MobiliarioRoute: MobiliarioRoute,
+  PrivacidadRoute: PrivacidadRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   WoodframeRoute: WoodframeRoute,
   ProyectosSlugRoute: ProyectosSlugRoute,

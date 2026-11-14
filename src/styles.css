@@ -179,6 +179,12 @@
     -webkit-text-size-adjust: 100%;
   }
 
+  /* Freno ligero al copiado casual de fotos (ver lib/imageGuard.ts). El texto sigue siendo seleccionable. */
+  img {
+    -webkit-user-drag: none;
+    -webkit-touch-callout: none;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
