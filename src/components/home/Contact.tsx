@@ -1,6 +1,8 @@
+import { Link } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { ArrowRight, Instagram, Mail, MapPin, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LEGAL_PAGES } from "@/config/legal";
 import { PROJECT_TYPES, inquirySchema, inquiryUrl } from "@/lib/contactInquiry";
 import { conversionEvent } from "./ConversionEvents";
 import { CONTACT } from "@/data/projects";
@@ -76,6 +78,8 @@ export function Contact() {
             </Button>
             <p id="contacto-nota" className="mt-5 text-sm leading-6 text-background/70">
               Tu consulta es sin costo. Coordinamos cada etapa según tu proyecto.
+              {" "}Al enviarla aceptás nuestra{" "}
+              <Link to={LEGAL_PAGES.privacidad.path} className="font-medium underline underline-offset-4 transition-colors hover:text-primary">política de privacidad</Link>.
             </p>
             <p role="alert" className="mt-3 text-sm text-destructive">{error}</p>
             <p role="status" className="mt-2 text-sm font-medium text-primary">

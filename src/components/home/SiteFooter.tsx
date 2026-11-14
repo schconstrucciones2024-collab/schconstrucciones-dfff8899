@@ -4,6 +4,7 @@ import logoCompleto from "@/assets/logo-sch-construcciones.png.asset.json";
 import { Button } from "@/components/ui/button";
 import { whatsappUrl } from "@/lib/contactInquiry";
 import { CONTACT } from "@/data/projects";
+import { LEGAL_PAGES, copyrightNotice } from "@/config/legal";
 import { MAIN_NAV, TOOL_NAV } from "@/data/navLinks";
 import { SERVICE_LINKS, SITE_URL } from "@/data/servicios";
 import { AnchorLink } from "./nav";
@@ -71,8 +72,12 @@ export function SiteFooter({ home = true }: { home?: boolean }) {
       </div>
       <div className="border-t border-border">
         <div className="mx-auto flex max-w-7xl flex-col gap-2 px-5 py-6 text-xs text-foreground/60 sm:flex-row sm:items-center sm:justify-between lg:px-8">
-          <span>© 2026 SCH Construcciones · Punta del Diablo, Rocha, Uruguay</span>
-          <AnchorLink id="inicio" home={home} className="inline-flex min-h-11 items-center text-foreground/75 underline-offset-4 hover:text-primary hover:underline">Volver arriba</AnchorLink>
+          <span>{copyrightNotice()}</span>
+          <nav aria-label="Información legal" className="flex flex-wrap items-center gap-x-6">
+            <Link to={LEGAL_PAGES.avisoLegal.path} className="inline-flex min-h-11 items-center text-foreground/75 underline-offset-4 hover:text-primary hover:underline">Aviso legal y derechos de autor</Link>
+            <Link to={LEGAL_PAGES.privacidad.path} className="inline-flex min-h-11 items-center text-foreground/75 underline-offset-4 hover:text-primary hover:underline">Política de privacidad</Link>
+            <AnchorLink id="inicio" home={home} className="inline-flex min-h-11 items-center text-foreground/75 underline-offset-4 hover:text-primary hover:underline">Volver arriba</AnchorLink>
+          </nav>
         </div>
       </div>
     </footer>
