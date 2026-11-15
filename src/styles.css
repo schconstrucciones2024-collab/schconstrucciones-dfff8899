@@ -5,6 +5,26 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
+ * Tipografías alojadas en el propio sitio (archivos en /public, solo caracteres latinos, un archivo por familia).
+ * Pesos iguales a los que se pedían antes a Google Fonts: Urbanist 300-700 y Epilogue 300-600.
+ * Licencia (SIL Open Font License): /fuentes-licencia.txt
+ */
+@font-face {
+  font-family: "Urbanist";
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url("/urbanist-latin.woff") format("woff");
+}
+@font-face {
+  font-family: "Epilogue";
+  font-style: normal;
+  font-weight: 300 600;
+  font-display: swap;
+  src: url("/epilogue-latin.woff") format("woff");
+}
+
+/*
  * Design system definition.
  *
  * The @theme inline block maps CSS custom properties to Tailwind utility
