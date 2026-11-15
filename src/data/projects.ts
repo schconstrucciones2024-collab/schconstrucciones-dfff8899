@@ -33,11 +33,16 @@ export type Project = {
   alt: string;
   year: string;
   name: string;
+  /** Obra de la Familia Sánchez anterior a SCH Construcciones (la marca todavía no existía). */
+  preSCH?: boolean;
+  /** Cuántos proyectos suma esta portada en la cifra del sitio, si no es uno. */
+  count?: number;
 };
 
 /**
- * Obras reales de SCH Construcciones, de la más reciente a la más antigua.
- * Los nombres, años y textos alternativos son los del sitio original: no se modifican.
+ * Obras reales, de la más reciente a la más antigua: los proyectos de SCH Construcciones en Punta del Diablo y, al final,
+ * dos obras de la Familia Sánchez anteriores a SCH (`preSCH`). Los nombres, años y textos alternativos son los del sitio
+ * original, salvo los de las dos obras anteriores a SCH, que se aclararon a pedido de la empresa.
  */
 export const PROJECTS: Project[] = [
   { src: proyecto2025.url, images: [proyecto2025.url, ficha2025.url], alt: "Proyecto 2025-2026 · Barbacoa · Punta del Diablo", year: "2025-26", name: "Barbacoa · Punta del Diablo" },
@@ -48,11 +53,24 @@ export const PROJECTS: Project[] = [
   { src: proyecto2021.url, images: [proyecto2021.url, ficha2021.url], alt: "Proyecto 2021 · Punta del Diablo", year: "2021", name: "Cabaña en el bosque" },
   { src: proyecto2020.url, images: [proyecto2020.url, ficha2020.url], alt: "Ampliación realizada entre 2020 y 2021 por SCH Construcciones", year: "2020-21", name: "Ampliación" },
   { src: proyectoContenedor.url, images: [proyectoContenedor.url, fichaContenedor.url], alt: "Transformación de contenedor realizada por SCH Construcciones", year: "Proyecto", name: "Transformación de contenedor" },
-  { src: proyecto2019.url, images: [proyecto2019.url, ficha2019.url], alt: "Proyecto 2019-2020 · La Diosa - La Clave del Diablo · Punta del Diablo", year: "2019-20", name: "La Diosa" },
+  { src: proyecto2019.url, images: [proyecto2019.url, ficha2019.url], alt: "Proyecto 2019-2020 · La Diosa - La Clave del Diablo · Punta del Diablo", year: "2019-20", name: "La Diosa", count: 2 },
   { src: proyecto2015.url, images: [proyecto2015.url, ficha2015.url], alt: "Proyecto 2015 · Pequeñas Diablitas", year: "2015", name: "Pequeñas Diablitas" },
-  { src: proyectoLeSirenuse.url, images: [proyectoLeSirenuse.url, leSirenuseHistoria.url, leSirenuseSueno.url], alt: "Proyecto Le Sirenuse realizado por SCH Construcciones", year: "Trayectoria", name: "Le Sirenuse" },
-  { src: proyectoAlvear.url, images: [proyectoAlvear.url, complejoAlvearProyecto.url, complejoAlvearHistoria.url], alt: "Complejo Alvear realizado por SCH Construcciones", year: "Trayectoria", name: "Complejo Alvear" },
+  { src: proyectoLeSirenuse.url, images: [proyectoLeSirenuse.url, leSirenuseHistoria.url, leSirenuseSueno.url], alt: "Le Sirenuse, obra de la Familia Sánchez anterior a SCH Construcciones", year: "Trayectoria", name: "Le Sirenuse", preSCH: true },
+  { src: proyectoAlvear.url, images: [proyectoAlvear.url, complejoAlvearProyecto.url, complejoAlvearHistoria.url], alt: "Complejo Alvear, obra de la Familia Sánchez anterior a SCH Construcciones", year: "Trayectoria", name: "Complejo Alvear", preSCH: true },
 ];
+
+/** Cuántos proyectos distintos muestra una lista de obras (una portada puede reunir más de uno). */
+export const countProjects = (list: readonly Project[]): number => list.reduce((total, p) => total + (p.count ?? 1), 0);
+
+/** Proyectos de SCH Construcciones en Punta del Diablo. */
+export const SCH_PROJECTS = PROJECTS.filter((p) => !p.preSCH);
+/** Obras de la Familia Sánchez anteriores a SCH Construcciones. */
+export const PRE_SCH_PROJECTS = PROJECTS.filter((p) => p.preSCH);
+/** Cifra que muestra el sitio: 11 proyectos en Punta del Diablo. */
+export const SCH_PROJECT_COUNT = countProjects(SCH_PROJECTS);
+
+/** Aclaración que acompaña a las obras anteriores a SCH, con las palabras de la empresa. */
+export const FAMILY_CONTINUITY = "Seguimos siendo la Familia Sánchez, ahora bajo el nombre de SCH Construcciones.";
 
 /** Contacto y redes oficiales (única fuente para header, contacto y pie). */
 export const CONTACT = {

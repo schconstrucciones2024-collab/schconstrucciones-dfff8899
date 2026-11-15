@@ -3,7 +3,7 @@ import { CONTACT, PROJECTS } from "./projects";
 import { responsive, thumbnail } from "@/lib/img";
 
 describe("Obras del portfolio", () => {
-  it("mantiene las 12 obras reales, cada una con portada y galería", () => {
+  it("mantiene las 12 portadas reales, cada una con portada y galería", () => {
     expect(PROJECTS).toHaveLength(12);
     for (const project of PROJECTS) {
       expect(project.name.length).toBeGreaterThan(0);

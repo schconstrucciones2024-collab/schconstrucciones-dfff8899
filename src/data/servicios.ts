@@ -46,7 +46,7 @@ export const SHARE_IMAGES: Record<string, { file: string; alt: string }> = {
   },
   "/construccion-tradicional": {
     file: "/images/compartir-tradicional.jpg",
-    alt: "Obras de construcción tradicional de SCH Construcciones: Complejo Alvear en Piriápolis y Le Sirenuse en Punta del Este",
+    alt: "Obras de la Familia Sánchez anteriores a SCH Construcciones: Complejo Alvear en Piriápolis y Le Sirenuse en Punta del Este",
   },
 };
 export const SHARE_IMAGE_SIZE = { width: 1200, height: 630 } as const;
