@@ -96,9 +96,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Epilogue:wght@300;400;500;600&family=Urbanist:wght@300;400;500;600;700&display=swap" },
+      // Tipografías propias: se piden desde el principio para que el texto no cambie de letra al cargar.
+      { rel: "preload", as: "font", href: "/urbanist-latin.woff", type: "font/woff", crossOrigin: "anonymous" },
+      { rel: "preload", as: "font", href: "/epilogue-latin.woff", type: "font/woff", crossOrigin: "anonymous" },
       // La foto principal de la home se pide antes de que el HTML termine de leerse (una versión por tamaño de pantalla).
       { rel: "preload", as: "image", href: "/images/hero-obra-movil.webp", media: "(max-width: 767px)", fetchPriority: "high" },
       { rel: "preload", as: "image", href: "/images/hero-obra-1736.webp", media: "(min-width: 768px)", imageSrcSet: "/images/hero-obra-1280.webp 1280w, /images/hero-obra-1736.webp 1736w", imageSizes: "100vw", fetchPriority: "high" },
