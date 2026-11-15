@@ -3,12 +3,12 @@
  * los metadatos (`copyright`) y los datos estructurados de cada obra. Sin imports: la raíz del sitio la usa en el `<head>`.
  *
  * Los textos describen lo que el sitio hace de verdad (por ejemplo, que el formulario no envía datos a ningún servidor:
- * arma el mensaje y abre WhatsApp). Si el sitio cambia (se activa Google Analytics, se alojan las tipografías en la propia
- * web, se suma un formulario con servidor), hay que actualizar este archivo y `LEGAL_UPDATED`.
+ * arma el mensaje y abre WhatsApp). Si el sitio cambia (se activa Google Analytics, se suma un formulario con servidor,
+ * se vuelve a cargar algo de terceros), hay que actualizar este archivo y `LEGAL_UPDATED`.
  */
 export const COPYRIGHT_HOLDER = "SCH Construcciones";
 /** Fecha de la última revisión de los textos legales. */
-export const LEGAL_UPDATED = "14 de noviembre de 2026";
+export const LEGAL_UPDATED = "15 de noviembre de 2026";
 
 export const copyrightYear = (): number => new Date().getFullYear();
 export const copyrightNotice = (year: number = copyrightYear()): string => `© ${year} ${COPYRIGHT_HOLDER}. Todos los derechos reservados.`;
@@ -50,7 +50,7 @@ export function privacySections(c: LegalContact): LegalBlock[] {
         "Enlaces para compartir un diseño: llevan el diseño dentro del propio enlace. Quien tenga el enlace puede verlo; compartilo solo con quien quieras.",
         "Asistente de escaleras: si lo usás, el diseño (medidas, muros, muebles y escaleras) y el pedido que escribas se envían a un servicio de inteligencia artificial para generar la sugerencia. No enviamos tus datos de contacto; evitá escribir datos personales en el pedido.",
         "Estadísticas: podemos usar Google Analytics, con la dirección IP anonimizada, para medir de forma agregada qué secciones se visitan y cuántos toques recibe cada botón de contacto. No se envían nombres, teléfonos ni el contenido de tus mensajes. Cuando esté activo, Google puede usar cookies para esa medición.",
-        "Tipografías y alojamiento: las tipografías se cargan desde Google Fonts y el sitio está alojado en la plataforma Lovable. Como en cualquier sitio, esos servicios pueden registrar datos técnicos (dirección IP, navegador, fecha y hora) para que funcione y por seguridad.",
+        "Alojamiento: el sitio, con sus tipografías, está alojado en la plataforma Lovable. Como en cualquier sitio, el servicio de alojamiento puede registrar datos técnicos (dirección IP, navegador, fecha y hora) para que funcione y por seguridad.",
       ],
     },
     {
