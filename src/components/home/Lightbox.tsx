@@ -68,7 +68,7 @@ export function Lightbox({ project, onClose }: { project: Project; onClose: () =
     >
       <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-8">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">{project.year}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">{project.preSCH ? "Antes de SCH · Familia Sánchez" : project.year}</p>
           <p id="galeria-titulo" className="truncate font-display text-lg font-medium sm:text-xl">{project.name}</p>
         </div>
         <div className="flex shrink-0 items-center gap-3">

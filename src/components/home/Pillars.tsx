@@ -1,6 +1,6 @@
 import { ArrowRight, CheckCircle2, History, Ruler, ShieldCheck } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { PROJECTS } from "@/data/projects";
+import { FAMILY_CONTINUITY, PRE_SCH_PROJECTS, SCH_PROJECT_COUNT } from "@/data/projects";
 import { INSTITUTIONAL_PHRASE, PILLAR_DEFS, type PillarDef } from "@/data/pillars";
 import { CountUp, Reveal } from "@/lib/motion";
 import { SectionHeading } from "./SectionHeading";
@@ -42,9 +42,14 @@ export function Pillars() {
             );
           })}
         </ul>
-        <Reveal className="mt-16 flex flex-col gap-3 border-t border-background/15 pt-8 sm:flex-row sm:items-baseline sm:gap-6">
-          <p className="font-display text-5xl font-semibold leading-none text-primary"><CountUp to={PROJECTS.length} duration={1400} /></p>
-          <p className="max-w-xl text-base leading-7 text-background/75">obras reales documentadas en este sitio, con sus fotografías y datos originales. Podés verlas todas en Proyectos.</p>
+        <Reveal className="mt-16 border-t border-background/15 pt-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-baseline sm:gap-6">
+            <p className="font-display text-5xl font-semibold leading-none text-primary"><CountUp to={SCH_PROJECT_COUNT} duration={1400} /></p>
+            <p className="max-w-xl text-base leading-7 text-background/75">proyectos de SCH en Punta del Diablo, con sus fotografías y datos originales. Podés verlos todos en Proyectos.</p>
+          </div>
+          <p className="mt-6 max-w-3xl border-l-2 border-primary pl-4 text-sm leading-7 text-background/70">
+            Aparte, en Proyectos también están {PRE_SCH_PROJECTS.map((p) => p.name).join(" y ")}: obras de nuestra historia, de cuando éramos la Familia Sánchez, antes de que existiera SCH. {FAMILY_CONTINUITY}
+          </p>
         </Reveal>
       </div>
     </section>

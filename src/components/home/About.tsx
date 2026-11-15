@@ -9,7 +9,7 @@ import { SectionHeading } from "./SectionHeading";
 const TIMELINE: [year: string, text: string][] = [
   ["2014", "La familia se instala a vivir en Punta del Diablo."],
   ["2015", "Empezamos a construir en el pueblo."],
-  ["Hoy", "Seguimos acá, con la misma familia al frente de cada proyecto."],
+  ["Hoy", "Seguimos siendo la Familia Sánchez, ahora bajo el nombre de SCH Construcciones, con la misma familia al frente de cada proyecto."],
 ];
 
 export function About() {

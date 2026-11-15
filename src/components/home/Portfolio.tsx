@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowUpRight, Expand, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { FAMILY_CONTINUITY, SCH_PROJECT_COUNT } from "@/data/projects";
 import { PROJECT_STORIES, type ProjectStory } from "@/data/projectStories";
 import { whatsappUrl } from "@/lib/contactInquiry";
 import { responsive } from "@/lib/img";
@@ -81,7 +82,7 @@ function Card({ project, index, onOpen }: { project: ProjectStory; index: number
     <Reveal as="li" delay={(index % 3) * 90}>
       <Poster project={project} sizes="(min-width: 1024px) 30vw, (min-width: 640px) 46vw, 92vw" onOpen={onOpen} />
       <div className="mt-5 border-t border-border pt-4 transition-colors duration-500 hover:border-primary">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">{project.year}{project.location ? ` · ${project.location.split(",")[0]}` : ""}</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-primary">{project.preSCH ? "Antes de SCH" : project.year}{project.location ? ` · ${project.location.split(",")[0]}` : ""}</p>
         <h3 className="mt-1.5 font-display text-xl font-medium leading-snug">{project.name}</h3>
         <p className="mt-2 text-sm leading-6 text-foreground/65">{project.subtitle}</p>
         <div className="mt-4"><FactRows project={project} limit={index % 2 === 0 ? 3 : 4} /></div>
@@ -97,6 +98,8 @@ export function Portfolio() {
   const [selected, setSelected] = useState<ProjectStory | null>(null);
   const close = useCallback(() => setSelected(null), []);
   const [featured, ...rest] = PROJECT_STORIES;
+  const schProjects = rest.filter((project) => !project.preSCH);
+  const history = rest.filter((project) => project.preSCH);
 
   return (
     <>
@@ -104,15 +107,27 @@ export function Portfolio() {
         <div className="mx-auto max-w-7xl px-5 py-24 lg:px-8 lg:py-36">
           <Reveal>
             <SectionHeading eyebrow="Proyectos" title="Resultados que perduran" id="proyectos-title">
-              <p className="mt-8 max-w-xl text-base leading-8 text-foreground/75 sm:text-lg">Obras reales de SCH, con las superficies y los espacios documentados en cada ficha. Tocá una portada para ver la galería o entrá a la obra para conocer su historia.</p>
+              <p className="mt-8 max-w-xl text-base leading-8 text-foreground/75 sm:text-lg">{SCH_PROJECT_COUNT} proyectos reales de SCH en Punta del Diablo, con las superficies y los espacios documentados en cada ficha. Tocá una portada para ver la galería o entrá a la obra para conocer su historia.</p>
             </SectionHeading>
           </Reveal>
           <div className="mt-16">
             {featured && <Featured project={featured} onOpen={() => setSelected(featured)} />}
           </div>
           <ul className="masonry mt-20" aria-label="Más obras de SCH Construcciones">
-            {rest.map((project, i) => <Card key={project.slug} project={project} index={i} onOpen={() => setSelected(project)} />)}
+            {schProjects.map((project, i) => <Card key={project.slug} project={project} index={i} onOpen={() => setSelected(project)} />)}
           </ul>
+          {history.length > 0 && (
+            <>
+              <Reveal className="mt-12 border-t border-primary/40 pt-12">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-primary">Antes de SCH · Nuestra historia</p>
+                <h3 className="mt-4 font-display text-3xl font-medium leading-tight sm:text-4xl">Obras de la Familia Sánchez</h3>
+                <p className="mt-5 max-w-2xl text-base leading-8 text-foreground/75">Estas obras son de cuando éramos la Familia Sánchez, antes de que existiera SCH Construcciones. {FAMILY_CONTINUITY}</p>
+              </Reveal>
+              <ul className="masonry mt-12" aria-label="Obras de la Familia Sánchez, anteriores a SCH Construcciones">
+                {history.map((project, i) => <Card key={project.slug} project={project} index={i} onOpen={() => setSelected(project)} />)}
+              </ul>
+            </>
+          )}
         </div>
       </section>
       {/* Fuera de la sección: así el visor queda por encima del header fijo (la sección crea su propio contexto de apilado). */}

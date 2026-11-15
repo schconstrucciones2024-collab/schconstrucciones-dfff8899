@@ -26,7 +26,7 @@ export function ProjectExperience({ project }: { project: ProjectStory }) {
   const facts: [string, string][] = [
     ['Proyecto', project.name],
     ...(project.location ? [['Ubicación', project.location] as [string, string]] : []),
-    ['Año', project.year],
+    project.preSCH ? ['Época', 'Antes de SCH · Familia Sánchez'] : ['Año', project.year],
     ...project.data,
   ];
   return <>
@@ -37,7 +37,7 @@ export function ProjectExperience({ project }: { project: ProjectStory }) {
         <div className="absolute inset-0 -z-10 bg-gradient-to-t from-background via-background/40 to-background/20" />
         <div className="mx-auto flex min-h-[88svh] max-w-7xl flex-col justify-end px-5 pb-14 pt-32 lg:px-8">
           <Link to="/" hash="proyectos" className="mb-8 inline-flex min-h-11 items-center gap-2 self-start text-xs uppercase tracking-[0.14em] text-foreground/85 transition-colors hover:text-primary"><ArrowLeft className="size-4" /> Todas las obras</Link>
-          <p className="text-xs uppercase tracking-[0.2em] text-primary">SCH Construcciones · {project.year}{project.location ? ` · ${project.location}` : ''}</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-primary">{project.preSCH ? 'Antes de SCH · Familia Sánchez' : `SCH Construcciones · ${project.year}`}{project.location ? ` · ${project.location}` : ''}</p>
           <h1 id="obra-title" className="mt-4 font-display text-4xl font-medium sm:text-6xl lg:text-7xl">{project.name}</h1>
           <p className="mt-5 max-w-2xl text-lg text-foreground/85">{project.subtitle}</p>
           <div className="mt-7 flex flex-wrap gap-3">
@@ -89,7 +89,7 @@ export function ProjectExperience({ project }: { project: ProjectStory }) {
 
         <div className="mt-16 border-t border-border pt-10">
           <h2 className="font-display text-2xl font-medium">Compartí esta obra</h2>
-          <div className="mt-6"><ShareButtons url={url} title={`${project.name} · SCH Construcciones`} text={project.subtitle} item={project.slug} /></div>
+          <div className="mt-6"><ShareButtons url={url} title={project.preSCH ? `${project.name} · Familia Sánchez, antes de SCH` : `${project.name} · SCH Construcciones`} text={project.subtitle} item={project.slug} /></div>
         </div>
 
         {next && <Link to="/proyectos/$slug" params={{ slug: next.slug }} className="group mt-12 flex items-center justify-between gap-5 border-t border-border py-8"><span><span className="text-xs uppercase tracking-[0.2em] text-primary">Siguiente obra</span><span className="mt-2 block font-display text-2xl">{next.name}</span></span><ArrowRight className="size-6 transition-transform duration-300 group-hover:translate-x-1 motion-reduce:transition-none" /></Link>}
