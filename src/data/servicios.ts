@@ -35,8 +35,25 @@ export const faqPageJsonLd = (faqs: ServiceFaq[]) => ({
   mainEntity: faqs.map((f) => ({ "@type": "Question", name: f.question, acceptedAnswer: { "@type": "Answer", text: f.answer } })),
 });
 
+/**
+ * Imagen que se ve al compartir cada página de servicio (WhatsApp, Facebook, X…): 1200 × 630 px.
+ * Mobiliario no tiene todavía: cuando haya fotos, se suma acá una fila con su ruta.
+ */
+export const SHARE_IMAGES: Record<string, { file: string; alt: string }> = {
+  "/woodframe": {
+    file: "/images/compartir-woodframe.jpg",
+    alt: "Cuatro cabañas woodframe de SCH Construcciones: Lo de Cata, Cabaña en el bosque, Laslu y Mi Sueño",
+  },
+  "/construccion-tradicional": {
+    file: "/images/compartir-tradicional.jpg",
+    alt: "Obras de construcción tradicional de SCH Construcciones: Complejo Alvear en Piriápolis y Le Sirenuse en Punta del Este",
+  },
+};
+export const SHARE_IMAGE_SIZE = { width: 1200, height: 630 } as const;
+
 export function publicPageHead(path: string, title: string, description: string) {
   const url = path === "/" ? SITE_URL : `${SITE_URL}${path}`;
+  const share = SHARE_IMAGES[path];
   return {
     meta: [
       { title }, { name: "description", content: description },
@@ -45,6 +62,16 @@ export function publicPageHead(path: string, title: string, description: string)
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: title },
       { name: "twitter:description", content: description },
+      ...(share
+        ? [
+            { property: "og:image", content: `${SITE_URL}${share.file}` },
+            { property: "og:image:width", content: String(SHARE_IMAGE_SIZE.width) },
+            { property: "og:image:height", content: String(SHARE_IMAGE_SIZE.height) },
+            { property: "og:image:alt", content: share.alt },
+            { name: "twitter:image", content: `${SITE_URL}${share.file}` },
+            { name: "twitter:image:alt", content: share.alt },
+          ]
+        : []),
     ],
     links: [{ rel: "canonical", href: url }],
   };
