@@ -1,7 +1,7 @@
 import { createFileRoute, notFound } from '@tanstack/react-router';
 import { ProjectExperience } from '@/components/home/ProjectExperience';
 import { PROJECT_STORIES } from '@/data/projectStories';
-import { projectJsonLd } from '@/data/projectSeo';
+import { projectJsonLd, projectPageTitle } from '@/data/projectSeo';
 import { publicPageHead, SITE_URL } from '@/data/servicios';
 
 export const Route = createFileRoute('/proyectos/$slug')({
@@ -13,7 +13,7 @@ export const Route = createFileRoute('/proyectos/$slug')({
   },
   head: ({ loaderData }) => {
     if (!loaderData) return { meta: [{ title: 'Obra no disponible | SCH Construcciones' }, { name: 'robots', content: 'noindex' }] };
-    const title = `${loaderData.name} | Obras de SCH Construcciones`;
+    const title = projectPageTitle(loaderData);
     const base = publicPageHead(`/proyectos/${loaderData.slug}`, title, loaderData.description);
     // Stable social image: the exact original cover shown in the page's archive.
     const image = `${SITE_URL}${loaderData.src}`;
