@@ -10,6 +10,8 @@ import {
   paintCounts,
   paintExtra,
   paintQuoteLines,
+  parrilleroExtra,
+  parrilleroQuoteLines,
   rateFor,
   volumeBonus,
   withExtras,
@@ -18,6 +20,7 @@ import {
 import { TRADICIONAL_TEXTOS } from "./tradicional";
 import { DECK_TEXTOS, DEFAULT_DECK, deckLabel, deckLineName, type DeckConfig } from "./deck";
 import { PAINT_TEXTOS, coatsLabel, paintIsActive, type PaintConfig, type PaintSurfaces } from "./paint";
+import { PARRILLERO_TEXTOS, parrilleroIsActive, type ParrilleroConfig } from "./parrillero";
 import type { FinishId } from "./materials";
 import { systemOf } from "./systems";
 
@@ -97,6 +100,8 @@ export type PriceInput = {
   /** Extra opcional «Pintura» y los m² de pared medidos sobre el diseño: tampoco entra en `configPrice`. */
   paint?: PaintConfig;
   paintSurfaces?: PaintSurfaces;
+  /** Extra opcional «Parrilleros SCH»: tampoco entra en `configPrice`. */
+  parrillero?: ParrilleroConfig;
 };
 
 /**
@@ -144,12 +149,14 @@ export function configWhatsAppText(input: PriceInput & { openings: number }) {
   );
   if (traditional) lines.push(TRADICIONAL_TEXTOS.exclusiones);
   const deckOn = !!input.deck?.enabled,
-    paintOn = !!input.paint && paintIsActive(input.paint);
-  if (deckOn || paintOn) {
+    paintOn = !!input.paint && paintIsActive(input.paint),
+    parrOn = !!input.parrillero && parrilleroIsActive(input.parrillero);
+  if (deckOn || paintOn || parrOn) {
     const deck = input.deck ?? DEFAULT_DECK,
       extra = deckExtra(deck, input.logistics),
       pq = paintOn && input.paint ? paintExtra(input.paint, input.finish, input.paintSurfaces ?? { interior: 0, exterior: 0 }, input.logistics) : undefined,
-      totals = withExtras(p.total, extra, pq),
+      parr = parrOn && input.parrillero ? parrilleroExtra(input.parrillero, input.logistics) : undefined,
+      totals = withExtras(p.total, extra, pq, parr),
       head = "Extras opcionales (no incluidos en el presupuesto de la vivienda)",
       parts = [deckOn ? `${head}: ${deckLabel(deck)}` : head];
     if (deckOn) {
@@ -164,12 +171,13 @@ export function configWhatsAppText(input: PriceInput & { openings: number }) {
       parts.push(`Pintura (${coatsLabel(pq.coats)}, mano de obra y materiales incluidos)`, ...paintQuoteLines(pq), ...paintColorLines(input.paint, [input.finish]));
       if (pq.pending) parts.push("La pintura de revoque se presupuesta aparte y no está sumada");
     }
-    const logisticsShare = (deckOn ? extra.surcharge ?? 0 : 0) + (pq && paintCounts(pq) ? pq.surcharge ?? 0 : 0),
-      percentage = deckOn ? extra.percentage : pq?.percentage ?? 0;
+    if (parr && input.parrillero) parts.push(...parrilleroQuoteLines(input.parrillero, input.logistics).filter((l) => !l.startsWith("Costo logístico")));
+    const logisticsShare = (deckOn ? extra.surcharge ?? 0 : 0) + (pq && paintCounts(pq) ? pq.surcharge ?? 0 : 0) + (parr ? parr.surcharge ?? 0 : 0),
+      percentage = deckOn ? extra.percentage : pq?.percentage ?? parr?.percentage ?? 0;
     if (totals.extras !== null && percentage > 0) parts.push(`Logística del extra (${percentage}%): ${formatUSD(logisticsShare)}`);
     parts.push(`Total del extra: ${totals.extras === null ? "a cotizar" : formatUSD(totals.extras)}`);
     parts.push(`Total con extras: ${totals.totalConExtras === null ? "a cotizar" : formatUSD(totals.totalConExtras)}`);
-    lines.push(parts.join(" · "), paintOn ? PAINT_TEXTOS.letraChica : DECK_TEXTOS.letraChica);
+    lines.push(parts.join(" · "), parrOn && !deckOn && !paintOn ? PARRILLERO_TEXTOS.letraChica : paintOn ? PAINT_TEXTOS.letraChica : DECK_TEXTOS.letraChica);
   }
   if (input.designLink) lines.push(`Mi diseño: ${input.designLink}`);
   return lines.join("\n");

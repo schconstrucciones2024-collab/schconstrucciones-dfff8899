@@ -1,7 +1,7 @@
 /**
  * Sección «Extras y opcionales»: la lista de extras que se pueden sumar a la vivienda, con sus textos.
  *
- * Hoy son dos: «Deck y techado» y «Pintura». Para agregar otro más adelante:
+ * Hoy son tres: «Deck y techado», «Pintura» y «Parrilleros SCH». Para agregar otro más adelante:
  *  1. sumar su id a `ExtraId` y su tarjeta a `EXTRA_CARDS` (acá);
  *  2. escribir su panel y mostrarlo en `components/cotizador/ExtrasSection.tsx` (un `TabsContent` más);
  *  3. sumarlo al total en `withExtras` (`lib/cotizador.ts`).
@@ -9,8 +9,9 @@
  */
 import { DECK_LINEAS, DECK_LINES } from "./deck";
 import { PAINT_DESDE_USD, formatRate } from "./paint";
+import { PARRILLERO_PRECIOS, PARRILLERO_TEXTOS, formatUSDRef, formatUYU } from "./parrillero";
 
-export type ExtraId = "deck" | "pintura";
+export type ExtraId = "deck" | "pintura" | "parrillero";
 
 export type ExtraCard = {
   id: ExtraId;
@@ -22,6 +23,7 @@ export type ExtraCard = {
 };
 
 const deckDesde = Math.min(...DECK_LINES.map((l) => DECK_LINEAS[l].precios.deck));
+const parrilleroDesde = Object.values(PARRILLERO_PRECIOS).reduce((a, b) => (b.uyu < a.uyu ? b : a));
 
 export const EXTRA_CARDS: readonly ExtraCard[] = [
   {
@@ -36,6 +38,12 @@ export const EXTRA_CARDS: readonly ExtraCard[] = [
     resumen: "Tu casa pintada y lista para habitar: elegís las manos y el color de cada superficie.",
     desde: `Desde ${formatRate(PAINT_DESDE_USD)}/m²`,
   },
+  {
+    id: "parrillero",
+    titulo: PARRILLERO_TEXTOS.titulo,
+    resumen: PARRILLERO_TEXTOS.resumenTarjeta,
+    desde: `Desde ${formatUYU(parrilleroDesde.uyu)} (ref. ${formatUSDRef(parrilleroDesde.usd)})`,
+  },
 ];
 
 export const EXTRAS_TEXTOS = {
@@ -46,5 +54,5 @@ export const EXTRAS_TEXTOS = {
   listaEtiqueta: "Extras disponibles",
   agregado: "Agregado",
   opcional: "Opcional",
-  nota: "Los decks y la pintura figuran como «no incluidos» en el precio base: acá los podés sumar.",
+  nota: "Los decks, la pintura y los parrilleros figuran como «no incluidos» en el precio base: acá los podés sumar.",
 } as const;

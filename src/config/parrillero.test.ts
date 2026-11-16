@@ -1,0 +1,464 @@
+import { describe, expect, it } from "vitest";
+import {
+  DEFAULT_PARRILLERO,
+  PARRILLERO_DIMS as D,
+  PARRILLERO_MESADA_SOBRE_DECK,
+  PARRILLERO_PRECIOS,
+  PARRILLERO_TEXTOS,
+  formatUYU,
+  normalizeParrillero,
+  parrilleroLabel,
+  parrilleroPrice,
+  parrilleroSummaryLines,
+} from "./parrillero";
+import { allBoxes, parrilleroLayout } from "./parrilleroLayout";
+import {
+  deckWidthToSurround,
+  facadeFrame,
+  parrilleroDeckRelation,
+  parrilleroNotices,
+  parrilleroObstacle,
+  parrilleroRects,
+  toWorld,
+  validateParrillero,
+} from "./parrilleroGeometry";
+import { cutBoxes, inflate, overlaps, subtractRect, type Rect } from "./deckCutout";
+import { deckLayout, type DeckBox } from "./deckLayout";
+import { deckPlacement } from "./deckGeometry";
+import type { Point } from "./geometry";
+
+// Casa rectangular de 8 × 6 m; el frente de la entrada es el muro `edge-2` (z = 3) y mira hacia +z.
+const RECT: Point[] = [
+  { x: -4, z: -3 },
+  { x: 4, z: -3 },
+  { x: 4, z: 3 },
+  { x: -4, z: 3 },
+];
+// Casa con un ala que sobresale hacia afuera a la derecha del frente.
+const WING: Point[] = [
+  { x: 8, z: 6 },
+  { x: 4, z: 6 },
+  { x: 4, z: 3 },
+  { x: -4, z: 3 },
+  { x: -4, z: -3 },
+  { x: 8, z: -3 },
+];
+const T = 0.2;
+const ext = (b: DeckBox) => ({
+  x0: b.pos[0] - b.size[0] / 2,
+  x1: b.pos[0] + b.size[0] / 2,
+  y0: b.pos[1] - b.size[1] / 2,
+  y1: b.pos[1] + b.size[1] / 2,
+  z0: b.pos[2] - b.size[2] / 2,
+  z1: b.pos[2] + b.size[2] / 2,
+});
+const rectOf = (b: DeckBox): Rect => {
+  const e = ext(b);
+  return { x0: e.x0, x1: e.x1, z0: e.z0, z1: e.z1 };
+};
+const flat = { roofed: false, railFront: false, railLeft: false, railRight: false, steps: false };
+
+describe("parrillero: datos, precios y textos", () => {
+  it("arranca apagado y normaliza cualquier entrada", () => {
+    expect(DEFAULT_PARRILLERO.enabled).toBe(false);
+    expect(normalizeParrillero(undefined)).toEqual(DEFAULT_PARRILLERO);
+    expect(normalizeParrillero({ enabled: true, finish: "revoque", side: "derecho", sink: false })).toEqual({ enabled: true, finish: "revoque", side: "derecho", sink: false });
+    // Valores raros de un link viejo o roto: vuelven a los de fábrica.
+    expect(normalizeParrillero({ enabled: "si" as never, finish: "oro" as never, side: "arriba" as never })).toEqual(DEFAULT_PARRILLERO);
+  });
+
+  it("los precios son los pedidos: fijos, en pesos, con su referencia en dólares", () => {
+    expect(PARRILLERO_PRECIOS.ladrillo).toEqual({ uyu: 108000, usd: 2665 });
+    expect(PARRILLERO_PRECIOS.revoque).toEqual({ uyu: 122000, usd: 3010 });
+    expect(parrilleroPrice({ ...DEFAULT_PARRILLERO, enabled: true, finish: "revoque" })).toEqual({ active: true, finish: "revoque", uyu: 122000, usd: 3010 });
+    expect(parrilleroPrice(DEFAULT_PARRILLERO).active).toBe(false);
+    expect(formatUYU(108000)).toBe("$U 108.000");
+    expect(formatUYU(122000)).toBe("$U 122.000");
+  });
+
+  it("el precio no depende del lateral ni de la bacha: la terminación es lo único que lo cambia", () => {
+    const base = { ...DEFAULT_PARRILLERO, enabled: true };
+    for (const finish of ["ladrillo", "revoque"] as const) {
+      const prices = (["izquierdo", "derecho"] as const).flatMap((side) => [true, false].map((sink) => parrilleroPrice({ ...base, finish, side, sink }).uyu));
+      expect(new Set(prices).size).toBe(1);
+    }
+  });
+
+  it("el texto comercial y el resumen dicen lo pedido", () => {
+    expect(PARRILLERO_TEXTOS.descripcion).toBe(
+      "Un espacio pensado para disfrutar. Parrilleros de mampostería construidos con ladrillo, hogar refractario, chimenea y mesada auxiliar integrada.",
+    );
+    const lines = parrilleroSummaryLines({ enabled: true, finish: "ladrillo", side: "izquierdo", sink: true });
+    expect(lines[0]).toBe("PARRILLERO SCH");
+    expect(lines).toContain("Terminación: Ladrillo visto");
+    expect(lines).toContain("Ubicación: Lateral izquierdo");
+    expect(lines).toContain("Precio: $U 108.000 (ref. USD 2.665)");
+    expect(parrilleroSummaryLines({ enabled: true, finish: "revoque", side: "derecho", sink: true })).toContain("Ubicación: Lateral derecho");
+    expect(parrilleroLabel({ enabled: true, finish: "revoque", side: "derecho", sink: true })).toMatch("Revoque fino");
+  });
+
+  it("las medidas de diseño están en un solo lugar y suman 3,00 m", () => {
+    expect(D.anchoTotal).toBe(3.0);
+    expect(D.profundidad).toBe(0.9);
+    expect(D.alturaMesada).toBe(0.9);
+    expect(D.hogarAncho).toBe(1.2);
+    expect(D.hogarProfundo).toBe(0.65);
+    expect(D.bocaAlto).toBe(0.7);
+    expect(D.mesadaLargo).toBe(1.35);
+    expect(D.chimeneaAltura).toBe(2.6);
+    expect(D.muro * 3 + D.mesadaLargo + D.hogarAncho).toBeCloseTo(D.anchoTotal, 9);
+  });
+});
+
+describe("parrillero: geometría 3D (piezas)", () => {
+  const L = parrilleroLayout("izquierdo", true);
+  const boxes = allBoxes(L);
+
+  it("mide 3,00 × 0,90 m en planta y la chimenea llega a 2,60 m sobre la mesada", () => {
+    const zs = boxes.flatMap((b) => [ext(b).z0, ext(b).z1]);
+    expect(Math.min(...zs)).toBeCloseTo(0, 6);
+    // El remate vuela 4 cm más allá del cuerpo.
+    expect(Math.max(...zs)).toBeCloseTo(3.0 + D.tapaVuelo, 6);
+    const body = [...L.base.render, ...L.slab];
+    expect(Math.max(...body.flatMap((b) => [ext(b).x1])) - Math.min(...body.flatMap((b) => [ext(b).x0]))).toBeCloseTo(0.9, 6);
+    const top = Math.max(...L.cap.ring.map((b) => ext(b).y1));
+    expect(top - D.alturaMesada).toBeCloseTo(D.chimeneaAltura, 6);
+  });
+
+  it("la losa está a 0,90 m, la base nace bajo el terreno y llega justo hasta la losa", () => {
+    for (const b of L.slab) expect(ext(b).y1).toBeCloseTo(0.9, 6);
+    const baseTop = Math.max(...L.base.render.map((b) => ext(b).y1)),
+      baseBottom = Math.min(...L.base.render.map((b) => ext(b).y0));
+    expect(baseBottom).toBeLessThan(0);
+    expect(baseTop).toBeCloseTo(0.9 - D.espesorLosa, 6);
+    // Nada queda flotando: ninguna pieza empieza por debajo del terreno más allá de lo enterrado.
+    for (const b of boxes) expect(ext(b).y0).toBeGreaterThanOrEqual(-D.enterrado - 1e-9);
+  });
+
+  it("el hogar mide 1,20 de ancho y 0,65 de fondo entre las caras refractarias, y la boca 0,70 de alto", () => {
+    const [back, left, right] = L.refractory.map(ext);
+    expect(right!.z0 - left!.z1).toBeCloseTo(D.hogarAncho, 6);
+    // Fondo útil: de la cara del refractario del fondo hasta el plano de la boca (el frente de la losa).
+    const front = Math.max(...L.slab.map((b) => ext(b).x1)),
+      mouthFront = L.mouth === 1 ? front : -front;
+    expect(Math.abs(mouthFront - (L.mouth === 1 ? back!.x1 : back!.x0))).toBeCloseTo(D.hogarProfundo, 6);
+    expect(left!.y1 - D.alturaMesada - D.pisoHogar).toBeCloseTo(D.bocaAlto, 6);
+  });
+
+  it("el refractario es una pieza aparte del ladrillo exterior y la campana baja en diagonal", () => {
+    expect(L.refractory.length).toBe(3);
+    const hood = L.hood.prisms[0]!;
+    // Hay un tramo inclinado: ni horizontal ni vertical.
+    let diagonal = false;
+    for (let i = 0; i < hood.pts.length; i++) {
+      const a = hood.pts[i]!,
+        b = hood.pts[(i + 1) % hood.pts.length]!;
+      if (Math.abs(a[0] - b[0]) > 0.1 && Math.abs(a[1] - b[1]) > 0.1) diagonal = true;
+    }
+    expect(diagonal).toBe(true);
+    expect(L.hood.coping.length).toBe(1);
+  });
+
+  it("el remate tiene un agujero de humo visible y la chimenea es de ladrillo", () => {
+    expect(L.cap.ring.length).toBe(4);
+    expect(L.cap.hole.length).toBe(1);
+    expect(L.chimney.length).toBe(1);
+  });
+
+  it("la mesada es continuación de la losa: la losa tiene la abertura de la bacha y la bacha entra justo", () => {
+    expect(L.slab.length).toBe(4);
+    expect(L.sink).toBeDefined();
+    expect(L.faucet!.length).toBeGreaterThan(2);
+    const noSink = parrilleroLayout("izquierdo", false);
+    expect(noSink.sink).toBeNull();
+    expect(noSink.faucet).toBeNull();
+    expect(noSink.slab.length).toBe(1);
+  });
+
+  it("el lateral derecho es el espejo del izquierdo (mismas medidas, boca hacia el otro lado)", () => {
+    const R = parrilleroLayout("derecho", true),
+      a = allBoxes(L),
+      b = allBoxes(R);
+    expect(a.length).toBe(b.length);
+    a.forEach((box, i) => {
+      const o = b[i]!;
+      expect(o.size).toEqual(box.size);
+      expect(o.pos[0]).toBeCloseTo(-box.pos[0], 9);
+      expect(o.pos[1]).toBeCloseTo(box.pos[1], 9);
+      expect(o.pos[2]).toBeCloseTo(box.pos[2], 9);
+    });
+    expect(L.mouth).toBe(1);
+    expect(R.mouth).toBe(-1);
+  });
+
+  it("la forma no depende de la terminación: es la misma función para ladrillo y revoque", () => {
+    expect(parrilleroLayout.length <= 2).toBe(true);
+    expect(JSON.stringify(parrilleroLayout("derecho", true))).toBe(JSON.stringify(parrilleroLayout("derecho", true)));
+  });
+});
+
+describe("parrillero: ubicación", () => {
+  const frame = facadeFrame(RECT, T)!;
+
+  it("el frente es el muro de la entrada y mide lo que mide la fachada", () => {
+    expect(frame.wallId).toBe("edge-2");
+    // El frente se mide de esquina exterior a esquina exterior: 8 m de eje más el espesor del muro.
+    expect(frame.length).toBeCloseTo(8 + T, 6);
+    expect(frame.outward.z).toBeCloseTo(1, 6);
+    expect(frame.right.x).toBeCloseTo(1, 6);
+  });
+
+  it("izquierdo queda a la izquierda de quien mira el frente y derecho a la derecha, con la boca hacia el centro", () => {
+    const l = parrilleroRects("izquierdo", frame.length),
+      r = parrilleroRects("derecho", frame.length);
+    expect(l.footprint.x1).toBeLessThan(-frame.length / 2);
+    expect(r.footprint.x0).toBeGreaterThan(frame.length / 2);
+    expect(l.mouth).toBe(1);
+    expect(r.mouth).toBe(-1);
+    // Separación inicial de la casa.
+    expect(-frame.length / 2 - l.footprint.x1).toBeCloseTo(0.5, 6);
+    expect(r.footprint.x0 - frame.length / 2).toBeCloseTo(0.5, 6);
+    // En el mundo: la derecha del frente es +x y el parrillero queda del lado de afuera (z > 3).
+    const w = toWorld(frame, r.cx, 1.5);
+    expect(w.x).toBeGreaterThan(4.5);
+    expect(w.z).toBeGreaterThan(3);
+  });
+
+  it("la huella mide 3,00 × 0,90 y sale hacia afuera desde la fachada", () => {
+    for (const side of ["izquierdo", "derecho"] as const) {
+      const f = parrilleroRects(side, 8).footprint;
+      expect(f.x1 - f.x0).toBeCloseTo(0.9, 6);
+      expect(f.z1 - f.z0).toBeCloseTo(3.0, 6);
+      expect(f.z0).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("se adapta si cambia el tamaño de la casa y no depende del deck", () => {
+    const wide = facadeFrame([{ x: -6, z: -3 }, { x: 6, z: -3 }, { x: 6, z: 3 }, { x: -6, z: 3 }], T)!;
+    expect(wide.length).toBeCloseTo(12 + T, 6);
+    expect(parrilleroRects("derecho", wide.length).footprint.x0).toBeCloseTo((12 + T) / 2 + 0.5, 6);
+    // El obstáculo en el marco del deck solo corre por el desplazamiento del deck, nunca la posición real.
+    const pl = deckPlacement(RECT, T, { width: 11, depth: 3 }, null)!;
+    const o = parrilleroObstacle(frame, "derecho", pl);
+    expect(o.footprint.x0).toBeCloseTo((8 + T) / 2 + 0.5, 6);
+  });
+
+  it("deckWidthToSurround da el ancho para que el deck rodee al parrillero con margen", () => {
+    expect(deckWidthToSurround(8)).toBeCloseTo(11.4, 6);
+  });
+});
+
+describe("parrillero: el deck se recorta alrededor del parrillero", () => {
+  const frame = facadeFrame(RECT, T)!;
+  const W = deckWidthToSurround(frame.length);
+  const pl = deckPlacement(RECT, T, { width: W, depth: 3 }, null)!;
+  const obstacle = parrilleroObstacle(frame, "derecho", pl);
+  const deck = { width: W, depth: 3, ...flat };
+  const hole = inflate(obstacle.footprint, 0.03);
+
+  it("sin parrillero el deck es el original; el hueco aparece solo cuando hay parrillero", () => {
+    const original = deckLayout(deck, 0.5),
+      again = deckLayout(deck, 0.5, null, null);
+    expect(again.cutout).toBeNull();
+    expect(again.boards.length).toBe(original.boards.length);
+    expect(JSON.stringify(again)).toBe(JSON.stringify(original));
+    const cut = deckLayout(deck, 0.5, null, obstacle);
+    expect(cut.cutout).toBeDefined();
+    expect(cut.boards.length).toBeGreaterThan(original.boards.length - 1);
+  });
+
+  it("ninguna tabla, tirante, pilote, baranda ni tornillo pisa la huella del parrillero", () => {
+    const L = deckLayout({ ...deck, railFront: true, railLeft: true, railRight: true, steps: true }, 0.5, null, obstacle);
+    const strict = inflate(obstacle.footprint, 0.03 - 1e-6);
+    for (const list of [L.boards, L.piles, L.steps, L.rails, L.fascia]) for (const b of list) expect(overlaps(rectOf(b), strict)).toBe(false);
+    // Los tirantes del cerco quedan pegados al hueco, sin pisarlo.
+    for (const b of L.frame) expect(overlaps(rectOf(b), strict)).toBe(false);
+    for (const b of L.screws) expect(b.pos[0] > strict.x0 && b.pos[0] < strict.x1 && b.pos[2] > strict.z0 && b.pos[2] < strict.z1).toBe(false);
+  });
+
+  it("la madera llega hasta el borde del hueco (holgura de 3 cm) y el resto del deck queda entero", () => {
+    const L = deckLayout(deck, 0.5, null, obstacle),
+      near = L.boards.filter((b) => ext(b).z1 > obstacle.footprint.z0 && ext(b).z0 < obstacle.footprint.z1);
+    // Hay tablas que terminan justo en el hueco, en los dos costados.
+    expect(near.some((b) => Math.abs(ext(b).x1 - hole.x0) < 1e-6)).toBe(true);
+    expect(near.some((b) => Math.abs(ext(b).x0 - hole.x1) < 1e-6)).toBe(true);
+    // Todas las tablas siguen a la altura de siempre: el deck no se levanta ni se baja.
+    for (const b of L.boards) expect(ext(b).y1).toBeCloseTo(0.5, 6);
+  });
+
+  it("un deck que no llega al parrillero no se toca", () => {
+    const short = { width: 8, depth: 3, ...flat },
+      pl2 = deckPlacement(RECT, T, { width: 8, depth: 3 }, null)!,
+      o = parrilleroObstacle(frame, "derecho", pl2),
+      a = deckLayout(short, 0.5),
+      b = deckLayout(short, 0.5, null, o);
+    expect(b.cutout).toBeNull();
+    expect(JSON.stringify(b)).toBe(JSON.stringify(a));
+    const rel = parrilleroDeckRelation({ frame, side: "derecho", deck: { enabled: true, roofed: false, width: 8, depth: 3 }, deckPl: pl2, topY: 0.5 });
+    expect(rel.deckCuts).toBe(false);
+    expect(rel.deckShort).toBe(true);
+  });
+
+  it("subtractRect parte una tabla en dos costados y descarta lo que queda cubierto", () => {
+    const board: DeckBox = { size: [6, 0.03, 0.14], pos: [0, 0.4, 1] };
+    const pieces = subtractRect(board, { x0: -1, x1: 1, z0: 0.5, z1: 1.5 });
+    expect(pieces.length).toBe(2);
+    expect(cutBoxes([board], [{ x0: -10, x1: 10, z0: 0, z1: 2 }]).length).toBe(0);
+    expect(subtractRect(board, { x0: 20, x1: 21, z0: 0, z1: 2 })[0]).toBe(board);
+  });
+});
+
+describe("parrillero: el techo del deck se abre para la chimenea", () => {
+  const frame = facadeFrame(RECT, T)!;
+  const W = deckWidthToSurround(frame.length);
+  const pl = deckPlacement(RECT, T, { width: W, depth: 3 }, null)!;
+  const obstacle = parrilleroObstacle(frame, "derecho", pl);
+  const deck = { width: W, depth: 3, ...flat, roofed: true };
+
+  it("el techo se abre solo en la chimenea y el resto conserva sus piezas", () => {
+    const original = deckLayout(deck, 0.5),
+      L = deckLayout(deck, 0.5, null, obstacle),
+      roof = L.roof!;
+    expect(roof.opening).toBeDefined();
+    expect(roof.opening).not.toBeNull();
+    const o = roof.opening!,
+      chim = obstacle.chimney;
+    // La abertura cubre la chimenea con una holgura razonable, sin agrandarse de más.
+    expect(o.x0).toBeLessThan(chim.x0);
+    expect(o.x1).toBeGreaterThan(chim.x1);
+    expect(o.x1 - o.x0).toBeLessThan(chim.x1 - chim.x0 + 0.6);
+    // El techo sigue ahí: casi todas las piezas y todo el ancho de la chapa.
+    expect(roof.planeBoxes.length).toBeGreaterThan(original.roof!.planeBoxes.length * 0.8);
+    const sheetWidth = roof.sheetPieces.reduce((s, p) => s + p.width * (p.z1 - p.z0), 0),
+      sheetOrig = original.roof!.sheetPieces.reduce((s, p) => s + p.width * (p.z1 - p.z0), 0);
+    expect(sheetWidth).toBeLessThan(sheetOrig);
+    expect(sheetWidth).toBeGreaterThan(sheetOrig * 0.9);
+    expect(original.roof!.opening).toBeNull();
+    expect(original.roof!.sheetPieces.length).toBe(1);
+  });
+
+  it("ni la chapa ni los tirantes ni los postes atraviesan la chimenea", () => {
+    const L = deckLayout(deck, 0.5, null, obstacle),
+      roof = L.roof!,
+      cos = Math.cos(roof.plane.angle),
+      zFront = roof.plane.origin[2],
+      o = roof.opening!,
+      po: Rect = { x0: o.x0, x1: o.x1, z0: (o.z0 - zFront) / cos, z1: (o.z1 - zFront) / cos },
+      inner = { x0: po.x0 + 1e-6, x1: po.x1 - 1e-6, z0: po.z0 + 1e-6, z1: po.z1 - 1e-6 };
+    for (const b of roof.planeBoxes) expect(overlaps(rectOf(b), inner)).toBe(false);
+    for (const p of roof.sheetPieces) expect(overlaps({ x0: p.x - p.width / 2, x1: p.x + p.width / 2, z0: p.z0, z1: p.z1 }, inner)).toBe(false);
+    // Los postes no quedan dentro de la mampostería.
+    const solid = inflate(obstacle.footprint, 0.05);
+    for (const p of roof.posts) expect(overlaps(rectOf(p), solid)).toBe(false);
+  });
+
+  it("sin deck techado no hay techo que abrir, y con el parrillero lejos el techo queda entero", () => {
+    expect(deckLayout({ ...deck, roofed: false }, 0.5, null, obstacle).roof).toBeNull();
+    const far = { ...obstacle, footprint: { x0: 40, x1: 41, z0: 0, z1: 3 }, chimney: { x0: 40, x1: 41, z0: 2.4, z1: 3 }, hood: { x0: 40, x1: 41, z0: 1.5, z1: 3 } };
+    const a = deckLayout(deck, 0.5),
+      b = deckLayout(deck, 0.5, null, far);
+    expect(b.roof!.opening).toBeNull();
+    expect(JSON.stringify(b.roof)).toBe(JSON.stringify(a.roof));
+  });
+
+  it("las combinaciones parrillero × deck × techado dan lo esperado", () => {
+    const rel = (enabled: boolean, roofed: boolean) =>
+      parrilleroDeckRelation({ frame, side: "derecho", deck: { enabled, roofed, width: W, depth: 3 }, deckPl: pl, topY: 0.5 });
+    // Sí / No / No: el parrillero queda solo sobre el terreno.
+    expect(rel(false, false)).toEqual({ deckCuts: false, roofOpens: false, deckShort: false, lift: 0, flush: false });
+    // Sí / Sí / No: el deck se recorta.
+    expect(rel(true, false)).toMatchObject({ deckCuts: true, roofOpens: false, deckShort: false });
+    // Sí / Sí / Sí: el deck se recorta y el techo se adapta.
+    expect(rel(true, true)).toMatchObject({ deckCuts: true, roofOpens: true, deckShort: false });
+  });
+});
+
+describe("parrillero: validación de espacio", () => {
+  const ok = (contour: Point[], side: "izquierdo" | "derecho", extra = {}) => validateParrillero({ contour, wallThickness: T, openings: [], side, ...extra });
+
+  it("en una casa rectangular entra en los dos laterales", () => {
+    expect(ok(RECT, "izquierdo").ok).toBe(true);
+    expect(ok(RECT, "derecho").ok).toBe(true);
+  });
+
+  it("avisa, sin tocar nada, si el lateral choca con la casa", () => {
+    const r = ok(WING, "derecho");
+    expect(r.ok).toBe(false);
+    expect(r.issues[0]!.code).toBe("casa");
+    expect(r.issues[0]!.message).toMatch("lateral derecho");
+    // Del otro lado hay lugar.
+    expect(ok(WING, "izquierdo").ok).toBe(true);
+  });
+
+  it("avisa si queda fuera del terreno", () => {
+    const r = ok(RECT, "derecho", { place: { position: { x: 39, z: 0 }, rotation: 0 } });
+    expect(r.ok).toBe(false);
+    expect(r.issues.some((i) => i.code === "terreno")).toBe(true);
+    expect(ok(RECT, "derecho", { place: { position: { x: 0, z: 0 }, rotation: 0 } }).ok).toBe(true);
+  });
+
+  it("los avisos juntan el choque, el deck recortado y el techo adaptado, en ese orden", () => {
+    const status = ok(RECT, "derecho"),
+      rel = { deckCuts: true, roofOpens: true, deckShort: false, lift: 0, flush: false };
+    const notices = parrilleroNotices(status, rel);
+    expect(notices.map((n) => n.level)).toEqual(["info", "info"]);
+    expect(parrilleroNotices(ok(WING, "derecho"), { deckCuts: false, roofOpens: false, deckShort: true, lift: 0, flush: false })[0]!.level).toBe("error");
+  });
+});
+
+describe("parrillero: con un deck alrededor, la base sube y la mesada queda a 0,90 m sobre el deck", () => {
+  const frame = facadeFrame(RECT, T)!;
+  const W = deckWidthToSurround(frame.length);
+  const pl = deckPlacement(RECT, T, { width: W, depth: 4 }, null)!;
+  const relation = (topY: number, width = W, enabled = true) =>
+    parrilleroDeckRelation({ frame, side: "izquierdo", deck: { enabled, roofed: true, width, depth: 4 }, deckPl: pl, topY });
+  const topOf = (boxes: DeckBox[]) => Math.max(...boxes.map((b) => b.pos[1] + b.size[1] / 2));
+  const bottomOf = (boxes: DeckBox[]) => Math.min(...boxes.map((b) => b.pos[1] - b.size[1] / 2));
+
+  it("el parrillero sin deck nace del terreno; con el deck que lo rodea, la base sube a la altura del deck", () => {
+    expect(PARRILLERO_MESADA_SOBRE_DECK).toBe(true);
+    expect(relation(0.79).lift).toBe(0.79);
+    expect(relation(0.79, W, false).lift).toBe(0);
+    // Un deck que no llega al parrillero no lo sube: sigue parado sobre el terreno.
+    expect(relation(0.79, 6).lift).toBe(0);
+    expect(relation(0.79, 6).deckShort).toBe(true);
+  });
+
+  it("la base se alarga hacia arriba, todo lo demás se desplaza y la huella no cambia", () => {
+    const a = parrilleroLayout("izquierdo", true),
+      b = parrilleroLayout("izquierdo", true, 0.79);
+    // Sigue naciendo bajo el terreno.
+    expect(bottomOf(b.base.render)).toBeCloseTo(bottomOf(a.base.render), 6);
+    expect(topOf(b.base.render)).toBeCloseTo(topOf(a.base.render) + 0.79, 6);
+    // La losa (cara de la mesada) queda a 0,90 m sobre el deck: 0,79 + 0,90.
+    expect(topOf(b.slab)).toBeCloseTo(D.alturaMesada + 0.79, 6);
+    expect(topOf(b.cap.ring)).toBeCloseTo(D.alturaMesada + D.chimeneaAltura + 0.79, 6);
+    expect(Math.max(...b.hood.prisms[0]!.pts.map((p) => p[1]))).toBeCloseTo(D.campanaAltoChimenea + 0.79, 6);
+    expect(b.faucet![0]!.pos[1]).toBeCloseTo(a.faucet![0]!.pos[1] + 0.79, 6);
+    // Misma planta: ninguna pieza se corre en x ni en z.
+    const planta = (l: typeof a) => allBoxes(l).map((x) => [x.pos[0], x.pos[2], x.size[0], x.size[2]]);
+    expect(planta(b)).toEqual(planta(a));
+    // Sin elevación es exactamente el layout de siempre.
+    expect(parrilleroLayout("izquierdo", true, 0)).toEqual(a);
+    expect(parrilleroLayout("derecho", false, 0)).toEqual(parrilleroLayout("derecho", false));
+  });
+
+  it("la chimenea y la campana que ve el techo suben lo mismo", () => {
+    const o0 = parrilleroObstacle(frame, "izquierdo", pl),
+      o1 = parrilleroObstacle(frame, "izquierdo", pl, 0.79);
+    expect(o1.chimneyTop).toBeCloseTo(o0.chimneyTop + 0.79, 6);
+    expect(o1.hoodTop).toBeCloseTo(o0.hoodTop + 0.79, 6);
+    expect(o1.footprint).toEqual(o0.footprint);
+    // El techo se sigue abriendo para la chimenea.
+    expect(relation(0.79).roofOpens).toBe(true);
+  });
+
+  it("avisa cuánto sube la base y no avisa nada si no sube", () => {
+    const n = parrilleroNotices({ ok: true, issues: [], corners: [] }, relation(0.79)).map((x) => x.text);
+    expect(n).toContain(PARRILLERO_TEXTOS.baseElevada(79));
+    expect(n.join(" ")).toContain("79 cm");
+    expect(n.join(" ")).toContain("0,90 m sobre el deck");
+    const sin = parrilleroNotices({ ok: true, issues: [], corners: [] }, relation(0.79, 6)).map((x) => x.text);
+    expect(sin.some((t) => t.includes("sube"))).toBe(false);
+  });
+});

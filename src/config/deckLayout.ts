@@ -1,5 +1,18 @@
 import { DECK_3D, DECK_LOOK, type DeckConfig, type DeckLine } from "./deck";
 import { deckRoofHeights, deckStepCount } from "./deckGeometry";
+import {
+  DECK_HOLGURA,
+  POSTE_HOLGURA,
+  clipRect,
+  cutBoxes,
+  dropInside,
+  inflate,
+  overlaps,
+  roofOpening,
+  subtractRect,
+  type DeckObstacle,
+  type Rect,
+} from "./deckCutout";
 
 /**
  * Piezas del deck para el visor 3D, en metros y en el marco propio del deck: x hacia la derecha de quien mira la
@@ -24,6 +37,13 @@ export type DeckRoofLayout = {
   planeBoxes: DeckBox[];
   /** Chapa: ancho (en x), y tramo en z del plano; apoya en y = `y`. El perfil depende de la línea. */
   sheet: { width: number; z0: number; z1: number; y: number };
+  /**
+   * La misma chapa en tramos (centro `x`, ancho y tramo en z del plano). Es un solo tramo entero, salvo que una chimenea
+   * atraviese el techo: entonces la chapa se parte y deja la abertura, con los tramos alineados a las ondas.
+   */
+  sheetPieces: { x: number; width: number; z0: number; z1: number }[];
+  /** Abertura del techo para la chimenea, en el marco del deck; null si el techo queda entero. */
+  opening: Rect | null;
   /** Herrajes galvanizados de los postes (Premium), en el marco del deck. */
   hardware: DeckBox[];
   /** Canaleta y bajadas de agua (Premium), en el marco del deck. */
@@ -49,6 +69,8 @@ export type DeckLayout = {
   fascia: DeckBox[];
   /** Tornillos a la vista sobre cada tirante (Esencial). */
   screws: DeckBox[];
+  /** Hueco que deja el deck alrededor de un obstáculo que nace del suelo (con su holgura); null si no hay. */
+  cutout: Rect | null;
   roof: DeckRoofLayout | null;
 };
 
@@ -142,6 +164,7 @@ export function deckLayout(
   > & { line?: DeckLine },
   topY: number,
   doorX: number | null = null,
+  obstacle: DeckObstacle | null = null,
 ): DeckLayout {
   const line: DeckLine = deck.line ?? "esencial",
     look = DECK_LOOK[line],
@@ -295,18 +318,74 @@ export function deckLayout(
   if (deck.railLeft) rails.push(...railRun("z", -W / 2 + inset, z0 + inset, D - inset, topY, line));
   if (deck.railRight) rails.push(...railRun("z", W / 2 - inset, z0 + inset, D - inset, topY, line));
 
+  // Obstáculo que nace del suelo (el parrillero): el deck se adapta, nunca se apoya ni lo eleva. Todo lo que cae sobre la huella
+  // (con una holgura chica) se corta o se saca, y los tirantes quedan apoyados en un cerco de madera alrededor del hueco.
+  let hole: Rect | null = null;
+  let cBoards = boards,
+    cFrame = frame,
+    cPiles = piles,
+    cSteps = steps,
+    cRails = rails,
+    cFascia = fascia,
+    cScrews = screws;
+  if (obstacle) {
+    const rect = inflate(obstacle.footprint, DECK_HOLGURA),
+      deckBounds: Rect = { x0: -W / 2, x1: W / 2, z0, z1: D + 1 };
+    if (overlaps(rect, deckBounds)) {
+      hole = rect;
+      // Las piezas largas se cortan; las chicas (pilotes, postes de baranda) se sacan enteras.
+      const adapt = (list: DeckBox[]) =>
+        list.flatMap((b) =>
+          Math.max(b.size[0], b.size[2]) < 0.5
+            ? overlaps({ x0: b.pos[0] - b.size[0] / 2, x1: b.pos[0] + b.size[0] / 2, z0: b.pos[2] - b.size[2] / 2, z1: b.pos[2] + b.size[2] / 2 }, rect)
+              ? []
+              : [b]
+            : subtractRect(b, rect),
+        );
+      cBoards = cutBoxes(boards, [rect]);
+      cFrame = adapt(frame);
+      cPiles = adapt(piles);
+      cSteps = adapt(steps);
+      cRails = adapt(rails);
+      cFascia = adapt(fascia);
+      cScrews = dropInside(screws, rect);
+      // Cerco de apoyo: un tirante a lo largo de cada borde del hueco que cae dentro del deck.
+      const yTir = topY - tablaEspesor - altoTirante / 2,
+        run = (a: number, b: number, lo: number, hi: number): [number, number] | null => {
+          const p = Math.max(a, lo),
+            q = Math.min(b, hi);
+          return q - p > 0.1 ? [p, q] : null;
+        };
+      const zSpan = run(rect.z0 - tw, rect.z1 + tw, z0, D),
+        xSpan = run(rect.x0 - tw, rect.x1 + tw, -W / 2, W / 2);
+      if (zSpan)
+        for (const [edge, inside] of [
+          [rect.x0 - tw / 2, rect.x0 - tw > -W / 2],
+          [rect.x1 + tw / 2, rect.x1 + tw < W / 2],
+        ] as const)
+          if (inside) cFrame.push({ size: [tw, altoTirante, zSpan[1] - zSpan[0]], pos: [edge, yTir, (zSpan[0] + zSpan[1]) / 2] });
+      if (xSpan)
+        for (const [edge, inside] of [
+          [rect.z0 - tw / 2, rect.z0 - tw > z0],
+          [rect.z1 + tw / 2, rect.z1 + tw < D],
+        ] as const)
+          if (inside) cFrame.push({ size: [xSpan[1] - xSpan[0], altoTirante, tw], pos: [(xSpan[0] + xSpan[1]) / 2, yTir, edge] });
+    }
+  }
+
   return {
     line,
     topY,
-    boards,
-    frame,
-    piles,
-    steps,
-    rails,
-    fascia,
-    screws,
+    boards: cBoards,
+    frame: cFrame,
+    piles: cPiles,
+    steps: cSteps,
+    rails: cRails,
+    fascia: cFascia,
+    screws: cScrews,
+    cutout: hole,
     roof: deck.roofed
-      ? roofLayout(W, D, topY, doorX, line, hayEscalones ? { x: xEsc, half: ancho2 / 2 + 0.1 } : null)
+      ? roofLayout(W, D, topY, doorX, line, hayEscalones ? { x: xEsc, half: ancho2 / 2 + 0.1 } : null, obstacle)
       : null,
   };
 }
@@ -317,6 +396,8 @@ export function deckLayout(
  * Esencial: postes dobles de 6x2 y chapa aluminizada trapezoidal. Premium: columnas de mayor escuadría, tirantería vista más
  * robusta, chapa acanalada prepintada, herrajes, babetas contra la casa, canaleta y bajadas de agua.
  * `avoid` es una franja de x (los escalones) que las bajadas de agua esquivan.
+ * `obstacle` (el parrillero) nace del suelo: si su chimenea atraviesa el techo, el techo se abre ahí (con una holgura chica) y
+ * se conserva el resto de la estructura; los postes que quedarían dentro de la mampostería se corren al costado.
  */
 export function roofLayout(
   W: number,
@@ -325,6 +406,7 @@ export function roofLayout(
   doorX: number | null = null,
   line: DeckLine = "esencial",
   avoid: { x: number; half: number } | null = null,
+  obstacle: DeckObstacle | null = null,
 ): DeckRoofLayout {
   const T = DECK_LOOK[line].techo,
     chapa = DECK_LOOK[line].chapa,
@@ -351,6 +433,38 @@ export function roofLayout(
     if (doorX !== null && i > 0 && i < nTramos && Math.abs(x - doorX) < PUERTA_LIBRE)
       x = doorX + (x >= doorX ? PUERTA_LIBRE : -PUERTA_LIBRE);
     postXs.push(x);
+  }
+  // Abertura del techo para la chimenea (marco del deck) y conversión al marco del plano inclinado.
+  const roofBounds: Rect = { x0: -xs - 0.05, x1: xs + 0.05, z0: zHouse, z1: zFront + T.alero },
+    cosA = Math.cos(angle),
+    underside = (z: number) => topY + outerH + (rise * (zFront - z)) / run,
+    opening = obstacle ? roofOpening(obstacle, roofBounds, underside) : null,
+    toPlaneZ = (z: number) => (z - zFront) / cosA;
+  const nFilasPrev = Math.max(1, Math.ceil(run / largoMadera - 1e-9));
+  if (obstacle) {
+    // Ningún poste queda dentro de la mampostería ni de la abertura: se corre al costado más cercano que quede libre.
+    const solid = inflate(obstacle.footprint, POSTE_HOLGURA),
+      half = posteX / 2 + 0.02,
+      conflicts = (x: number) => {
+        for (let i = 0; i < nFilasPrev; i++) {
+          const zr = zFront - (i * run) / nFilasPrev,
+            r: Rect = { x0: x - posteX / 2, x1: x + posteX / 2, z0: zr - posteZ / 2, z1: zr + posteZ / 2 };
+          if (overlaps(r, solid) || (opening && overlaps(r, inflate(opening, 0.02)))) return true;
+        }
+        return false;
+      };
+    const fx0 = Math.min(solid.x0, opening ? opening.x0 : solid.x0),
+      fx1 = Math.max(solid.x1, opening ? opening.x1 : solid.x1);
+    for (let k = postXs.length - 1; k >= 0; k--) {
+      const x = postXs[k] ?? 0;
+      if (!conflicts(x)) continue;
+      const options = [fx0 - half, fx1 + half]
+        .filter((c) => Math.abs(c) <= xs + 1e-6 && !conflicts(c) && postXs.every((o, j) => j === k || Math.abs(o - c) > 0.3))
+        .sort((a, b) => Math.abs(a - x) - Math.abs(b - x));
+      if (options[0] !== undefined) postXs[k] = options[0];
+      else postXs.splice(k, 1);
+    }
+    postXs.sort((a, b) => a - b);
   }
   // Filas de postes a lo largo de la caída: el frente y, si el deck es profundo, una cada 3,30 m. La última fila es la
   // viga contra la casa, que no lleva postes.
@@ -392,8 +506,9 @@ export function roofLayout(
   // Vigas a lo ancho: una por fila de postes y la de la casa, cortadas entre poste y poste.
   for (let i = 0; i <= nFilas; i++)
     for (let k = 0; k < postXs.length - 1; k++) {
-      const a = postXs[k] ?? 0,
-        b = postXs[k + 1] ?? 0;
+      // Las vigas llegan siempre hasta los dos extremos del techo, aunque un poste se haya corrido por la mampostería.
+      const a = k === 0 ? Math.min(postXs[0] ?? 0, -xs) : (postXs[k] ?? 0),
+        b = k === postXs.length - 2 ? Math.max(postXs[postXs.length - 1] ?? 0, xs) : (postXs[k + 1] ?? 0);
       planeBoxes.push({
         size: [b - a + vigaAncho - 0.004, viga, vigaAncho],
         pos: [(a + b) / 2, beamY, localZ(i)],
@@ -432,6 +547,45 @@ export function roofLayout(
   const sheetY = viga + tir.alto + 0.03,
     sheet = { width: W + 0.2, z0: -length - 0.04, z1: alero, y: sheetY };
 
+  // Abertura para la chimenea (en el marco del plano): se cortan tirantes y clavadores, se parte la chapa y la abertura queda
+  // enmarcada con vigas, para que la estructura que sigue en pie se apoye en algo. El resto del techo no se toca.
+  const planeOpen: Rect | null = opening
+    ? { x0: opening.x0, x1: opening.x1, z0: toPlaneZ(opening.z0), z1: toPlaneZ(opening.z1) }
+    : null;
+  let framedBoxes = planeBoxes;
+  const sheetPieces: DeckRoofLayout["sheetPieces"] = [];
+  if (planeOpen) {
+    framedBoxes = cutBoxes(planeBoxes, [planeOpen]);
+    const vw = vigaAncho,
+      xa = Math.max(planeOpen.x0 - vw, -xs),
+      xb = Math.min(planeOpen.x1 + vw, xs),
+      za = Math.max(planeOpen.z0 - vw, -length),
+      zb = Math.min(planeOpen.z1 + vw, 0);
+    const header = (size: Vec3, pos: Vec3): DeckBox => ({ size, pos, ...withBevel(vigaBisel) });
+    if (xb - xa > 0.1) {
+      if (planeOpen.z0 - vw / 2 > -length) framedBoxes.push(header([xb - xa, viga, vw], [(xa + xb) / 2, beamY, planeOpen.z0 - vw / 2]));
+      if (planeOpen.z1 + vw / 2 < 0) framedBoxes.push(header([xb - xa, viga, vw], [(xa + xb) / 2, beamY, planeOpen.z1 + vw / 2]));
+    }
+    if (zb - za > 0.1) {
+      if (planeOpen.x0 - vw / 2 > -xs) framedBoxes.push(header([vw, viga, zb - za], [planeOpen.x0 - vw / 2, beamY, (za + zb) / 2]));
+      if (planeOpen.x1 + vw / 2 < xs) framedBoxes.push(header([vw, viga, zb - za], [planeOpen.x1 + vw / 2, beamY, (za + zb) / 2]));
+    }
+    // Chapa en tramos alineados a las ondas: enteros a los costados y partidos arriba y abajo de la abertura.
+    const paso = chapa.paso,
+      total = Math.max(1, Math.round(sheet.width / paso)),
+      half = (total * paso) / 2,
+      clampI = (i: number) => Math.min(total, Math.max(0, i)),
+      i0 = clampI(Math.floor((planeOpen.x0 + half) / paso + 1e-9)),
+      i1 = clampI(Math.ceil((planeOpen.x1 + half) / paso - 1e-9)),
+      add = (a: number, b: number, z0: number, z1: number) => {
+        if (b > a && z1 - z0 > 0.02) sheetPieces.push({ x: ((a + b) / 2) * paso - half, width: (b - a) * paso, z0, z1 });
+      };
+    add(0, i0, sheet.z0, sheet.z1);
+    add(i1, total, sheet.z0, sheet.z1);
+    add(i0, i1, sheet.z0, Math.min(sheet.z1, planeOpen.z0));
+    add(i0, i1, Math.max(sheet.z0, planeOpen.z1), sheet.z1);
+  } else sheetPieces.push({ x: 0, width: sheet.width, z0: sheet.z0, z1: sheet.z1 });
+
   // Premium: babetas contra la casa (en el marco del plano) y canaleta con bajadas de agua al frente (en el del deck).
   const planeTrim: DeckBox[] = [],
     trim: DeckBox[] = [];
@@ -452,7 +606,10 @@ export function roofLayout(
       gutterZ = zFront + gy * s + gz * c,
       bajada = gutterY - 0.0425,
       nBajadas = Math.max(2, Math.ceil((2 * xs) / 7) + 1);
-    trim.push({ size: [W + 0.2, 0.085, 0.1], pos: [0, gutterY, gutterZ] });
+    // La canaleta se interrumpe donde pasa la chimenea.
+    const gutterCut = opening && obstacle ? inflate(obstacle.chimney, DECK_HOLGURA + 0.05) : null,
+      gutter: DeckBox = { size: [W + 0.2, 0.085, 0.1], pos: [0, gutterY, gutterZ] };
+    trim.push(...(gutterCut ? subtractRect(gutter, gutterCut) : [gutter]));
     for (let x of spread(-xs, xs, nBajadas)) {
       // Una bajada nunca queda sobre los escalones: pasa al lado más cercano que quede libre dentro del deck.
       if (avoid && Math.abs(x - avoid.x) < avoid.half) {
@@ -461,18 +618,23 @@ export function roofLayout(
           .sort((p, q) => Math.abs(p - x) - Math.abs(q - x));
         x = lados[0] ?? x;
       }
-      trim.push({ size: [0.07, bajada, 0.07], pos: [x, bajada / 2, gutterZ] });
+      const downspout: DeckBox = { size: [0.07, bajada, 0.07], pos: [x, bajada / 2, gutterZ] };
+      if (!(gutterCut && overlaps(inflate(gutterCut, 0.1), { x0: x - 0.035, x1: x + 0.035, z0: gutterZ - 0.035, z1: gutterZ + 0.035 })))
+        trim.push(downspout);
     }
   }
+  const finalPlaneTrim = planeOpen ? cutBoxes(planeTrim, [planeOpen]) : planeTrim;
 
   return {
     posts,
     plane: { origin: [0, topY + outerH, zFront], angle, length },
-    planeBoxes,
+    planeBoxes: framedBoxes,
     sheet,
+    sheetPieces,
+    opening,
     hardware,
     trim,
-    planeTrim,
+    planeTrim: finalPlaneTrim,
   };
 }
 
