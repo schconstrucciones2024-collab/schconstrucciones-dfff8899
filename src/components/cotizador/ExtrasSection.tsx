@@ -1,14 +1,17 @@
 import { useState, type ReactNode } from "react";
-import { Check, PaintRoller, Warehouse } from "lucide-react";
+import { Check, Flame, PaintRoller, Warehouse } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EXTRAS_TEXTOS, EXTRA_CARDS, type ExtraId } from "@/config/extras";
 import type { DeckConfig } from "@/config/deck";
 import { paintIsActive, type PaintConfig, type PaintZone } from "@/config/paint";
+import { parrilleroIsActive, type ParrilleroConfig } from "@/config/parrillero";
+import type { ParrilleroNotice } from "@/config/parrilleroGeometry";
 import type { LogisticsSelection } from "@/lib/cotizador";
 import { DeckPanel } from "./DeckExtra";
 import { PaintPanel, type PaintOption } from "./PaintExtra";
+import { ParrilleroPanel } from "./ParrilleroExtra";
 
-const ICONS: Record<ExtraId, typeof Warehouse> = { deck: Warehouse, pintura: PaintRoller };
+const ICONS: Record<ExtraId, typeof Warehouse> = { deck: Warehouse, pintura: PaintRoller, parrillero: Flame };
 
 function IconBox({ Icon, size }: { Icon: typeof Warehouse; size: "sm" | "lg" }) {
   return (
@@ -42,9 +45,9 @@ function Badge({ on, boxed = false }: { on: boolean; boxed?: boolean }) {
 }
 
 /**
- * Sección «Extras y opcionales»: la lista de extras que se pueden sumar a la vivienda (hoy, deck y pintura) y el panel del que
+ * Sección «Extras y opcionales»: la lista de extras que se pueden sumar a la vivienda (hoy, deck, pintura y parrillero) y el panel del que
  * se está mirando. La usan el cotizador de la página (`variant="page"`) y el último paso del diseñador (`variant="panel"`);
- * los dos leen y escriben los mismos datos y los precios salen de `config/deck.ts` y `config/paint.ts`.
+ * los dos leen y escriben los mismos datos y los precios salen de `config/deck.ts`, `config/paint.ts` y `config/parrillero.ts`.
  *
  * Para sumar otro extra: ver el encabezado de `config/extras.ts`.
  */
@@ -60,6 +63,10 @@ export function ExtrasSection({
   paintOptions,
   paintNota,
   onPaintLook,
+  parrillero,
+  onParrilleroChange,
+  parrilleroNotices,
+  onExpandDeck,
   initial = "deck",
   children,
 }: {
@@ -77,13 +84,23 @@ export function ExtrasSection({
   paintNota: string;
   /** Diseñador: mirar la casa por fuera o por dentro para ver el color. */
   onPaintLook?: (zone: PaintZone) => void;
+  parrillero: ParrilleroConfig;
+  onParrilleroChange: (patch: Partial<ParrilleroConfig>) => void;
+  /** Diseñador: avisos del parrillero sobre el lugar, el deck y el techo. */
+  parrilleroNotices?: ParrilleroNotice[];
+  /** Diseñador: agranda el deck para que rodee al parrillero (solo si hay deck y hace falta). */
+  onExpandDeck?: () => void;
   initial?: ExtraId;
   /** Lo que va debajo del extra elegido (en el cotizador, el resumen por categoría con todos los extras). */
   children?: ReactNode;
 }) {
   const [active, setActive] = useState<ExtraId>(initial),
     page = variant === "page",
-    added: Record<ExtraId, boolean> = { deck: deck.enabled, pintura: paintIsActive(paint) };
+    added: Record<ExtraId, boolean> = {
+      deck: deck.enabled,
+      pintura: paintIsActive(paint),
+      parrillero: parrilleroIsActive(parrillero),
+    };
   return (
     <section aria-labelledby={`${idPrefix}-title`} className={page ? "mt-16" : ""}>
       {page ? (
@@ -106,7 +123,7 @@ export function ExtrasSection({
       <Tabs value={active} onValueChange={(v) => setActive(v as ExtraId)} className={page ? "mt-6" : "mt-1"}>
         <TabsList
           aria-label={EXTRAS_TEXTOS.listaEtiqueta}
-          className={`grid h-auto w-full gap-3 rounded-none bg-transparent p-0 ${page ? "sm:grid-cols-2" : "grid-cols-2 gap-2"}`}
+          className={`grid h-auto w-full gap-3 rounded-none bg-transparent p-0 ${page ? "sm:grid-cols-2 lg:grid-cols-3" : "grid-cols-2 gap-2"}`}
         >
           {EXTRA_CARDS.map((card) => {
             const Icon = ICONS[card.id],
@@ -116,7 +133,7 @@ export function ExtrasSection({
                 key={card.id}
                 value={card.id}
                 className={`group h-auto w-full min-w-0 justify-start whitespace-normal rounded-none border border-border bg-card text-left text-foreground shadow-none transition-colors hover:border-primary/60 data-[state=active]:border-primary data-[state=active]:bg-primary/5 data-[state=active]:shadow-none data-[state=active]:ring-1 data-[state=active]:ring-primary ${
-                  page ? "items-start gap-4 p-4 sm:p-5" : "flex-col items-stretch gap-2 p-3"
+                  page ? "items-start gap-4 p-4 sm:p-5 sm:max-lg:last:odd:col-span-2" : "flex-col items-stretch gap-2 p-3 last:odd:col-span-2"
                 }`}
               >
                 {page ? (
@@ -165,6 +182,18 @@ export function ExtrasSection({
             idPrefix={`${idPrefix}-paint`}
             nota={paintNota}
             onLook={onPaintLook}
+          />
+        </TabsContent>
+        <TabsContent value="parrillero" className="mt-6 focus-visible:ring-0 focus-visible:ring-offset-0">
+          <ParrilleroPanel
+            parrillero={parrillero}
+            onChange={onParrilleroChange}
+            logistics={logistics}
+            variant={variant}
+            idPrefix={`${idPrefix}-parrillero`}
+            notices={parrilleroNotices}
+            onExpandDeck={onExpandDeck}
+            embedded
           />
         </TabsContent>
       </Tabs>

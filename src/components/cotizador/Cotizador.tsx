@@ -9,6 +9,7 @@ import { ExtrasTotals } from "./ExtrasTotals";
 import { EXTRAS_TEXTOS } from "@/config/extras";
 import { DEFAULT_DECK, normalizeDeck, type DeckConfig } from "@/config/deck";
 import { DEFAULT_PAINT, PAINT_TEXTOS, estimatePaintSurfaces, normalizePaint, type PaintConfig } from "@/config/paint";
+import { DEFAULT_PARRILLERO, normalizeParrillero, type ParrilleroConfig } from "@/config/parrillero";
 import { CATEGORY_COLOR, SYSTEM_COLOR, tone } from "./palette";
 import {
   AREA_CONSULT_URL, AREA_MAX, AREA_MIN, SYSTEMS, createAreas, updateAreas, buildWhatsAppUrl,
@@ -66,6 +67,9 @@ export function Cotizador() {
   // Extra opcional «Pintura»: también arranca apagado. Los m² de pared se estiman según los m² de cada opción.
   const [paint, setPaint] = useState<PaintConfig>(DEFAULT_PAINT);
   const changePaint = (patch: Partial<PaintConfig>) => { setPaint((prev) => normalizePaint({ ...prev, ...patch })); setCopyState("idle"); setFallback(""); };
+  // Extra opcional «Parrilleros SCH»: apagado de entrada. Acá (la página) el estado es local; en el diseñador 3D vive en el diseño.
+  const [parrillero, setParrillero] = useState<ParrilleroConfig>(DEFAULT_PARRILLERO);
+  const changeParrillero = (patch: Partial<ParrilleroConfig>) => { setParrillero((prev) => normalizeParrillero({ ...prev, ...patch })); setCopyState("idle"); setFallback(""); };
 
   const setArea = (id: CategoryId, v: number) => {
     setAreas((prev) => updateAreas(prev, system, id, v, sync));
@@ -78,7 +82,7 @@ export function Cotizador() {
     setCopyState("idle"); setFallback("");
   };
   const copy = async (categoryId?: CategoryId) => {
-    const text = buildSummary(areas, logistics, system, categoryId, deck, paint);
+    const text = buildSummary(areas, logistics, system, categoryId, deck, paint, parrillero);
     try {
       if (!navigator.clipboard) throw new Error("no clipboard");
       await navigator.clipboard.writeText(text);
@@ -123,7 +127,7 @@ export function Cotizador() {
         <div key={system} className={`fade-up mt-8 grid gap-5 ${system === "woodframe" ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
           {categories.map((c, i) => (
             <Reveal key={c.id} delay={i * 90} className="flex">
-            <CategoryCard id={c.id} name={c.name} description={c.description} price={c.price} interior={c.interior} area={areas[c.id]} onChange={(v) => setArea(c.id, v)} materialsLabel={config.materialsLabel} onCopy={() => copy(c.id)} whatsappUrl={buildWhatsAppUrl(areas, logistics, system, c.id, deck, paint)} />
+            <CategoryCard id={c.id} name={c.name} description={c.description} price={c.price} interior={c.interior} area={areas[c.id]} onChange={(v) => setArea(c.id, v)} materialsLabel={config.materialsLabel} onCopy={() => copy(c.id)} whatsappUrl={buildWhatsAppUrl(areas, logistics, system, c.id, deck, paint, parrillero)} />
             </Reveal>
           ))}
         </div>
@@ -168,10 +172,12 @@ export function Cotizador() {
           onDeckChange={changeDeck}
           paint={paint}
           onPaintChange={changePaint}
+          parrillero={parrillero}
+          onParrilleroChange={changeParrillero}
           paintOptions={categories.map((c) => ({ finish: c.id, name: c.name, tone: tone(CATEGORY_COLOR[c.id]), surfaces: estimatePaintSurfaces(areas[c.id], system) }))}
           paintNota={PAINT_TEXTOS.superficieEstimada}
         >
-          <ExtrasTotals categories={categories} areas={areas} system={system} logistics={logistics} deck={deck} paint={paint} />
+          <ExtrasTotals categories={categories} areas={areas} system={system} logistics={logistics} deck={deck} paint={paint} parrillero={parrillero} />
         </ExtrasSection>
 
         <div className="mt-16 grid gap-5 md:grid-cols-2">
@@ -207,7 +213,7 @@ export function Cotizador() {
           <h3 className="text-3xl font-semibold text-foreground">¿LISTO PARA HACER REALIDAD TU PROYECTO?</h3>
           <p className="mx-auto mt-4 max-w-2xl text-foreground/70">Ya conocés el valor estimado de tu futura vivienda.</p>
           <p className="mx-auto mt-2 max-w-2xl text-foreground/70">El próximo paso es conversar con SCH CONSTRUCCIONES para evaluar los detalles de tu proyecto y solicitar un presupuesto personalizado.</p>
-          <a href={buildWhatsAppUrl(areas, logistics, system, undefined, deck, paint)} target="_blank" rel="noopener noreferrer" className="mt-8 inline-flex w-full items-center justify-center gap-2 bg-whatsapp px-7 py-4 text-sm font-semibold text-background sm:w-auto">
+          <a href={buildWhatsAppUrl(areas, logistics, system, undefined, deck, paint, parrillero)} target="_blank" rel="noopener noreferrer" className="mt-8 inline-flex w-full items-center justify-center gap-2 bg-whatsapp px-7 py-4 text-sm font-semibold text-background sm:w-auto">
             <MessageCircle size={18} aria-hidden="true" /> SOLICITAR PRESUPUESTO POR WHATSAPP
           </a>
         </div>

@@ -1,5 +1,6 @@
 import { DECK_TEXTOS, type DeckConfig } from "@/config/deck";
 import { PAINT_TEXTOS, paintIsActive, estimatePaintSurfaces, type PaintConfig } from "@/config/paint";
+import { PARRILLERO_NOMBRES, PARRILLERO_TEXTOS, formatUSDRef, formatUYU, parrilleroIsActive, type ParrilleroConfig } from "@/config/parrillero";
 import {
   calculateLogistics,
   deckExtra,
@@ -7,6 +8,7 @@ import {
   formatUSD,
   paintCounts,
   paintExtra,
+  parrilleroExtra,
   withExtras,
   type Category,
   type CategoryId,
@@ -17,7 +19,7 @@ import { CATEGORY_COLOR, tone } from "./palette";
 
 /**
  * «Vivienda + extras opcionales» por categoría: el precio de la vivienda (que no cambia), lo que suma cada extra elegido
- * (deck y pintura, con el costo logístico de la zona) y el total con extras. Se muestra solo si hay algún extra agregado.
+ * (deck, pintura y parrillero, con el costo logístico de la zona) y el total con extras. Se muestra solo si hay algún extra agregado.
  */
 export function ExtrasTotals({
   categories,
@@ -26,6 +28,7 @@ export function ExtrasTotals({
   logistics,
   deck,
   paint,
+  parrillero,
 }: {
   categories: Category[];
   areas: Record<CategoryId, number>;
@@ -33,11 +36,14 @@ export function ExtrasTotals({
   logistics: LogisticsSelection;
   deck: DeckConfig;
   paint: PaintConfig;
+  parrillero: ParrilleroConfig;
 }) {
-  const paintOn = paintIsActive(paint);
-  if (!deck.enabled && !paintOn) return null;
+  const paintOn = paintIsActive(paint),
+    parrOn = parrilleroIsActive(parrillero);
+  if (!deck.enabled && !paintOn && !parrOn) return null;
   const money = (v: number | null, pending: string) => (v === null ? pending : formatUSD(v));
-  const dq = deckExtra(deck, logistics);
+  const dq = deckExtra(deck, logistics),
+    rq = parrilleroExtra(parrillero, logistics);
   return (
     <div className="mt-8" aria-live="polite">
       <h4 className="text-xs uppercase tracking-[0.15em] text-foreground/60">
@@ -47,11 +53,16 @@ export function ExtrasTotals({
         {categories.map((category) => {
           const base = estimateFor(category, areas[category.id]),
             pq = paintExtra(paint, category.id, estimatePaintSurfaces(areas[category.id], system), logistics),
-            rows = withExtras(calculateLogistics(base, logistics).total, dq, pq),
+            rows = withExtras(calculateLogistics(base, logistics).total, dq, pq, rq),
             paintPending = paintOn && !paintCounts(pq),
             parts: [string, string][] = [];
           if (deck.enabled) parts.push(["Deck y techado", money(dq.total, "A cotizar")]);
           if (paintOn) parts.push(["Pintura", paintCounts(pq) ? money(pq.total, "A cotizar aparte") : PAINT_TEXTOS.aCotizar]);
+          if (parrOn)
+            parts.push([
+              `${PARRILLERO_TEXTOS.titulo} · ${PARRILLERO_NOMBRES[parrillero.finish]}`,
+              rq.total === null || rq.totalUyu === null ? "A cotizar" : `${formatUYU(rq.totalUyu)} (ref. ${formatUSDRef(rq.total)})`,
+            ]);
           // Con un solo extra se ve igual que siempre; con dos (o con pintura a cotizar) se abre el detalle de cada uno.
           const split = parts.length > 1 || paintPending;
           return (
