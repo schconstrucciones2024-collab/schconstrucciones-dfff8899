@@ -38,6 +38,8 @@ import {
 import { EXTERIOR_THICKNESS, PLATEA_HEIGHT, exteriorThickness, systemOf } from "@/config/systems";
 import { TraditionalEnvelope } from "./TraditionalEnvelope";
 import { DeckModel } from "./Deck";
+import { ParrilleroModel } from "./ParrilleroModel";
+import { useParrilleroInfo } from "./useParrilleroInfo";
 import { DECK_WALL, deckPlacement, deckTopY, resolveDeck } from "@/config/deckGeometry";
 import { bathFloorGeometry, bathSurfaces, bathWallGeometry, TILE_LIFT, type BathSurfaces } from "./bathTiling";
 import {
@@ -953,6 +955,8 @@ function DeckScene({ c, cut }: { c: HouseConfig; cut: boolean }) {
       () => deckPlacement(c.contour, thickness, deck, doorOffset),
       [c.contour, thickness, deck, doorOffset],
     );
+  // El parrillero nace del suelo: si está, el deck (y su techo) se adaptan a él.
+  const { obstacle } = useParrilleroInfo(c);
   if (!placement) return null;
   return (
     <DeckModel
@@ -961,6 +965,25 @@ function DeckScene({ c, cut }: { c: HouseConfig; cut: boolean }) {
       topY={deckTopY(floorBase(c))}
       woodMap={woodMap}
       showRoofSheet={!cut}
+      obstacle={obstacle}
+    />
+  );
+}
+/**
+ * Parrillero opcional de mampostería, al costado del frente. Va pegado al terreno, no al deck: existe aunque no haya deck y
+ * nunca se levanta sobre él. Solo está en la escena cuando está agregado, así que no crea texturas de más.
+ */
+function ParrilleroScene({ c }: { c: HouseConfig }) {
+  const { frame, status, relation } = useParrilleroInfo(c);
+  if (!frame) return null;
+  return (
+    <ParrilleroModel
+      side={c.parrillero.side}
+      finish={c.parrillero.finish}
+      sink={c.parrillero.sink}
+      frame={frame}
+      invalid={!status.ok}
+      lift={relation.lift}
     />
   );
 }
@@ -1081,6 +1104,7 @@ export function House({
         );
       })}
       {c.deck.enabled && <DeckScene c={c} cut={cut} />}
+      {c.parrillero.enabled && <ParrilleroScene c={c} />}
       {c.stairs
         // Con el deck activo, la escalinata de la entrada se reemplaza por el deck (que ocupa su lugar).
         .filter((s) => s.exterior && !(c.deck.enabled && (s.wall ?? DECK_WALL) === DECK_WALL))

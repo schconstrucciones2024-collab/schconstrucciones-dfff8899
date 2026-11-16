@@ -33,6 +33,7 @@ import { ExtrasSection } from "@/components/cotizador/ExtrasSection";
 import { deckFrontSpan, resolveDeck } from "@/config/deckGeometry";
 import { PAINT_TEXTOS } from "@/config/paint";
 import { paintSurfacesOf } from "./paintSurfaces";
+import { useParrilleroInfo } from "./useParrilleroInfo";
 import { MaterialsSheet } from "./MaterialsSheet";
 import { Summary } from "./Summary";
 export const STEPS = [
@@ -486,20 +487,29 @@ export function Panels({ step }: { step: number }) {
 }
 
 /**
- * Paso «Extras y opcionales»: los mismos extras del cotizador (deck y pintura), leyendo y guardando en el diseño. La pintura
- * se mide sobre las paredes reales del diseño y el color elegido se ve enseguida sobre la casa en 3D.
+ * Paso «Extras y opcionales»: los mismos extras del cotizador (deck, pintura y parrillero), leyendo y guardando en el diseño.
+ * La pintura se mide sobre las paredes reales del diseño y el color elegido se ve enseguida sobre la casa en 3D; el parrillero
+ * es UN solo estado (`config.parrillero`) que leen este panel, el 3D, el deck y el resumen.
  */
 function ExtrasStep() {
   const config = useConfigurator((s) => s.config),
     setDeck = useConfigurator((s) => s.setDeck),
     setPaint = useConfigurator((s) => s.setPaint),
+    setParrillero = useConfigurator((s) => s.setParrillero),
     setView = useConfigurator((s) => s.setView),
-    { deck: stored, contour, finish, logistics, paint } = config,
+    { deck: stored, contour, finish, logistics, paint, parrillero } = config,
+    parrilleroInfo = useParrilleroInfo(config),
     thickness = exteriorThickness(finish),
     deck = resolveDeck(stored, contour, thickness),
     frontLength = deckFrontSpan(contour, thickness)?.length ?? null,
     // Medir las paredes recorre el diseño: solo se hace con la pintura agregada.
     surfaces = useMemo(() => (paint.enabled ? paintSurfacesOf(config) : { exterior: 0, interior: 0 }), [config, paint.enabled]);
+  // «Ampliar el deck hasta el parrillero»: solo si hay parrillero y deck y el deck todavía no lo rodea con margen.
+  const surround = parrilleroInfo.surroundWidth,
+    expandDeck =
+      parrillero.enabled && deck.enabled && surround !== null && deck.width < surround - 0.05
+        ? () => setDeck({ fullFront: false, width: surround })
+        : undefined;
   return (
     <ExtrasSection
       variant="panel"
@@ -514,6 +524,10 @@ function ExtrasStep() {
       paintOptions={[{ finish, name: FINISH_NAMES[finish], surfaces }]}
       paintNota={PAINT_TEXTOS.superficieDiseno}
       onPaintLook={(zone) => setView(zone)}
+      parrillero={parrillero}
+      onParrilleroChange={setParrillero}
+      parrilleroNotices={parrilleroInfo.notices}
+      onExpandDeck={expandDeck}
     />
   );
 }

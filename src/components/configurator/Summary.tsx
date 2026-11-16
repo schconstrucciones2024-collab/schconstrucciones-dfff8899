@@ -10,11 +10,12 @@ import {
   roofName,
 } from "@/config/pricing";
 import { exteriorThickness, systemOf } from "@/config/systems";
-import { LOGISTICS_ZONES, SYSTEMS, deckExtra, formatUSD, nextBonusHint, paintCounts, paintExtra, withExtras } from "@/lib/cotizador";
+import { LOGISTICS_ZONES, SYSTEMS, deckExtra, formatUSD, nextBonusHint, paintCounts, paintExtra, parrilleroExtra, withExtras } from "@/lib/cotizador";
 import { BonusNote, ExclusionNote, IncluyeAccordion } from "@/components/cotizador/PrecioTradicional";
 import type { TradicionalId } from "@/config/tradicional";
 import { DECK_TEXTOS } from "@/config/deck";
 import { PAINT_TEXTOS, coatsLabel, paintIsActive } from "@/config/paint";
+import { PARRILLERO_LADOS, PARRILLERO_NOMBRES, PARRILLERO_TEXTOS, formatUSDRef, formatUYU, parrilleroIsActive } from "@/config/parrillero";
 import { paintSurfacesOf } from "./paintSurfaces";
 import { resolveDeck } from "@/config/deckGeometry";
 import { detectRooms } from "@/config/geometry";
@@ -45,8 +46,12 @@ export function Summary({ full = false }: { full?: boolean }) {
     },
     p = configPrice(input),
     text = configWhatsAppText(input),
-    rows = withExtras(p.total, deckExtra(deck, c.logistics), paintQuote),
-    extrasOn = deck.enabled || paintOn,
+    parrOn = parrilleroIsActive(c.parrillero),
+    parrQuote = parrilleroExtra(c.parrillero, c.logistics),
+    rows = withExtras(p.total, deckExtra(deck, c.logistics), paintQuote, parrQuote),
+    extrasOn = deck.enabled || paintOn || parrOn,
+    // Con más de un extra, o con el parrillero (que se muestra en pesos con su referencia en dólares), se abre el detalle de cada uno.
+    detail = parrOn || (deck.enabled && paintOn),
     tradicional = systemOf(c.finish) === "tradicional",
     paintPending = !!paintQuote && !paintCounts(paintQuote);
   const copy = async () => {
@@ -93,6 +98,10 @@ export function Summary({ full = false }: { full?: boolean }) {
               ["Escaleras", String(input.stairsCount)],
               ["Mesadas", String(input.countersCount)],
               ["Deck y techado", deck.enabled ? `${deck.roofed ? "Deck techado" : "Deck"} · ${Number(deck.width)} × ${Number(deck.depth)} m` : "No agregado"],
+              [
+                PARRILLERO_TEXTOS.titulo,
+                parrOn ? `${PARRILLERO_NOMBRES[c.parrillero.finish]} · ${PARRILLERO_LADOS[c.parrillero.side]}` : "No agregado",
+              ],
               ["Pintura", paintOn ? `${coatsLabel(c.paint.coats)} · ${[c.paint.exterior && "exterior", c.paint.interior && "interior"].filter(Boolean).join(" e ")}` : "No agregada"],
             ].map(([k, v]) => (
               <div key={k}>
@@ -173,25 +182,35 @@ export function Summary({ full = false }: { full?: boolean }) {
             <dt>{DECK_TEXTOS.vivienda}{p.total === null ? " · obra base" : ""}</dt>
             <dd>{formatUSD(p.total ?? p.obra)}</dd>
           </div>
-          {deck.enabled && paintOn && (
+          {detail && (
             <>
-              <div className="flex justify-between gap-2 pl-3 text-xs text-foreground/70">
-                <dt>Deck y techado</dt>
-                <dd>{deckExtra(deck, c.logistics).total === null ? "A cotizar" : formatUSD(deckExtra(deck, c.logistics).total ?? 0)}</dd>
-              </div>
-              <div className="flex justify-between gap-2 pl-3 text-xs text-foreground/70">
-                <dt>Pintura</dt>
-                <dd>{paintQuote && paintCounts(paintQuote) ? (paintQuote.total === null ? "A cotizar aparte" : formatUSD(paintQuote.total)) : PAINT_TEXTOS.aCotizar}</dd>
-              </div>
+              {deck.enabled && (
+                <div className="flex justify-between gap-2 pl-3 text-xs text-foreground/70">
+                  <dt>Deck y techado</dt>
+                  <dd>{deckExtra(deck, c.logistics).total === null ? "A cotizar" : formatUSD(deckExtra(deck, c.logistics).total ?? 0)}</dd>
+                </div>
+              )}
+              {paintOn && (
+                <div className="flex justify-between gap-2 pl-3 text-xs text-foreground/70">
+                  <dt>Pintura</dt>
+                  <dd>{paintQuote && paintCounts(paintQuote) ? (paintQuote.total === null ? "A cotizar aparte" : formatUSD(paintQuote.total)) : PAINT_TEXTOS.aCotizar}</dd>
+                </div>
+              )}
+              {parrOn && (
+                <div className="flex justify-between gap-2 pl-3 text-xs text-foreground/70">
+                  <dt>{PARRILLERO_TEXTOS.titulo}</dt>
+                  <dd>{parrQuote.total === null || parrQuote.totalUyu === null ? "A cotizar" : `${formatUYU(parrQuote.totalUyu)} (ref. ${formatUSDRef(parrQuote.total)})`}</dd>
+                </div>
+              )}
             </>
           )}
-          {!(paintPending && !deck.enabled) && (
+          {!(paintPending && !deck.enabled && !parrOn) && (
             <div className="flex justify-between gap-2">
               <dt>{DECK_TEXTOS.extras}</dt>
               <dd>{rows.extras === null ? "A cotizar" : formatUSD(rows.extras)}</dd>
             </div>
           )}
-          {paintPending && !deck.enabled && (
+          {paintPending && !deck.enabled && !parrOn && (
             <div className="flex justify-between gap-2">
               <dt>Pintura</dt>
               <dd>{PAINT_TEXTOS.aCotizar}</dd>
@@ -202,7 +221,7 @@ export function Summary({ full = false }: { full?: boolean }) {
             <dd>{rows.totalConExtras === null ? "A cotizar" : formatUSD(rows.totalConExtras)}</dd>
           </div>
           {paintPending && <p className="pt-1 text-[11px] font-normal leading-5 text-foreground/60">{PAINT_TEXTOS.revoque}</p>}
-          <p className="pt-1 text-[11px] font-normal leading-5 text-foreground/60">{paintOn ? PAINT_TEXTOS.letraChica : DECK_TEXTOS.letraChica}</p>
+          <p className="pt-1 text-[11px] font-normal leading-5 text-foreground/60">{paintOn ? PAINT_TEXTOS.letraChica : parrOn && !deck.enabled ? PARRILLERO_TEXTOS.letraChica : DECK_TEXTOS.letraChica}</p>
         </dl>
       )}
       <Button

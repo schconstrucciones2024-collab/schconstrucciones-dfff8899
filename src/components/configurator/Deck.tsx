@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { DECK_3D_COLORES, DECK_LOOK, type DeckConfig, type DeckSheet } from "@/config/deck";
 import { deckLayout, type DeckBox } from "@/config/deckLayout";
 import type { DeckPlacement } from "@/config/deckGeometry";
+import type { DeckObstacle } from "@/config/deckCutout";
 import { boxesGeometry, sheetGeometry } from "./deckMeshes";
 import { pbrProps } from "./pbr";
 
@@ -44,12 +45,15 @@ function SheetRoof({
   z0,
   z1,
   y,
+  x = 0,
   chapa,
 }: {
   width: number;
   z0: number;
   z1: number;
   y: number;
+  /** Centro del tramo en x (la chapa se parte en tramos cuando una chimenea atraviesa el techo). */
+  x?: number;
   chapa: DeckSheet;
 }) {
   const { perfil, paso, nervio } = chapa;
@@ -60,7 +64,7 @@ function SheetRoof({
   useEffect(() => () => geometry?.dispose(), [geometry]);
   if (!geometry) return null;
   return (
-    <mesh geometry={geometry} position-y={y} castShadow receiveShadow>
+    <mesh geometry={geometry} position-x={x} position-y={y} castShadow receiveShadow>
       <meshStandardMaterial
         color={chapa.color}
         metalness={chapa.metal}
@@ -85,17 +89,20 @@ export function DeckModel({
   topY,
   woodMap,
   showRoofSheet,
+  obstacle = null,
 }: {
   deck: DeckConfig;
   placement: DeckPlacement;
   topY: number;
   woodMap: THREE.Texture;
+  /** Lo que nace del suelo y el deck rodea (el parrillero), en el marco del deck. Debe venir memorizado. */
+  obstacle?: DeckObstacle | null;
   /** En los cortes (interior, corte, planta) la chapa se oculta, como el techo de la casa. */
   showRoofSheet: boolean;
 }) {
   const layout = useMemo(
-    () => deckLayout(deck, topY, placement.doorX),
-    [deck, topY, placement.doorX],
+    () => deckLayout(deck, topY, placement.doorX, obstacle),
+    [deck, topY, placement.doorX, obstacle],
   );
   const look = DECK_LOOK[deck.line],
     wood = look.madera.color,
@@ -135,7 +142,17 @@ export function DeckModel({
             <Boxes boxes={roof.planeBoxes} map={woodMap} color={wood} roughness={rough} />
             {showRoofSheet && (
               <>
-                <SheetRoof {...roof.sheet} chapa={look.chapa} />
+                {roof.sheetPieces.map((piece) => (
+                  <SheetRoof
+                    key={`${piece.x.toFixed(3)}:${piece.z0.toFixed(3)}`}
+                    width={piece.width}
+                    z0={piece.z0}
+                    z1={piece.z1}
+                    x={piece.x}
+                    y={roof.sheet.y}
+                    chapa={look.chapa}
+                  />
+                ))}
                 <Boxes
                   boxes={roof.planeTrim}
                   color={look.chapa.color}
