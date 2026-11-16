@@ -32,6 +32,7 @@ enablePatches();
 import { clampArea, DEFAULT_LOGISTICS, type LogisticsSelection } from "@/lib/cotizador";
 import { DEFAULT_DECK, normalizeDeck, type DeckConfig } from "@/config/deck";
 import { DEFAULT_PAINT, normalizePaint, type PaintConfig } from "@/config/paint";
+import { DEFAULT_PARRILLERO, normalizeParrillero, type ParrilleroConfig } from "@/config/parrillero";
 import type { FinishId } from "@/config/materials";
 import type { FoundationId, RoofId } from "@/config/pricing";
 import {
@@ -89,6 +90,11 @@ export type HouseConfig = {
   deck: DeckConfig;
   /** Pintura opcional: manos, qué paredes y colores. Apagada por defecto. */
   paint: PaintConfig;
+  /**
+   * Parrillero de mampostería opcional (Parrilleros SCH): terminación, lateral y mesada con bacha. Es la única fuente de verdad:
+   * el paso «Extras», el 3D, el recorte del deck y del techo, el presupuesto y el resumen leen todos de acá.
+   */
+  parrillero: ParrilleroConfig;
 };
 export const WALL_HEIGHT = 2.65;
 export const FLOOR_BASE = 0.85;
@@ -742,6 +748,7 @@ export function initialConfig(system: SystemId = "woodframe"): HouseConfig {
     rotation: 0,
     deck: { ...DEFAULT_DECK },
     paint: { ...DEFAULT_PAINT },
+    parrillero: { ...DEFAULT_PARRILLERO },
   };
   const starter = tradicional ? PLAN_CATALOG.find((p) => p.id === TRADICIONAL_STARTER_ID) : undefined;
   return buildLayoutProposal(c, starter ?? COMPACTA_PROPOSAL);
@@ -897,6 +904,8 @@ type ConfiguratorStore = {
   setDeck: (patch: Partial<DeckConfig>) => void;
   /** Cambia la pintura (manos, paredes y colores) sin tocar nada más del diseño (entra al historial de deshacer). */
   setPaint: (patch: Partial<PaintConfig>) => void;
+  /** Cambia el parrillero (agregar, terminación, lateral, bacha) sin tocar nada más del diseño (entra al historial de deshacer). */
+  setParrillero: (patch: Partial<ParrilleroConfig>) => void;
   reset: () => void;
 };
 export const useConfigurator = create<ConfiguratorStore>((set, get) => {
@@ -1290,6 +1299,10 @@ export const useConfigurator = create<ConfiguratorStore>((set, get) => {
       const c = get().config;
       commit({ ...c, paint: normalizePaint({ ...c.paint, ...patch }) });
     },
+    setParrillero: (patch) => {
+      const c = get().config;
+      commit({ ...c, parrillero: normalizeParrillero({ ...c.parrillero, ...patch }) });
+    },
     reset: () => {
       commit(initialConfig(systemOf(get().config.finish)));
       set({ view: "exterior", activeFloor: 0, selectedId: null, placing: null });
@@ -1416,6 +1429,8 @@ export function decodeDesign(text: string): HouseConfig | null {
     candidate.deck = normalizeDeck(source.deck);
     // Igual con la pintura: los diseños y links anteriores arrancan con la pintura apagada.
     candidate.paint = normalizePaint(source.paint);
+    // Y con el parrillero: los diseños y links anteriores no lo traen y arrancan sin él.
+    candidate.parrillero = normalizeParrillero(source.parrillero);
     const parsed = designSchema.safeParse(candidate);
     if (!parsed.success) return null;
     const c = coherentSystem(parsed.data as HouseConfig);
