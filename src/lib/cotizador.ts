@@ -16,6 +16,16 @@ import {
   type PaintPrice,
   type PaintSurfaces,
 } from "@/config/paint";
+import {
+  PARRILLERO_LLEVA_LOGISTICA,
+  PARRILLERO_TEXTOS,
+  formatUYU,
+  parrilleroIsActive,
+  parrilleroPrice,
+  parrilleroSummaryLines,
+  type ParrilleroConfig,
+  type ParrilleroPrice,
+} from "@/config/parrillero";
 
 export const AREA_MIN = 10;
 export const AREA_MAX = 500;
@@ -241,14 +251,56 @@ export function paintExtra(
   };
 }
 
+/**
+ * Extra opcional «Parrilleros SCH»: precio fijo en pesos con su referencia en dólares (no hay tipo de cambio en vivo). Los
+ * totales del cotizador están en dólares, así que al sumar se usa la referencia en USD. Como el deck y la pintura, lleva el
+ * costo logístico del tramo si la obra queda fuera de Punta del Diablo (se apaga con `PARRILLERO_LLEVA_LOGISTICA`).
+ */
+export type ParrilleroExtraQuote = ParrilleroPrice & {
+  percentage: number;
+  separateTrip: boolean;
+  /** Recargo logístico en USD; null si el viaje se cotiza aparte. */
+  surcharge: number | null;
+  /** Total del extra en USD (referencia + logística); null si hay viaje aparte. */
+  total: number | null;
+  /** Lo mismo en pesos, para mostrar. */
+  totalUyu: number | null;
+};
+
+export function parrilleroExtra(parrillero: ParrilleroConfig, logistics: LogisticsSelection = DEFAULT_LOGISTICS): ParrilleroExtraQuote {
+  const price = parrilleroPrice(parrillero);
+  if (!PARRILLERO_LLEVA_LOGISTICA)
+    return { ...price, percentage: 0, separateTrip: false, surcharge: 0, total: price.usd, totalUyu: price.uyu };
+  const result = calculateLogistics(price.usd, logistics),
+    surcharge = result.surcharge === null ? null : Math.round(result.surcharge);
+  return {
+    ...price,
+    percentage: result.percentage,
+    separateTrip: result.separateTrip,
+    surcharge,
+    total: surcharge === null ? null : price.usd + surcharge,
+    totalUyu: surcharge === null ? null : Math.round(price.uyu * (1 + result.percentage / 100)),
+  };
+}
+
+/** Líneas del parrillero para el resumen y el mensaje de WhatsApp: opción elegida, precio y logística. */
+export function parrilleroQuoteLines(parrillero: ParrilleroConfig, logistics: LogisticsSelection = DEFAULT_LOGISTICS): string[] {
+  const q = parrilleroExtra(parrillero, logistics),
+    lines = parrilleroSummaryLines(parrillero);
+  if (q.separateTrip) lines.push("Viaje a cotizar aparte. Total del parrillero pendiente de cotización logística.");
+  else if (q.percentage > 0 && q.surcharge !== null)
+    lines.push(`Costo logístico extra (${q.percentage}%): ${formatUSD(q.surcharge)} (${formatUYU(q.totalUyu !== null ? q.totalUyu - q.uyu : 0)})`);
+  return lines;
+}
+
 /** ¿La pintura suma algo al total? (está activa y al menos una pared tiene precio). */
 export const paintCounts = (q: PaintExtraQuote | undefined): q is PaintExtraQuote =>
   !!q && q.active && q.lines.some((l) => l.subtotal !== null);
 
 /** Las tres líneas del resumen: la vivienda (su total no cambia por los extras), los extras y el total con extras. */
-export function withExtras(vivienda: number | null, extra: DeckExtraQuote, paint?: PaintExtraQuote) {
-  const items = [extra.active ? extra : null, paintCounts(paint) ? paint : null].filter(
-    (q): q is DeckExtraQuote | PaintExtraQuote => q !== null,
+export function withExtras(vivienda: number | null, extra: DeckExtraQuote, paint?: PaintExtraQuote, parrillero?: ParrilleroExtraQuote) {
+  const items = [extra.active ? extra : null, paintCounts(paint) ? paint : null, parrillero?.active ? parrillero : null].filter(
+    (q): q is DeckExtraQuote | PaintExtraQuote | ParrilleroExtraQuote => q !== null,
   );
   const extras = items.length === 0 ? 0 : items.some((q) => q.total === null) ? null : items.reduce((n, q) => n + (q.total ?? 0), 0);
   return {
@@ -289,9 +341,11 @@ function extrasWithPaintSummary(
   system: SystemId,
   logistics: LogisticsSelection,
   rows: SummaryRow[],
+  parrillero?: ParrilleroConfig,
 ): string {
   const lines = ["Extras opcionales (no incluidos en el presupuesto de la vivienda)"];
   const dq = deck?.enabled ? deckExtra(deck, logistics) : null;
+  const pqParr = parrillero && parrilleroIsActive(parrillero) ? parrilleroExtra(parrillero, logistics) : undefined;
   if (deck && dq) {
     lines.push(deckLabel(deck));
     if (dq.subtotal === null) lines.push(`Deck: ${DECK_A_COTIZAR}`);
@@ -301,6 +355,7 @@ function extrasWithPaintSummary(
     }
     if (deck.steps) lines.push(`Escalones: ${DECK_TEXTOS.escalonesPrecio}`);
   }
+  if (parrillero && pqParr) lines.push(...parrilleroQuoteLines(parrillero, logistics));
   lines.push(`Pintura: ${coatsLabel(paint.coats)} (mano de obra y materiales incluidos)`);
   const quotes = rows.map((r) => ({ row: r, q: paintExtra(paint, r.id, estimatePaintSurfaces(r.area, system), logistics) }));
   const multi = rows.length > 1;
@@ -310,7 +365,7 @@ function extrasWithPaintSummary(
   lines.push(...paintColorLines(paint, rows.map((r) => r.id)));
   lines.push("Superficie estimada según los m² de cada opción (una planta); se confirma con la visita.");
   for (const { row, q } of quotes) {
-    const withDeck = withExtras(row.total, dq ?? deckExtra(DEFAULT_DECK, logistics), q);
+    const withDeck = withExtras(row.total, dq ?? deckExtra(DEFAULT_DECK, logistics), q, pqParr);
     const tag = multi ? ` (${row.name})` : "";
     if (withDeck.extras === null) lines.push(`Total de los extras${tag}: a confirmar (viaje a cotizar aparte)`);
     else {
@@ -320,11 +375,18 @@ function extrasWithPaintSummary(
     if (q.pending) lines.push(`La pintura de las paredes marcadas «A cotizar»${tag} se presupuesta aparte y no está sumada.`);
   }
   lines.push(PAINT_TEXTOS.letraChica);
+  if (pqParr) lines.push(PARRILLERO_TEXTOS.letraChica);
   return lines.join("\n");
 }
 
-function deckSummary(deck: DeckConfig, logistics: LogisticsSelection, viviendas: { name: string; total: number | null }[]): string {
+function deckSummary(
+  deck: DeckConfig,
+  logistics: LogisticsSelection,
+  viviendas: { name: string; total: number | null }[],
+  parrillero?: ParrilleroConfig,
+): string {
   const extra = deckExtra(deck, logistics);
+  const pq = parrillero && parrilleroIsActive(parrillero) ? parrilleroExtra(parrillero, logistics) : undefined;
   const lines = [`Extras opcionales (no incluidos en el presupuesto de la vivienda)`, deckLabel(deck)];
   if (extra.subtotal === null) lines.push(`Deck: ${DECK_A_COTIZAR}`);
   else {
@@ -335,17 +397,45 @@ function deckSummary(deck: DeckConfig, logistics: LogisticsSelection, viviendas:
   if (extra.subtotal !== null) {
     if (extra.separateTrip) lines.push("Viaje a cotizar aparte. Total del extra pendiente de cotización logística.");
     else if (extra.percentage > 0) lines.push(`Costo logístico extra (${extra.percentage}%): ${formatUSD(extra.surcharge ?? 0)}`);
-    if (extra.total !== null) lines.push(`Total del extra: ${formatUSD(extra.total)}`);
+    if (extra.total !== null && !pq) lines.push(`Total del extra: ${formatUSD(extra.total)}`);
+  }
+  if (parrillero && pq) {
+    lines.push(...parrilleroQuoteLines(parrillero, logistics));
+    const all = withExtras(0, extra, undefined, pq).extras;
+    lines.push(`Total de los extras: ${all === null ? "a confirmar (viaje a cotizar aparte)" : formatUSD(all)}`);
   }
   for (const v of viviendas) {
-    const t = withExtras(v.total, extra).totalConExtras;
+    const t = withExtras(v.total, extra, undefined, pq).totalConExtras;
     lines.push(`Total con extras${viviendas.length > 1 ? ` (${v.name})` : ""}: ${t === null ? "a confirmar" : formatUSD(t)}`);
   }
   lines.push(DECK_TEXTOS.letraChica);
+  if (pq) lines.push(PARRILLERO_TEXTOS.letraChica);
   return lines.join("\n");
 }
 
-export function buildSummary(areas: Areas, logistics?: LogisticsSelection, system: SystemId = "woodframe", categoryId?: CategoryId, deck?: DeckConfig, paint?: PaintConfig): string {
+/** Bloque de extras cuando el único extra es el parrillero. */
+function parrilleroSummary(parrillero: ParrilleroConfig, logistics: LogisticsSelection, viviendas: { name: string; total: number | null }[]): string {
+  const pq = parrilleroExtra(parrillero, logistics),
+    lines = ["Extras opcionales (no incluidos en el presupuesto de la vivienda)", ...parrilleroQuoteLines(parrillero, logistics)];
+  const all = withExtras(0, deckExtra(DEFAULT_DECK, logistics), undefined, pq).extras;
+  lines.push(`Total del extra: ${all === null ? "a confirmar (viaje a cotizar aparte)" : formatUSD(all)}`);
+  for (const v of viviendas) {
+    const t = withExtras(v.total, deckExtra(DEFAULT_DECK, logistics), undefined, pq).totalConExtras;
+    lines.push(`Total con extras${viviendas.length > 1 ? ` (${v.name})` : ""}: ${t === null ? "a confirmar" : formatUSD(t)}`);
+  }
+  lines.push(PARRILLERO_TEXTOS.letraChica);
+  return lines.join("\n");
+}
+
+export function buildSummary(
+  areas: Areas,
+  logistics?: LogisticsSelection,
+  system: SystemId = "woodframe",
+  categoryId?: CategoryId,
+  deck?: DeckConfig,
+  paint?: PaintConfig,
+  parrillero?: ParrilleroConfig,
+): string {
   const config = SYSTEMS[system];
   const selected = config.categories
     .filter((c) => categoryId === undefined || c.id === categoryId)
@@ -378,10 +468,12 @@ export function buildSummary(areas: Areas, logistics?: LogisticsSelection, syste
     ...blocks,
     ...(system === "tradicional" ? [TRADICIONAL_TEXTOS.exclusiones] : []),
     ...(paint && paintIsActive(paint)
-      ? [extrasWithPaintSummary(deck, paint, system, logistics ?? DEFAULT_LOGISTICS, rows)]
+      ? [extrasWithPaintSummary(deck, paint, system, logistics ?? DEFAULT_LOGISTICS, rows, parrillero)]
       : deck?.enabled
-        ? [deckSummary(deck, logistics ?? DEFAULT_LOGISTICS, rows.map((r) => ({ name: r.name, total: r.total })))]
-        : []),
+        ? [deckSummary(deck, logistics ?? DEFAULT_LOGISTICS, rows.map((r) => ({ name: r.name, total: r.total })), parrillero)]
+        : parrillero && parrilleroIsActive(parrillero)
+          ? [parrilleroSummary(parrillero, logistics ?? DEFAULT_LOGISTICS, rows.map((r) => ({ name: r.name, total: r.total })))]
+          : []),
     ...(system === "woodframe" ? [EXTERIOR_REVESTIMIENTO] : []),
     "Hola, SCH CONSTRUCCIONES. Quisiera solicitar un presupuesto personalizado para mi proyecto.",
     "Estas son las alternativas que estuve evaluando.",
@@ -390,8 +482,16 @@ export function buildSummary(areas: Areas, logistics?: LogisticsSelection, syste
   ].join("\n\n");
 }
 
-export function buildWhatsAppUrl(areas: Areas, logistics: LogisticsSelection, system: SystemId, categoryId?: CategoryId, deck?: DeckConfig, paint?: PaintConfig) {
-  return `${WHATSAPP_MESSAGE_DESTINATION}?text=${encodeURIComponent(buildSummary(areas, logistics, system, categoryId, deck, paint))}`;
+export function buildWhatsAppUrl(
+  areas: Areas,
+  logistics: LogisticsSelection,
+  system: SystemId,
+  categoryId?: CategoryId,
+  deck?: DeckConfig,
+  paint?: PaintConfig,
+  parrillero?: ParrilleroConfig,
+) {
+  return `${WHATSAPP_MESSAGE_DESTINATION}?text=${encodeURIComponent(buildSummary(areas, logistics, system, categoryId, deck, paint, parrillero))}`;
 }
 
 function logisticsSummary(base: number, selection: LogisticsSelection): string {
