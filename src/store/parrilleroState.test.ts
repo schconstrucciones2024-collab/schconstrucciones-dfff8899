@@ -25,7 +25,7 @@ describe("parrillero en el estado del diseño (un solo estado)", () => {
     expect(before.parrillero.enabled).toBe(false);
     st().setParrillero({ enabled: true, finish: "revoque", side: "derecho" });
     const after = st().config;
-    expect(after.parrillero).toEqual({ enabled: true, finish: "revoque", side: "derecho", sink: true });
+    expect(after.parrillero).toEqual({ enabled: true, finish: "revoque", side: "derecho", sink: true, dx: 0, dz: 0, rot: 0 });
     expect({ ...after, parrillero: before.parrillero }).toEqual(before);
   });
 
@@ -34,9 +34,9 @@ describe("parrillero en el estado del diseño (un solo estado)", () => {
     expect(st().config.parrillero).toMatchObject({ enabled: false, finish: "revoque" });
     st().setParrillero({ enabled: true });
     st().setParrillero({ side: "derecho", sink: false });
-    expect(st().config.parrillero).toEqual({ enabled: true, finish: "revoque", side: "derecho", sink: false });
+    expect(st().config.parrillero).toEqual({ enabled: true, finish: "revoque", side: "derecho", sink: false, dx: 0, dz: 0, rot: 0 });
     st().setParrillero({ enabled: false });
-    expect(st().config.parrillero).toEqual({ enabled: false, finish: "revoque", side: "derecho", sink: false });
+    expect(st().config.parrillero).toEqual({ enabled: false, finish: "revoque", side: "derecho", sink: false, dx: 0, dz: 0, rot: 0 });
   });
 
   it("un valor inválido vuelve al de fábrica", () => {
@@ -75,12 +75,50 @@ describe("parrillero en el estado del diseño (un solo estado)", () => {
       ...DEFAULT_PARRILLERO,
       sink: true,
     });
+    // Un link de antes de poder mover y girar abre con el parrillero en su lugar.
     expect(open({ ...old, parrillero: { enabled: true, finish: "revoque" } })?.parrillero).toEqual({
       enabled: true,
       finish: "revoque",
       side: "izquierdo",
       sink: true,
+      dx: 0,
+      dz: 0,
+      rot: 0,
     });
+    expect(open({ ...old, parrillero: { enabled: true, dx: 99, dz: "x", rot: -90 } })?.parrillero).toMatchObject({ dx: 30, dz: 0, rot: 270 });
+  });
+
+  it("se mueve y se gira con el mismo estado: se guarda, se deshace, viaja en el link y no cambia nada más", () => {
+    st().setParrillero({ enabled: true, finish: "revoque", side: "derecho" });
+    const before = st().config;
+    st().setParrillero({ dx: -1.25, dz: 0.5 });
+    st().setParrillero({ rot: 90 });
+    expect(st().config.parrillero).toMatchObject({ enabled: true, dx: -1.25, dz: 0.5, rot: 90 });
+    expect({ ...st().config, parrillero: before.parrillero }).toEqual(before);
+    // Deshacer lleva el giro y después el movimiento de a uno.
+    st().undo();
+    expect(st().config.parrillero).toMatchObject({ dx: -1.25, dz: 0.5, rot: 0 });
+    st().undo();
+    expect(st().config.parrillero).toMatchObject({ dx: 0, dz: 0, rot: 0 });
+    st().redo();
+    st().redo();
+    const back = decodeDesign(encodeDesign(st().config));
+    expect(back?.parrillero).toEqual(st().config.parrillero);
+    expect(back?.parrillero).toMatchObject({ dx: -1.25, dz: 0.5, rot: 90 });
+  });
+
+  it("cambiar de lateral lo devuelve a su lugar, salvo que el pedido traiga su propio lugar", () => {
+    st().setParrillero({ enabled: true, side: "izquierdo" });
+    st().setParrillero({ dx: 2, dz: 1, rot: 180 });
+    st().setParrillero({ side: "derecho" });
+    expect(st().config.parrillero).toMatchObject({ side: "derecho", dx: 0, dz: 0, rot: 0 });
+    // Elegir el mismo lateral no lo mueve.
+    st().setParrillero({ dx: 2, rot: 90 });
+    st().setParrillero({ side: "derecho" });
+    expect(st().config.parrillero).toMatchObject({ side: "derecho", dx: 2, rot: 90 });
+    // Con su propio lugar, se respeta.
+    st().setParrillero({ side: "izquierdo", dx: -0.5, dz: 0, rot: 0 });
+    expect(st().config.parrillero).toMatchObject({ side: "izquierdo", dx: -0.5, dz: 0, rot: 0 });
   });
 
   it("los demás cambios del diseño no tocan el parrillero; al aplicar una distribución se mantiene y al reiniciar se apaga", () => {

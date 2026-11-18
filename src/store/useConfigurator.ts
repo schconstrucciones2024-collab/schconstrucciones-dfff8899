@@ -4,6 +4,7 @@ import { z } from "zod";
 import LZString from "lz-string";
 import {
   GEOMETRY,
+  effectiveWallHeight,
   bounds,
   distance,
   polygonArea,
@@ -96,7 +97,9 @@ export type HouseConfig = {
    */
   parrillero: ParrilleroConfig;
 };
-export const WALL_HEIGHT = 2.65;
+export const WALL_HEIGHT = GEOMETRY.wallHeight;
+/** Altura de los muros de la última planta (ver `GEOMETRY.topWallHeight`). */
+export const TOP_WALL_HEIGHT = GEOMETRY.topWallHeight;
 export const FLOOR_BASE = 0.85;
 export const FLOOR_STEP = 2.85;
 export function houseDimensions(
@@ -114,8 +117,15 @@ export function houseDimensions(
 export const foundationHeight = (c: Pick<HouseConfig, "foundation" | "pileHeight">) =>
   c.foundation === "platea" ? PLATEA_HEIGHT : c.pileHeight;
 export const floorBase = (c: HouseConfig) => foundationHeight(c) + GEOMETRY.slabThickness;
+/**
+ * Los muros de una planta, exteriores e interiores. La altura ya viene resuelta: los muros de la última planta miden
+ * `GEOMETRY.topWallHeight` (salvo los que se editaron a mano) y los de las plantas de abajo, la estándar.
+ */
 export function designWalls(c: HouseConfig, floor: number): Segment[] {
-  return [...exteriorSegments(c.contour, exteriorThickness(c.finish)), ...(c.walls[floor] ?? [])];
+  return [...exteriorSegments(c.contour, exteriorThickness(c.finish)), ...(c.walls[floor] ?? [])].map((w) => {
+    const height = effectiveWallHeight(w.height, floor, c.floors);
+    return height === w.height ? w : { ...w, height };
+  });
 }
 export function resolveWall(c: HouseConfig, id: WallId | string, floor = 0): Segment | undefined {
   const aliases: Record<string, string> = {
@@ -1301,7 +1311,18 @@ export const useConfigurator = create<ConfiguratorStore>((set, get) => {
     },
     setParrillero: (patch) => {
       const c = get().config;
-      commit({ ...c, parrillero: normalizeParrillero({ ...c.parrillero, ...patch }) });
+      // Pasar de un lateral al otro lo devuelve a su lugar (el movimiento y el giro eran del lado anterior); si el pedido trae
+      // su propio lugar (dx, dz o rot) se respeta.
+      const cambiaLado = patch.side !== undefined && patch.side !== c.parrillero.side,
+        traeLugar = patch.dx !== undefined || patch.dz !== undefined || patch.rot !== undefined;
+      commit({
+        ...c,
+        parrillero: normalizeParrillero({
+          ...c.parrillero,
+          ...(cambiaLado && !traeLugar ? { dx: 0, dz: 0, rot: 0 } : {}),
+          ...patch,
+        }),
+      });
     },
     reset: () => {
       commit(initialConfig(systemOf(get().config.finish)));

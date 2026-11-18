@@ -100,6 +100,22 @@ describe("deck en el estado del diseño", () => {
     expect(old?.deck.roofed).toBe(true);
   });
 
+  it("la esquina del desagüe Premium se elige, se guarda, se deshace y viaja en el link; un link viejo abre con la derecha", () => {
+    st().setDeck({ enabled: true, roofed: true, line: "premium" });
+    expect(st().config.deck.downspout).toBe("derecha");
+    st().setDeck({ downspout: "izquierda" });
+    expect(st().config.deck).toMatchObject({ line: "premium", roofed: true, downspout: "izquierda" });
+    const back = decodeDesign(encodeDesign(st().config));
+    expect(back?.deck.downspout).toBe("izquierda");
+    expect(back?.deck).toEqual(st().config.deck);
+    st().undo();
+    expect(st().config.deck.downspout).toBe("derecha");
+    const { downspout: _omit, ...viejo } = st().config.deck;
+    const old = decodeDesign(encodeDesign({ ...st().config, deck: viejo as never }));
+    expect(old?.deck.downspout).toBe("derecha");
+    expect(old?.deck.roofed).toBe(true);
+  });
+
   it("viaja en el link compartido", () => {
     st().setDeck({ enabled: true, roofed: true, width: 6, depth: 3, railLeft: true, steps: true });
     const back = decodeDesign(encodeDesign(st().config));
