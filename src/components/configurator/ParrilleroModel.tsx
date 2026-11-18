@@ -63,14 +63,14 @@ export function ParrilleroModel({ side, finish, sink, invalid = false, selected 
   return (
     <group name="parrillero" {...handlers}>
       <group position={[0, 0, -DIM.anchoTotal / 2]}>
-        <ParrilleroBase base={layout.base} render={mats.base} niche={mats.niche} />
+        <ParrilleroBase base={layout.base} render={mats.base} floor={mats.concrete} />
         <ParrilleroConcreteSlab slab={layout.slab} material={mats.concrete} />
         <ParrilleroBrickWalls walls={layout.walls} material={exterior} />
         <ParrilleroFirebox firebox={layout.firebox} floor={mats.refractory} soot={mats.soot} />
         <ParrilleroRefractoryBricks boxes={layout.refractory} material={mats.refractory} />
         <ParrilleroAngledHood hood={layout.hood} material={exterior} />
         <ParrilleroChimney boxes={layout.chimney} material={exterior} />
-        <ParrilleroChimneyCap cap={layout.cap} material={exterior} hole={mats.soot} />
+        <ParrilleroChimneyCap cap={layout.cap} material={exterior} vents={mats.soot} />
         <ParrilleroSideCounter boxes={layout.counter} material={mats.concrete} />
         {layout.sink && <ParrilleroSink sink={layout.sink} steel={mats.stainless} drain={mats.soot} />}
         {layout.faucet && <ParrilleroFaucet cyls={layout.faucet} material={mats.stainless} />}

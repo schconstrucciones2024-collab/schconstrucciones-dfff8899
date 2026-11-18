@@ -18,12 +18,15 @@ function Part({ material, name, boxes, prisms, cyls, shadows = true }: PartProps
   return <mesh name={name} geometry={geometry} material={material} castShadow={shadows} receiveShadow />;
 }
 
-/** 1 · Base de mampostería de ticholos, revocada, que nace del terreno (y sus nichos). */
-export function ParrilleroBase({ base, render, niche }: { base: ParrilleroLayout["base"]; render: THREE.Material; niche: THREE.Material }) {
+/**
+ * 1 · Base de mampostería de ticholos, revocada, que nace del terreno; los nichos son esa misma base (misma textura). Con un
+ * deck alrededor suma, dentro de los nichos, el piso de hormigón a la altura del piso del deck.
+ */
+export function ParrilleroBase({ base, render, floor }: { base: ParrilleroLayout["base"]; render: THREE.Material; floor: THREE.Material }) {
   return (
     <>
       <Part name="parrillero-base" material={render} boxes={base.render} />
-      <Part name="parrillero-nichos" material={niche} boxes={base.niche} shadows={false} />
+      <Part name="parrillero-piso-nichos" material={floor} boxes={base.floor} />
     </>
   );
 }
@@ -63,12 +66,12 @@ export function ParrilleroChimney({ boxes, material }: { boxes: DeckBox[]; mater
   return <Part name="parrillero-chimenea" material={material} boxes={boxes} />;
 }
 
-/** 8 · Remate de ladrillo de la chimenea, con el agujero de salida del humo. */
-export function ParrilleroChimneyCap({ cap, material, hole }: { cap: ParrilleroLayout["cap"]; material: THREE.Material; hole: THREE.Material }) {
+/** 8 · Remate de la chimenea: tapa maciza de ladrillo y el fondo oscuro de los respiraderos que se abren debajo de ella. */
+export function ParrilleroChimneyCap({ cap, material, vents }: { cap: ParrilleroLayout["cap"]; material: THREE.Material; vents: THREE.Material }) {
   return (
     <>
-      <Part name="parrillero-remate" material={material} boxes={cap.ring} />
-      <Part name="parrillero-humo" material={hole} boxes={cap.hole} shadows={false} />
+      <Part name="parrillero-remate" material={material} boxes={cap.top} />
+      <Part name="parrillero-respiraderos" material={vents} boxes={cap.vents} shadows={false} />
     </>
   );
 }

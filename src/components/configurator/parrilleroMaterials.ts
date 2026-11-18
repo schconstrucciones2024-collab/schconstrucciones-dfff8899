@@ -158,7 +158,6 @@ export type ParrilleroMaterials = {
   refractory: THREE.MeshStandardMaterial;
   concrete: THREE.MeshStandardMaterial;
   base: THREE.MeshStandardMaterial;
-  niche: THREE.MeshStandardMaterial;
   soot: THREE.MeshStandardMaterial;
   stainless: THREE.MeshStandardMaterial;
   dispose: () => void;
@@ -181,7 +180,6 @@ export function createParrilleroMaterials(): ParrilleroMaterials {
     concrete: new THREE.MeshStandardMaterial({ map: concrete, roughness: 0.88, metalness: 0 }),
     // La base de ticholos va revocada (revoque grueso, un poco más oscuro y cálido que el hormigón).
     base: new THREE.MeshStandardMaterial({ map: concrete, color: "#cfc3ae", roughness: 0.95, metalness: 0 }),
-    niche: new THREE.MeshStandardMaterial({ color: "#3b342d", roughness: 1, metalness: 0 }),
     soot: new THREE.MeshStandardMaterial({ color: "#1f1b18", roughness: 1, metalness: 0 }),
     stainless: new THREE.MeshStandardMaterial({ color: "#c9ced2", roughness: 0.34, metalness: 0.92, envMapIntensity: 1 }),
   };
