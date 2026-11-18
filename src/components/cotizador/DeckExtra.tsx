@@ -8,6 +8,7 @@ import {
   DECK_LINES,
   DECK_NOTA_TECHO,
   DECK_TEXTOS,
+  DECK_DOWNSPOUTS,
   DEFAULT_DECK,
   deckArea,
   deckLineName,
@@ -16,6 +17,7 @@ import {
   deckRailMl,
   deckRates,
   type DeckConfig,
+  type DeckDownspout,
   type DeckLine,
   type DeckSpecGroup,
 } from "@/config/deck";
@@ -197,6 +199,34 @@ export function DeckPanel({
                   {deckRailMl(deck) > 0 ? ` · ${fmt(deckRailMl(deck))} ml elegidos` : ""}.
                 </p>
               </fieldset>
+
+              {deck.line === "premium" && deck.roofed && (
+                <fieldset className="min-w-0">
+                  <legend className="text-xs uppercase tracking-[0.15em] text-foreground/60">
+                    {DECK_TEXTOS.desague}
+                  </legend>
+                  <div role="radiogroup" aria-label={DECK_TEXTOS.desague} className="mt-2 grid grid-cols-2 gap-2">
+                    {DECK_DOWNSPOUTS.map((d: DeckDownspout) => (
+                      <button
+                        key={d}
+                        type="button"
+                        role="radio"
+                        aria-checked={deck.downspout === d}
+                        data-testid={`deck-desague-${d}`}
+                        onClick={() => onChange({ downspout: d })}
+                        className={`min-h-11 border px-3 text-sm transition-colors ${
+                          deck.downspout === d
+                            ? "border-primary bg-primary/10 font-semibold text-foreground"
+                            : "border-border text-foreground/70 hover:border-primary/60"
+                        }`}
+                      >
+                        {d === "izquierda" ? DECK_TEXTOS.desagueIzquierda : DECK_TEXTOS.desagueDerecha}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-xs text-foreground/60">{DECK_TEXTOS.desagueAyuda}</p>
+                </fieldset>
+              )}
 
               <div className="flex items-center justify-between gap-3">
                 <Check3

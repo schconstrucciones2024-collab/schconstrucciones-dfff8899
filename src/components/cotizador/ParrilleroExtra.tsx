@@ -3,11 +3,14 @@ import {
   PARRILLERO_FINISHES,
   PARRILLERO_LADOS,
   PARRILLERO_NOMBRES,
+  PARRILLERO_PASO_PANEL,
   PARRILLERO_PRECIOS,
   PARRILLERO_SIDES,
   PARRILLERO_TEXTOS,
   formatUSDRef,
   formatUYU,
+  normalizeRot,
+  parrilleroEnSuLugar,
   type ParrilleroConfig,
   type ParrilleroFinish,
   type ParrilleroSide,
@@ -88,6 +91,7 @@ export function ParrilleroPanel({
                 checked={parrillero.sink}
                 onChange={(sink) => onChange({ sink })}
               />
+              {!page && <MoverYGirar parrillero={parrillero} onChange={onChange} />}
               {notices.length > 0 && (
                 <ul className="space-y-2" aria-label="Avisos del parrillero">
                   {notices.map((n) => (
@@ -126,6 +130,58 @@ export function ParrilleroPanel({
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * Mover y girar el parrillero con botones (solo en el diseñador 3D, donde hay una casa): lo mismo que se hace arrastrándolo y
+ * con su botón de giro, pero de a pasos fijos y sin necesidad de apuntar bien en una pantalla chica. `dx`/`dz` van en el marco
+ * de la fachada (x a la derecha de quien la mira, z hacia afuera); el giro positivo es el de la escena 3D (antihorario visto
+ * desde arriba), o sea «a la izquierda» para quien mira la casa de frente.
+ */
+function MoverYGirar({ parrillero, onChange }: { parrillero: ParrilleroConfig; onChange: (patch: Partial<ParrilleroConfig>) => void }) {
+  const T = PARRILLERO_TEXTOS,
+    paso = PARRILLERO_PASO_PANEL,
+    redondear = (n: number) => Math.round(n * 100) / 100,
+    mover = (ddx: number, ddz: number) =>
+      onChange({ dx: redondear(parrillero.dx + ddx), dz: redondear(parrillero.dz + ddz) }),
+    girar = (grados: number) => onChange({ rot: normalizeRot(parrillero.rot + grados) }),
+    boton = "h-auto min-h-11 whitespace-normal rounded-none px-2 text-sm";
+  return (
+    <fieldset className="min-w-0">
+      <legend className="text-xs uppercase tracking-[0.15em] text-foreground/60">{T.mover}</legend>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <Button type="button" variant="outline" className={boton} data-testid="parrillero-izquierda" onClick={() => mover(-paso, 0)}>
+          ← {T.izquierda}
+        </Button>
+        <Button type="button" variant="outline" className={boton} data-testid="parrillero-derecha" onClick={() => mover(paso, 0)}>
+          {T.derecha} →
+        </Button>
+        <Button type="button" variant="outline" className={boton} data-testid="parrillero-hacia-casa" onClick={() => mover(0, -paso)}>
+          ↑ {T.haciaCasa}
+        </Button>
+        <Button type="button" variant="outline" className={boton} data-testid="parrillero-hacia-afuera" onClick={() => mover(0, paso)}>
+          ↓ {T.haciaAfuera}
+        </Button>
+        <Button type="button" variant="outline" className={boton} data-testid="parrillero-girar-izquierda" onClick={() => girar(90)}>
+          ↺ {T.girarIzquierda}
+        </Button>
+        <Button type="button" variant="outline" className={boton} data-testid="parrillero-girar-derecha" onClick={() => girar(-90)}>
+          ↻ {T.girarDerecha}
+        </Button>
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        className="mt-2 h-auto min-h-11 w-full whitespace-normal rounded-none text-sm"
+        data-testid="parrillero-volver"
+        disabled={parrilleroEnSuLugar(parrillero)}
+        onClick={() => onChange({ dx: 0, dz: 0, rot: 0 })}
+      >
+        {T.volverLugar}
+      </Button>
+      <p className="mt-1 text-xs text-foreground/60">{T.moverAyuda}</p>
+    </fieldset>
   );
 }
 
