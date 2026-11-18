@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
-import type { ParrilleroFinish, ParrilleroSide } from "@/config/parrillero";
+import type { ThreeEvent } from "@react-three/fiber";
+import { PARRILLERO_DIMS as DIM, type ParrilleroFinish, type ParrilleroSide } from "@/config/parrillero";
 import { parrilleroLayout } from "@/config/parrilleroLayout";
-import { parrilleroRects, type FacadeFrame } from "@/config/parrilleroGeometry";
 import { createParrilleroMaterials } from "./parrilleroMaterials";
 import {
   ParrilleroAngledHood,
@@ -24,38 +24,45 @@ function useParrilleroMaterials() {
   return mats;
 }
 
+/** Controladores del puntero que el visor le pasa para poder seleccionarlo y arrastrarlo. */
+export type ParrilleroPointerHandlers = {
+  onPointerDown?: (e: ThreeEvent<PointerEvent>) => void;
+  onPointerMove?: (e: ThreeEvent<PointerEvent>) => void;
+  onPointerUp?: (e: ThreeEvent<PointerEvent>) => void;
+  onPointerCancel?: () => void;
+  onLostPointerCapture?: () => void;
+  onContextMenu?: (e: ThreeEvent<MouseEvent>) => void;
+};
+
 export type ParrilleroModelProps = {
   side: ParrilleroSide;
   finish: ParrilleroFinish;
   /** Mesada con bacha y grifería. */
   sink: boolean;
-  /** El frente de la casa donde se apoya el parrillero (el mismo marco que el deck). */
-  frame: FacadeFrame;
   /** El lugar no alcanza: se marca la huella en rojo para que se vea dónde chocaría. */
   invalid?: boolean;
+  /** Está seleccionado en el visor: se marca la huella para que se vea que se puede mover y girar. */
+  selected?: boolean;
   /** Cuánto sube la base desde el terreno (m) cuando un deck rodea al parrillero; 0 si nace del terreno a la vista. */
   lift?: number;
+  /** Seleccionar y arrastrar. */
+  handlers?: ParrilleroPointerHandlers;
 };
 
 /**
- * Parrillero de mampostería en 3D. Nace del terreno (y = 0): el deck se adapta a él, nunca al revés; si el deck lo rodea, la base se alarga hacia arriba (`lift`)
- * para que la mesada quede a 0,90 m sobre el deck. La forma depende solo del
- * lateral y de la bacha; la terminación (ladrillo visto o revoque fino) solo cambia el material del exterior, así que cambiarla
- * no recalcula ninguna geometría.
+ * Parrillero de mampostería en 3D, dibujado alrededor del CENTRO de su huella (x a lo largo de la profundidad, z a lo largo de
+ * los 3 m): quien lo usa lo ubica, lo mueve y lo gira como un solo objeto (ver `ParrilleroScene` en House.tsx).
+ * Nace del terreno (y = 0): el deck se adapta a él, nunca al revés; si el deck lo rodea, la base se alarga hacia arriba (`lift`)
+ * para que la mesada quede a 0,90 m sobre el deck. La forma depende solo del lateral y de la bacha; la terminación (ladrillo
+ * visto o revoque fino) solo cambia el material del exterior, así que cambiarla no recalcula ninguna geometría.
  */
-export function ParrilleroModel({ side, finish, sink, frame, invalid = false, lift = 0 }: ParrilleroModelProps) {
+export function ParrilleroModel({ side, finish, sink, invalid = false, selected = false, lift = 0, handlers }: ParrilleroModelProps) {
   const layout = useMemo(() => parrilleroLayout(side, sink, lift), [side, sink, lift]),
-    rects = useMemo(() => parrilleroRects(side, frame.length), [side, frame.length]),
     mats = useParrilleroMaterials(),
     exterior = finish === "ladrillo" ? mats.brick : mats.plaster;
-  const f = rects.footprint;
   return (
-    <group
-      name="parrillero"
-      position={[frame.origin.x, 0, frame.origin.z]}
-      rotation-y={Math.atan2(-frame.right.z, frame.right.x)}
-    >
-      <group position={[rects.cx, 0, rects.z0]}>
+    <group name="parrillero" {...handlers}>
+      <group position={[0, 0, -DIM.anchoTotal / 2]}>
         <ParrilleroBase base={layout.base} render={mats.base} niche={mats.niche} />
         <ParrilleroConcreteSlab slab={layout.slab} material={mats.concrete} />
         <ParrilleroBrickWalls walls={layout.walls} material={exterior} />
@@ -68,10 +75,10 @@ export function ParrilleroModel({ side, finish, sink, frame, invalid = false, li
         {layout.sink && <ParrilleroSink sink={layout.sink} steel={mats.stainless} drain={mats.soot} />}
         {layout.faucet && <ParrilleroFaucet cyls={layout.faucet} material={mats.stainless} />}
       </group>
-      {invalid && (
-        <mesh position={[(f.x0 + f.x1) / 2, 0.03, (f.z0 + f.z1) / 2]} rotation-x={-Math.PI / 2} renderOrder={2}>
-          <planeGeometry args={[f.x1 - f.x0 + 0.3, f.z1 - f.z0 + 0.3]} />
-          <meshBasicMaterial color="#d93b2f" transparent opacity={0.4} depthWrite={false} />
+      {(invalid || selected) && (
+        <mesh position={[0, 0.03, 0]} rotation-x={-Math.PI / 2} renderOrder={2}>
+          <planeGeometry args={[DIM.profundidad + 0.3, DIM.anchoTotal + 0.3]} />
+          <meshBasicMaterial color={invalid ? "#d93b2f" : "#e3c27a"} transparent opacity={invalid ? 0.4 : 0.35} depthWrite={false} />
         </mesh>
       )}
     </group>

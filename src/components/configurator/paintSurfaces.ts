@@ -11,7 +11,7 @@
  */
 import { BATHROOM_MATERIALS } from "@/config/materials";
 import { OPENINGS_CATALOG } from "@/config/openingsCatalog";
-import { bounds, distance, isOrthogonal, planeHeight, project, roofFaces, type RoofFace } from "@/config/geometry";
+import { GEOMETRY, bounds, distance, isOrthogonal, planeHeight, project, roofFaces, type RoofFace } from "@/config/geometry";
 import { systemOf } from "@/config/systems";
 import type { PaintSurfaces } from "@/config/paint";
 import { WALL_HEIGHT, designWalls, resolveWall, type HouseConfig } from "@/store/useConfigurator";
@@ -72,7 +72,9 @@ export function paintSurfaceDetail(c: HouseConfig): PaintSurfaceDetail {
   for (let floor = 0; floor < c.floors; floor++) {
     const onFloor = c.openings.filter((o) => o.floor === floor);
     for (const w of designWalls(c, floor)) {
-      const gross = distance(w.a, w.b) * (w.height ?? WALL_HEIGHT);
+      // La pintura se mide con la altura estándar (2,65 m): la última planta se dibuja más alta (3,20 m) para que entre el techo
+      // del deck, pero eso es del 3D y no cambia los m² que se cotizan.
+      const gross = distance(w.a, w.b) * (Math.abs((w.height ?? WALL_HEIGHT) - GEOMETRY.topWallHeight) < 1e-6 ? GEOMETRY.wallHeight : (w.height ?? WALL_HEIGHT));
       const cut = onFloor
         .filter((o) => resolveWall(c, o.wall, floor)?.id === w.id)
         .reduce((n, o) => n + OPENINGS_CATALOG[o.type].width * OPENINGS_CATALOG[o.type].height, 0);

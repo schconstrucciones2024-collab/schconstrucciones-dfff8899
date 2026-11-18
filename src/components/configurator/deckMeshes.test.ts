@@ -45,12 +45,17 @@ describe("deck 3D: mallas", () => {
       0.79,
       0,
     );
-    for (const boxes of [L.boards, L.frame, L.piles, L.steps, L.rails, L.fascia, L.roof!.posts, L.roof!.planeBoxes, L.roof!.hardware, L.roof!.trim, L.roof!.planeTrim]) {
+    for (const boxes of [L.boards, L.frame, L.piles, L.steps, L.rails, L.fascia, L.roof!.posts, L.roof!.planeBoxes, L.roof!.trim, L.roof!.planeTrim]) {
       const g = boxesGeometry(boxes)!;
       expect(g, "malla").not.toBeNull();
       const p = g.getAttribute("position");
       for (let i = 0; i < p.count; i++) expect(Number.isFinite(p.getX(i) + p.getY(i) + p.getZ(i))).toBe(true);
     }
+  });
+
+  it("el deck Premium no dibuja herrajes de metal (la lista de herrajes está vacía)", () => {
+    const L = deckLayout({ width: 6, depth: 3, roofed: true, railFront: true, railLeft: true, railRight: true, steps: true, line: "premium" }, 0.79, 0);
+    expect(L.roof!.hardware).toHaveLength(0);
   });
 
   it("la chapa trapezoidal y la acanalada tienen el ancho y la altura de su perfil", () => {

@@ -34,12 +34,15 @@ import {
   type Fixture,
   FIXTURE_SIZES,
   type Stair,
+  wallHeightFor,
 } from "@/config/geometry";
 import { EXTERIOR_THICKNESS, PLATEA_HEIGHT, exteriorThickness, systemOf } from "@/config/systems";
 import { TraditionalEnvelope } from "./TraditionalEnvelope";
 import { DeckModel } from "./Deck";
 import { ParrilleroModel } from "./ParrilleroModel";
 import { useParrilleroInfo } from "./useParrilleroInfo";
+import { PARRILLERO_PASO_GIRO } from "@/config/parrillero";
+import { parrilleroRects, toFrame, toWorld } from "@/config/parrilleroGeometry";
 import { DECK_WALL, deckPlacement, deckTopY, resolveDeck } from "@/config/deckGeometry";
 import { bathFloorGeometry, bathSurfaces, bathWallGeometry, TILE_LIFT, type BathSurfaces } from "./bathTiling";
 import {
@@ -50,6 +53,7 @@ import {
   FLOOR_BASE,
   FLOOR_STEP,
   WALL_HEIGHT,
+  TOP_WALL_HEIGHT,
   houseDimensions,
   snapOffset,
   validateOpening,
@@ -469,7 +473,7 @@ function Wall({
       ))}
       {(placing || dragging) && (
         <mesh
-          position={[0, WALL_HEIGHT / 2, 0.13]}
+          position={[0, wallHeight / 2, 0.13]}
           onPointerMove={(e) => {
             e.stopPropagation();
             const o = candidate(e);
@@ -487,7 +491,7 @@ function Wall({
             setGhost(null);
           }}
         >
-          <planeGeometry args={[length, WALL_HEIGHT]} />
+          <planeGeometry args={[length, wallHeight]} />
           <meshBasicMaterial transparent opacity={0} side={THREE.DoubleSide} depthWrite={false} />
         </mesh>
       )}
@@ -930,7 +934,7 @@ function Roof({ c, palette }: { c: HouseConfig; palette: ScenePalette }) {
     [geo],
   );
   return (
-    <group position-y={floorBase(c) + (c.floors - 1) * FLOOR_STEP + WALL_HEIGHT}>
+    <group position-y={floorBase(c) + (c.floors - 1) * FLOOR_STEP + TOP_WALL_HEIGHT}>
       <mesh geometry={geo.g} castShadow receiveShadow>
         <meshStandardMaterial {...pbrProps(map)} map={map} metalness={losa ? 0 : 0.55} roughness={1} side={THREE.DoubleSide} />
       </mesh>
@@ -974,17 +978,61 @@ function DeckScene({ c, cut }: { c: HouseConfig; cut: boolean }) {
  * nunca se levanta sobre él. Solo está en la escena cuando está agregado, así que no crea texturas de más.
  */
 function ParrilleroScene({ c }: { c: HouseConfig }) {
-  const { frame, status, relation } = useParrilleroInfo(c);
-  if (!frame) return null;
+  const { frame, pose, status, relation } = useParrilleroInfo(c),
+    { side, finish, sink } = c.parrillero,
+    setParrillero = useConfigurator((st) => st.setParrillero),
+    selected = useConfigurator((st) => st.selectedId === "parrillero"),
+    [rotPreview, setRotPreview] = useState<number | null>(null),
+    // Dónde está (marco de la fachada) y dónde nace; la diferencia es lo que se guarda en el diseño (dx, dz).
+    rects = useMemo(() => (frame ? parrilleroRects(side, frame.length, pose) : null), [frame, side, pose]),
+    home = useMemo(() => (frame ? parrilleroRects(side, frame.length) : null), [frame, side]),
+    center = useMemo(() => (frame && rects ? toWorld(frame, rects.center.x, rects.center.z) : { x: 0, z: 0 }), [frame, rects]),
+    drag = useObjectDrag(
+      "parrillero",
+      center.x,
+      center.z,
+      relation.lift + 0.9,
+      (p) => {
+        if (!frame || !home) return;
+        const f = toFrame(frame, p);
+        setParrillero({ dx: f.x - home.center.x, dz: f.z - home.center.z });
+      },
+    );
+  if (!frame || !rects) return null;
+  const at = drag.preview ?? center,
+    frameRot = Math.atan2(-frame.right.z, frame.right.x),
+    // El giro de la vista previa usa el sentido de las escaleras (rotation-y = -rotación); el guardado, el de la escena.
+    angle = rotPreview !== null ? -rotPreview : rects.angle;
   return (
-    <ParrilleroModel
-      side={c.parrillero.side}
-      finish={c.parrillero.finish}
-      sink={c.parrillero.sink}
-      frame={frame}
-      invalid={!status.ok}
-      lift={relation.lift}
-    />
+    <>
+      <group position={[at.x, 0, at.z]} rotation-y={frameRot + angle}>
+        <ParrilleroModel
+          side={side}
+          finish={finish}
+          sink={sink}
+          invalid={!status.ok}
+          selected={selected}
+          lift={relation.lift}
+          handlers={drag.handlers}
+        />
+      </group>
+      {selected && (
+        <group position={[at.x, relation.lift + 3.2, at.z]}>
+          <StairRotateHandle
+            rotation={-rects.angle}
+            invalid={!status.ok}
+            label="Girar el parrillero"
+            y={0}
+            onPreview={setRotPreview}
+            onCommit={(r) => {
+              // r va de 0 a 2π en el sentido de las escaleras: el giro guardado es el opuesto, en grados y de a 5°.
+              setParrillero({ rot: Math.round((-r * 180) / Math.PI / PARRILLERO_PASO_GIRO) * PARRILLERO_PASO_GIRO });
+              setRotPreview(null);
+            }}
+          />
+        </group>
+      )}
+    </>
   );
 }
 /** Zócalo, cintas y techo de la construcción tradicional, con sus materiales (hormigón, revoque y membrana o chapa). */
@@ -1080,7 +1128,7 @@ export function House({
                 contour={c.contour}
                 holes={outgoing}
                 map={ceilingMap}
-                y={WALL_HEIGHT}
+                y={wallHeightFor(floor, c.floors)}
                 thickness={GEOMETRY.ceilingThickness}
               />
             )}

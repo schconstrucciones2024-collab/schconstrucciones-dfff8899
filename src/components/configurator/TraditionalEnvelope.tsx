@@ -5,7 +5,7 @@ import { GEOMETRY } from "@/config/geometry";
 import { exteriorThickness } from "@/config/systems";
 import {
   FLOOR_STEP,
-  WALL_HEIGHT,
+  TOP_WALL_HEIGHT,
   floorBase,
   foundationHeight,
   type HouseConfig,
@@ -84,7 +84,7 @@ export function TraditionalEnvelope({
         groundTop: ground,
         floorBase: base,
         floorStep: FLOOR_STEP,
-        wallHeight: WALL_HEIGHT,
+        wallHeight: TOP_WALL_HEIGHT,
         slabThickness: GEOMETRY.slabThickness,
         roofType: c.roofType,
         roofPitch: c.roofPitch,

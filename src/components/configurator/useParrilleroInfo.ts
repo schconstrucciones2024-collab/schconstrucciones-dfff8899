@@ -13,6 +13,7 @@ import {
   type FacadeFrame,
   type ParrilleroDeckRelation,
   type ParrilleroNotice,
+  type ParrilleroPose,
   type ParrilleroStatus,
 } from "@/config/parrilleroGeometry";
 import { floorBase, type HouseConfig } from "@/store/useConfigurator";
@@ -20,6 +21,8 @@ import type { DeckObstacle } from "@/config/deckCutout";
 
 export type ParrilleroInfo = {
   frame: FacadeFrame | null;
+  /** Cuánto se lo movió y giró respecto del lugar donde nace. */
+  pose: ParrilleroPose;
   /** Dónde entra o no entra el parrillero (casa, aberturas, terreno). */
   status: ParrilleroStatus;
   /** Cómo se llevan con el deck y su techo. */
@@ -33,7 +36,7 @@ export type ParrilleroInfo = {
 };
 
 const NONE: ParrilleroStatus = { ok: true, issues: [], corners: [] };
-const NO_RELATION: ParrilleroDeckRelation = { deckCuts: false, roofOpens: false, deckShort: false, lift: 0, flush: false };
+const NO_RELATION: ParrilleroDeckRelation = { deckCuts: false, roofOpens: false, roofOpensForHood: false, deckShort: false, lift: 0, flush: false };
 
 /**
  * Todo lo que se sabe del parrillero en el diseño actual, calculado una sola vez y compartido por el 3D (que dibuja y recorta
@@ -41,7 +44,9 @@ const NO_RELATION: ParrilleroDeckRelation = { deckCuts: false, roofOpens: false,
  * se computa; no se guarda nada aparte del `ParrilleroConfig` del diseño.
  */
 export function useParrilleroInfo(c: HouseConfig): ParrilleroInfo {
-  const { enabled, side } = c.parrillero,
+  const { enabled, side, dx, dz, rot } = c.parrillero,
+    // Un solo objeto para el lugar y el giro, estable mientras no cambien: lo usan el deck, el techo y la validación.
+    pose = useMemo(() => ({ dx, dz, rot }), [dx, dz, rot]),
     thickness = exteriorThickness(c.finish),
     frame = useMemo(() => facadeFrame(c.contour, thickness), [c.contour, thickness]),
     deck = useMemo(() => resolveDeck(c.deck, c.contour, thickness), [c.deck, c.contour, thickness]),
@@ -54,19 +59,19 @@ export function useParrilleroInfo(c: HouseConfig): ParrilleroInfo {
     status = useMemo(
       () =>
         enabled
-          ? validateParrillero({ contour: c.contour, wallThickness: thickness, openings: c.openings, side, place: { position: c.position, rotation: c.rotation } })
+          ? validateParrillero({ contour: c.contour, wallThickness: thickness, openings: c.openings, side, pose, place: { position: c.position, rotation: c.rotation } })
           : NONE,
-      [enabled, c.contour, thickness, c.openings, side, c.position, c.rotation],
+      [enabled, c.contour, thickness, c.openings, side, pose, c.position, c.rotation],
     ),
     topY = deckTopY(floorBase(c)),
     relation = useMemo(
-      () => (enabled && frame ? parrilleroDeckRelation({ frame, side, deck, deckPl: placement, topY }) : NO_RELATION),
-      [enabled, frame, side, deck, placement, topY],
+      () => (enabled && frame ? parrilleroDeckRelation({ frame, side, deck, deckPl: placement, topY, pose }) : NO_RELATION),
+      [enabled, frame, side, deck, placement, topY, pose],
     ),
     obstacle = useMemo(
-      () => (enabled && frame && placement ? parrilleroObstacle(frame, side, placement, relation.lift) : null),
-      [enabled, frame, side, placement, relation.lift],
+      () => (enabled && frame && placement ? parrilleroObstacle(frame, side, placement, relation.lift, pose) : null),
+      [enabled, frame, side, placement, relation.lift, pose],
     ),
-    notices = useMemo(() => (enabled ? parrilleroNotices(status, relation) : []), [enabled, status, relation]);
-  return { frame, status, relation, notices, obstacle, surroundWidth: frame ? deckWidthToSurround(frame.length) : null };
+    notices = useMemo(() => (enabled ? parrilleroNotices(status, relation, pose) : []), [enabled, status, relation, pose]);
+  return { frame, pose, status, relation, notices, obstacle, surroundWidth: frame ? deckWidthToSurround(frame.length, side, pose) : null };
 }

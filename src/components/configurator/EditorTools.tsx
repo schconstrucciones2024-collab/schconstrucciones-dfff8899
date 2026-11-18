@@ -1,3 +1,4 @@
+import { GEOMETRY } from "@/config/geometry";
 import {
   MousePointer2,
   Pentagon,
@@ -491,7 +492,7 @@ export function EditorPanel() {
               label="Altura (m)"
               value={w.height}
               min={1}
-              max={2.65}
+              max={GEOMETRY.topWallHeight}
               onChange={(height) => s.editWall(w.id, { height })}
             />
           </div>

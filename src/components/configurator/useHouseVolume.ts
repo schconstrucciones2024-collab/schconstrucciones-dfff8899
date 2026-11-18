@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { GEOMETRY } from "@/config/geometry";
 import { FLOOR_BASE, FLOOR_STEP, useConfigurator } from "@/store/useConfigurator";
 import type { HouseVolume } from "@/lib/cameraViews";
 
@@ -8,5 +9,5 @@ export function useHouseVolume(): HouseVolume {
     position = useConfigurator((s) => s.config.position),
     rotation = useConfigurator((s) => s.config.rotation),
     floors = useConfigurator((s) => s.config.floors);
-  return useMemo(() => ({ contour, position, rotation, height: FLOOR_BASE + floors * FLOOR_STEP }), [contour, position, rotation, floors]);
+  return useMemo(() => ({ contour, position, rotation, height: FLOOR_BASE + floors * FLOOR_STEP + (GEOMETRY.topWallHeight - GEOMETRY.wallHeight) }), [contour, position, rotation, floors]);
 }
