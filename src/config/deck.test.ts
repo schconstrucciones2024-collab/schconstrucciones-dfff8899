@@ -64,6 +64,11 @@ describe("deck y techado: las dos líneas", () => {
     );
     expect(DECK_LINEAS.premium.specs.techado.items[1]?.text).toContain("canaletas de desagüe pluvial");
     expect(DECK_LINEAS.premium.specs.baranda.items[1]?.text).toBe("Tornillería oculta o de acero inoxidable.");
+    // La ficha del Premium no promete herrajes de metal: dice que no hay a la vista.
+    const textos = (["deck", "techado", "baranda"] as const).flatMap((k) => DECK_LINEAS.premium.specs[k].items.map((i) => i.text));
+    for (const t of [DECK_LINEAS.premium.resumen, ...textos]) expect(t).not.toMatch(/galvaniz|zincad/i);
+    expect(DECK_LINEAS.premium.resumen).not.toMatch(/herrajes para/i);
+    expect(DECK_LINEAS.premium.specs.techado.items[2]?.text).toContain("sin herrajes de metal a la vista");
   });
 
   it("la línea por defecto es Esencial y un diseño o link viejo, sin línea, queda en Esencial", () => {

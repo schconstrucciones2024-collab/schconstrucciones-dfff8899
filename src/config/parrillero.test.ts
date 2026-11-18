@@ -152,7 +152,7 @@ describe("parrillero: geometría 3D (piezas)", () => {
     expect(Math.max(...zs)).toBeCloseTo(3.0 + D.tapaVuelo, 6);
     const body = [...L.base.render, ...L.slab];
     expect(Math.max(...body.flatMap((b) => [ext(b).x1])) - Math.min(...body.flatMap((b) => [ext(b).x0]))).toBeCloseTo(0.9, 6);
-    const top = Math.max(...L.cap.ring.map((b) => ext(b).y1));
+    const top = Math.max(...L.cap.top.map((b) => ext(b).y1));
     expect(top - D.alturaMesada).toBeCloseTo(D.chimeneaAltura, 6);
   });
 
@@ -191,15 +191,15 @@ describe("parrillero: geometría 3D (piezas)", () => {
       const cop = l.hood.coping[0]!;
       expect(cop.x0).toBeLessThanOrEqual(-D.profundidad / 2 + 1e-9);
       expect(cop.x1).toBeGreaterThanOrEqual(D.profundidad / 2 - 1e-9);
-      // La chimenea y su remate también van de atrás a la boca.
+      // El cuerpo de la chimenea y su tapa también van de atrás a la boca.
       const ch = ext(l.chimney[0]!);
       expect(ch.x0).toBeCloseTo(-D.profundidad / 2, 9);
       expect(ch.x1).toBeCloseTo(D.profundidad / 2, 9);
-      expect(Math.min(...l.cap.ring.map((b) => ext(b).x0))).toBeLessThanOrEqual(-D.profundidad / 2 + 1e-9);
-      expect(Math.max(...l.cap.ring.map((b) => ext(b).x1))).toBeGreaterThanOrEqual(D.profundidad / 2 - 1e-9);
-      // El agujero de humo queda en el centro de la chimenea.
-      const hole = ext(l.cap.hole[0]!);
-      expect((hole.x0 + hole.x1) / 2).toBeCloseTo(0, 9);
+      expect(Math.min(...l.cap.top.map((b) => ext(b).x0))).toBeLessThanOrEqual(-D.profundidad / 2 + 1e-9);
+      expect(Math.max(...l.cap.top.map((b) => ext(b).x1))).toBeGreaterThanOrEqual(D.profundidad / 2 - 1e-9);
+      // Los respiraderos quedan en el centro de la chimenea.
+      const vent = ext(l.cap.vents[0]!);
+      expect((vent.x0 + vent.x1) / 2).toBeCloseTo(0, 9);
     }
   });
 
@@ -217,10 +217,66 @@ describe("parrillero: geometría 3D (piezas)", () => {
     expect(L.hood.coping.length).toBe(1);
   });
 
-  it("el remate tiene un agujero de humo visible y la chimenea es de ladrillo", () => {
-    expect(L.cap.ring.length).toBe(4);
-    expect(L.cap.hole.length).toBe(1);
-    expect(L.chimney.length).toBe(1);
+  it("la tapa de la chimenea es maciza (sin agujero arriba) y el humo sale por respiraderos en las cuatro caras, justo debajo de ella", () => {
+    for (const side of ["izquierdo", "derecho"] as const) {
+      const l = parrilleroLayout(side, true),
+        tapa = l.cap.top,
+        top = D.alturaMesada + D.chimeneaAltura,
+        shaftTop = top - D.tapaEspesor,
+        ventBottom = shaftTop - D.respiraderoAlto;
+      // Tapa: una sola pieza maciza, que cubre todo el cuerpo (con su vuelo) y no tiene agujero.
+      expect(tapa.length).toBe(1);
+      const t = ext(tapa[0]!);
+      expect(t.y0).toBeCloseTo(shaftTop, 9);
+      expect(t.y1).toBeCloseTo(top, 9);
+      // El cuerpo de la chimenea ocupa u de uChim a uTotal y la profundidad entera.
+      const cuerpo = l.chimney.map(ext),
+        u0 = Math.min(...cuerpo.map((e) => e.z0)),
+        u1 = Math.max(...cuerpo.map((e) => e.z1)),
+        x0 = Math.min(...cuerpo.map((e) => e.x0)),
+        x1 = Math.max(...cuerpo.map((e) => e.x1));
+      expect(u1 - u0).toBeCloseTo(D.chimeneaSeccion, 9);
+      expect(t.z0).toBeLessThanOrEqual(u0 - D.tapaVuelo + 1e-9);
+      expect(t.z1).toBeGreaterThanOrEqual(u1 + D.tapaVuelo - 1e-9);
+      expect(t.x0).toBeLessThanOrEqual(x0 - D.tapaVuelo + 1e-9);
+      expect(t.x1).toBeGreaterThanOrEqual(x1 + D.tapaVuelo - 1e-9);
+      // Por encima de los respiraderos el cuerpo son solo los cuatro pilarcitos de las esquinas (sin pared entera).
+      const alto = l.chimney.filter((b) => ext(b).y1 > ventBottom + 1e-9);
+      expect(alto.length).toBe(4);
+      for (const b of alto) {
+        const e = ext(b);
+        expect(e.y0).toBeCloseTo(ventBottom, 9);
+        expect(e.y1).toBeCloseTo(shaftTop, 9);
+        expect(e.z1 - e.z0).toBeCloseTo(D.respiraderoPilar, 9);
+        expect(e.x1 - e.x0).toBeCloseTo(D.respiraderoPilar, 9);
+      }
+      // Debajo, el cuerpo es macizo.
+      const bajo = l.chimney.filter((b) => ext(b).y1 <= ventBottom + 1e-9);
+      expect(bajo.length).toBe(1);
+      expect(ext(bajo[0]!).y1).toBeCloseTo(ventBottom, 9);
+      // El hueco oscuro llena el interior entre los pilarcitos: se ve a través de las aberturas de las cuatro caras.
+      expect(l.cap.vents.length).toBe(1);
+      const v = ext(l.cap.vents[0]!);
+      expect(v.y0).toBeCloseTo(ventBottom, 9);
+      expect(v.y1).toBeCloseTo(shaftTop, 9);
+      expect(v.z0).toBeCloseTo(u0 + D.respiraderoPilar, 9);
+      expect(v.z1).toBeCloseTo(u1 - D.respiraderoPilar, 9);
+      expect(v.x0).toBeCloseTo(x0 + D.respiraderoPilar, 9);
+      expect(v.x1).toBeCloseTo(x1 - D.respiraderoPilar, 9);
+      // Las aberturas de las cuatro caras existen: cada pared del cuerpo, a la altura de los respiraderos, queda abierta
+      // entre los pilarcitos (ninguna caja del cuerpo cubre el tramo central de ninguna cara).
+      const centroU = (u0 + u1) / 2,
+        centroX = (x0 + x1) / 2,
+        cubre = (px: number, pz: number) => l.chimney.some((b) => {
+          const e = ext(b);
+          return e.y0 < ventBottom + D.respiraderoAlto / 2 && e.y1 > ventBottom + D.respiraderoAlto / 2 && px > e.x0 - 1e-9 && px < e.x1 + 1e-9 && pz > e.z0 - 1e-9 && pz < e.z1 + 1e-9;
+        });
+      expect(cubre(centroX, u0 + 0.01)).toBe(false); // cara del lado de la casa/campana
+      expect(cubre(centroX, u1 - 0.01)).toBe(false); // cara del extremo
+      expect(cubre(x0 + 0.01, centroU)).toBe(false); // cara de atrás
+      expect(cubre(x1 - 0.01, centroU)).toBe(false); // cara de la boca
+      expect(cubre(x0 + 0.01, u0 + 0.01)).toBe(true); // las esquinas sí
+    }
   });
 
   it("la mesada es continuación de la losa: la losa tiene la abertura de la bacha y la bacha entra justo", () => {
@@ -625,15 +681,54 @@ describe("parrillero: con un deck alrededor, la base sube y la mesada queda a 0,
     expect(topOf(b.base.render)).toBeCloseTo(topOf(a.base.render) + 0.79, 6);
     // La losa (cara de la mesada) queda a 0,90 m sobre el deck: 0,79 + 0,90.
     expect(topOf(b.slab)).toBeCloseTo(D.alturaMesada + 0.79, 6);
-    expect(topOf(b.cap.ring)).toBeCloseTo(D.alturaMesada + D.chimeneaAltura + 0.79, 6);
+    expect(topOf(b.cap.top)).toBeCloseTo(D.alturaMesada + D.chimeneaAltura + 0.79, 6);
     expect(Math.max(...b.hood.prisms[0]!.pts.map((p) => p[1]))).toBeCloseTo(D.campanaAltoChimenea + 0.79, 6);
     expect(b.faucet![0]!.pos[1]).toBeCloseTo(a.faucet![0]!.pos[1] + 0.79, 6);
     // Misma planta: ninguna pieza se corre en x ni en z.
-    const planta = (l: typeof a) => allBoxes(l).map((x) => [x.pos[0], x.pos[2], x.size[0], x.size[2]]);
+    // (El piso de hormigón de los nichos es nuevo con el deck: se mide aparte, en otra prueba.)
+    const sinPiso = (l: typeof a): typeof a => ({ ...l, base: { ...l.base, floor: [] } });
+    const planta = (l: typeof a) => allBoxes(sinPiso(l)).map((x) => [x.pos[0], x.pos[2], x.size[0], x.size[2]]);
     expect(planta(b)).toEqual(planta(a));
     // Sin elevación es exactamente el layout de siempre.
     expect(parrilleroLayout("izquierdo", true, 0)).toEqual(a);
     expect(parrilleroLayout("derecho", false, 0)).toEqual(parrilleroLayout("derecho", false));
+  });
+
+  it("con deck hay una losa de hormigón al nivel del piso del deck dentro de los dos nichos; sin deck no hay nada", () => {
+    const sin = parrilleroLayout("izquierdo", true),
+      con = parrilleroLayout("izquierdo", true, 0.79);
+    expect(sin.base.floor).toEqual([]);
+    expect(parrilleroLayout("derecho", false, 0).base.floor).toEqual([]);
+    expect(con.base.floor.length).toBe(2);
+    const m = D.muro,
+      uMesadaEnd = m + D.mesadaLargo,
+      uHogarA = uMesadaEnd + m;
+    const [bajoMesada, bajoHogar] = con.base.floor.map(ext) as [ReturnType<typeof ext>, ReturnType<typeof ext>];
+    for (const e of [bajoMesada, bajoHogar]) {
+      // Cara superior exactamente a la altura del piso del deck, espesor de la losa, del muro de atrás a la boca.
+      expect(e.y1).toBeCloseTo(0.79, 9);
+      expect(e.y1 - e.y0).toBeCloseTo(D.pisoNichoEspesor, 9);
+      expect(e.x1 - e.x0).toBeCloseTo(D.profundidad - D.muro, 9);
+      expect(e.x0).toBeGreaterThanOrEqual(-D.profundidad / 2 - 1e-9);
+      expect(e.x1).toBeLessThanOrEqual(D.profundidad / 2 + 1e-9);
+    }
+    // Un nicho bajo la mesada y otro bajo el hogar, entre los pilares.
+    expect(bajoMesada.z0).toBeCloseTo(m, 9);
+    expect(bajoMesada.z1).toBeCloseTo(uMesadaEnd, 9);
+    expect(bajoHogar.z0).toBeCloseTo(uHogarA, 9);
+    expect(bajoHogar.z1).toBeCloseTo(D.anchoTotal - m, 9);
+    // No sale de la huella del parrillero.
+    for (const e of [bajoMesada, bajoHogar]) {
+      expect(e.z0).toBeGreaterThanOrEqual(-1e-9);
+      expect(e.z1).toBeLessThanOrEqual(D.anchoTotal + 1e-9);
+    }
+    // Con otro deck (más alto o más bajo) la losa acompaña su altura.
+    expect(ext(parrilleroLayout("derecho", true, 0.5).base.floor[0]!).y1).toBeCloseTo(0.5, 9);
+  });
+
+  it("la base no tiene una pieza oscura aparte en los nichos: son la misma base (misma textura)", () => {
+    const l = parrilleroLayout("izquierdo", true, 0.79) as unknown as { base: Record<string, unknown> };
+    expect(Object.keys(l.base).sort()).toEqual(["floor", "render"]);
   });
 
   it("la chimenea y la campana que ve el techo suben lo mismo", () => {

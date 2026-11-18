@@ -22,8 +22,12 @@ export type PCyl = { r: number; h: number; pos: Vec3; axis: "x" | "y" | "z" };
 
 export type ParrilleroLayout = {
   mouth: 1 | -1;
-  /** Base de mampostería de ticholos con revoque (de bajo del terreno a la losa) y el fondo oscuro de los nichos. */
-  base: { render: DeckBox[]; niche: DeckBox[] };
+  /**
+   * Base de mampostería de ticholos con revoque (de bajo del terreno a la losa). Los nichos (bajo la mesada y bajo el hogar)
+   * son esa misma base: sin pieza aparte. `floor`: con un deck alrededor, losa de hormigón al nivel del piso del deck dentro de
+   * los nichos (el lugar de la leña); sin deck está vacío.
+   */
+  base: { render: DeckBox[]; floor: DeckBox[] };
   /** Losa de hormigón armado: piso del hogar, frente, mesada lateral y zona de la bacha. */
   slab: DeckBox[];
   /** Muros del cuerpo: fondo (prisma) y laterales del hogar. */
@@ -35,8 +39,11 @@ export type ParrilleroLayout = {
   /** Campana inclinada (con una pendiente en diagonal) y su remate. */
   hood: { prisms: PPrism[]; coping: PPrism[] };
   chimney: DeckBox[];
-  /** Remate de ladrillo con el agujero de salida del humo. */
-  cap: { ring: DeckBox[]; hole: DeckBox[] };
+  /**
+   * Remate de la chimenea: `top` es la tapa maciza (sin agujero) y `vents` el fondo oscuro de los respiraderos que se abren en
+   * las cuatro caras del cuerpo, justo debajo de la tapa (los pilarcitos de las esquinas son parte de `chimney`).
+   */
+  cap: { top: DeckBox[]; vents: DeckBox[] };
   /** Respaldo de la mesada. */
   counter: DeckBox[];
   sink: { rim: DeckBox[]; basin: DeckBox[]; drain: DeckBox[] } | null;
@@ -49,6 +56,27 @@ const shiftPrism = (p: PPrism, dy: number): PPrism => ({ ...p, pts: p.pts.map(([
 const shiftCyl = (c: PCyl, dy: number): PCyl => ({ ...c, pos: [c.pos[0], c.pos[1] + dy, c.pos[2]] });
 
 /**
+ * Piso de hormigón dentro de los dos nichos cuando un deck rodea al parrillero: su cara superior queda a la altura del piso
+ * del deck (`lift`), de modo que continúa el deck por debajo de la mesada y del hogar. Ocupa todo el hueco de cada nicho (entre
+ * los pilares, del muro de atrás a la boca).
+ */
+function nichoFloor(lift: number, mouth: 1 | -1): DeckBox[] {
+  const d = D.profundidad,
+    m = D.muro,
+    uMesadaEnd = m + D.mesadaLargo,
+    uHogarA = uMesadaEnd + m,
+    uTotal = D.anchoTotal,
+    y0 = lift - D.pisoNichoEspesor,
+    xAt = (v: number) => mouth * (v - d / 2),
+    // Del muro de atrás (v = m) a la boca (v = d), entre u0 y u1.
+    caja = (u0: number, u1: number): DeckBox => ({
+      size: [d - m, lift - y0, u1 - u0],
+      pos: [(xAt(m) + xAt(d)) / 2, (y0 + lift) / 2, (u0 + u1) / 2],
+    });
+  return [caja(m, uMesadaEnd), caja(uHogarA, uTotal - m)];
+}
+
+/**
  * Sube el parrillero `lift` metros: la base (ticholos, que nace del terreno) se alarga hacia arriba y todo lo demás (losa,
  * muros, hogar, campana, chimenea, mesada, bacha) se desplaza esa altura. Es lo que hace falta cuando el deck rodea al
  * parrillero: la mesada se mantiene a 0,90 m de donde se para uno (el deck), no del terreno.
@@ -58,14 +86,14 @@ function liftLayout(l: ParrilleroLayout, lift: number): ParrilleroLayout {
     sp = (ps: PPrism[]) => ps.map((p) => shiftPrism(p, lift));
   return {
     mouth: l.mouth,
-    base: { render: l.base.render.map((b) => stretchBox(b, lift)), niche: l.base.niche.map((b) => stretchBox(b, lift)) },
+    base: { render: l.base.render.map((b) => stretchBox(b, lift)), floor: nichoFloor(lift, l.mouth) },
     slab: sb(l.slab),
     walls: { boxes: sb(l.walls.boxes), prisms: sp(l.walls.prisms) },
     firebox: { floor: sb(l.firebox.floor), soot: sb(l.firebox.soot) },
     refractory: sb(l.refractory),
     hood: { prisms: sp(l.hood.prisms), coping: sp(l.hood.coping) },
     chimney: sb(l.chimney),
-    cap: { ring: sb(l.cap.ring), hole: sb(l.cap.hole) },
+    cap: { top: sb(l.cap.top), vents: sb(l.cap.vents) },
     counter: sb(l.counter),
     sink: l.sink ? { rim: sb(l.sink.rim), basin: sb(l.sink.basin), drain: sb(l.sink.drain) } : null,
     faucet: l.faucet ? l.faucet.map((c) => shiftCyl(c, lift)) : null,
@@ -120,11 +148,8 @@ function buildLayout(side: ParrilleroSide, withSink: boolean): ParrilleroLayout 
         bx(uMesadaEnd, uHogarA, 0, d, yBase, slabBottom),
         bx(uTotal - m, uTotal, 0, d, yBase, slabBottom),
       ],
-      // Fondo oscuro de los dos nichos (bajo la mesada y bajo el hogar), apenas por delante del muro de atrás.
-      niche: [
-        bx(m, uMesadaEnd, m, m + 0.004, 0, slabBottom),
-        bx(uHogarA, uTotal - m, m, m + 0.004, 0, slabBottom),
-      ],
+      // Sin deck no hay piso: los nichos apoyan en el terreno. Con deck lo agrega `liftLayout`.
+      floor: [] as DeckBox[],
     };
 
   // --- Losa: hogar + frente + mesada, todo una sola pieza; con la bacha, se arma alrededor de su abertura ------------
@@ -200,25 +225,25 @@ function buildLayout(side: ParrilleroSide, withSink: boolean): ParrilleroLayout 
     );
   }
 
-  // --- Chimenea de ladrillo con remate y agujero de salida ---------------------------------------------------------
+  // --- Chimenea de ladrillo con tapa maciza y respiraderos en las cuatro caras ------------------------------------------
   // Ocupa TODA la profundidad del parrillero (de atrás a la boca, `d`) y `sec` a lo largo de u: el cuerpo sube derecho desde
-  // la campana, sin dejar una franja de la campana al descubierto.
-  const sec = D.chimeneaSeccion,
-    top = slabTop + D.chimeneaAltura,
+  // la campana, sin dejar una franja de la campana al descubierto. Arriba, justo debajo de la tapa, el cuerpo se abre en las
+  // cuatro caras: solo quedan los pilarcitos de las esquinas y, por detrás de las aberturas, el hueco oscuro de la chimenea.
+  const top = slabTop + D.chimeneaAltura,
     shaftTop = top - D.tapaEspesor,
-    over = D.tapaVuelo,
-    hole = D.humoLado,
-    uc = uChim + sec / 2,
-    vc = d / 2;
-  const chimney = [bx(uChim, uTotal, 0, d, D.campanaAltoChimenea, shaftTop)];
+    ventBottom = shaftTop - D.respiraderoAlto,
+    p = D.respiraderoPilar,
+    over = D.tapaVuelo;
+  const chimney = [
+    bx(uChim, uTotal, 0, d, D.campanaAltoChimenea, ventBottom),
+    bx(uChim, uChim + p, 0, p, ventBottom, shaftTop),
+    bx(uTotal - p, uTotal, 0, p, ventBottom, shaftTop),
+    bx(uChim, uChim + p, d - p, d, ventBottom, shaftTop),
+    bx(uTotal - p, uTotal, d - p, d, ventBottom, shaftTop),
+  ];
   const cap = {
-    ring: [
-      bx(uChim - over, uc - hole / 2, -over, d + over, shaftTop, top),
-      bx(uc + hole / 2, uTotal + over, -over, d + over, shaftTop, top),
-      bx(uc - hole / 2, uc + hole / 2, -over, vc - hole / 2, shaftTop, top),
-      bx(uc - hole / 2, uc + hole / 2, vc + hole / 2, d + over, shaftTop, top),
-    ],
-    hole: [bx(uc - hole / 2, uc + hole / 2, vc - hole / 2, vc + hole / 2, shaftTop, shaftTop + 0.004)],
+    top: [bx(uChim - over, uTotal + over, -over, d + over, shaftTop, top)],
+    vents: [bx(uChim + p, uTotal - p, p, d - p, ventBottom, shaftTop)],
   };
 
   // --- Mesada: respaldo; bacha y grifería -----------------------------------------------------------------------------
@@ -265,15 +290,15 @@ function buildLayout(side: ParrilleroSide, withSink: boolean): ParrilleroLayout 
 export function allBoxes(l: ParrilleroLayout): DeckBox[] {
   return [
     ...l.base.render,
-    ...l.base.niche,
+    ...l.base.floor,
     ...l.slab,
     ...l.walls.boxes,
     ...l.firebox.floor,
     ...l.firebox.soot,
     ...l.refractory,
     ...l.chimney,
-    ...l.cap.ring,
-    ...l.cap.hole,
+    ...l.cap.top,
+    ...l.cap.vents,
     ...l.counter,
     ...(l.sink ? [...l.sink.rim, ...l.sink.basin, ...l.sink.drain] : []),
   ];

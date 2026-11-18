@@ -6,8 +6,8 @@
  *
  * Hay dos líneas, con la misma estructura y distinta calidad:
  *  - Esencial (accesible): madera curada CCA, estructura firme, entregado instalado y lijado, listo para pintar.
- *  - Premium: madera de primera con cantos trabajados, tirantería sobredimensionada, herrajes para ambiente marino
- *    y 2 a 3 manos de protector costero.
+ *  - Premium: madera de primera con cantos trabajados, tirantería sobredimensionada, fijaciones sin herrajes de metal a la
+ *    vista y 2 a 3 manos de protector costero.
  */
 
 export type DeckLine = "esencial" | "premium";
@@ -96,7 +96,7 @@ export const DECK_LINEAS: Record<DeckLine, DeckLineInfo> = {
     nombre: "Premium",
     apodo: "Alta gama",
     resumen:
-      "Madera de primera con cantos trabajados, estructura sobredimensionada, herrajes para ambiente marino y 2 a 3 manos de protector costero.",
+      "Madera de primera con cantos trabajados, estructura sobredimensionada, fijaciones sin herrajes de metal a la vista y 2 a 3 manos de protector costero.",
     precios: { deck: 130, techado: 225, baranda: 50 },
     specs: {
       deck: {
@@ -112,7 +112,7 @@ export const DECK_LINEAS: Record<DeckLine, DeckLineInfo> = {
           },
           {
             label: "Fijaciones",
-            text: "Tornillería zincada / galvanizada de alta resistencia al ambiente marino.",
+            text: "Fijaciones de alta resistencia al ambiente marino, sin herrajes de metal a la vista.",
           },
           {
             label: "Acabado",
@@ -133,7 +133,7 @@ export const DECK_LINEAS: Record<DeckLine, DeckLineInfo> = {
           },
           {
             label: "Fijaciones",
-            text: "Herrajes galvanizados pesados y fijaciones de alta durabilidad para entorno marino.",
+            text: "Fijaciones de alta durabilidad para entorno marino, sin herrajes de metal a la vista (ni placas en la base de los postes ni chapas en las uniones).",
           },
           {
             label: "Acabado",
@@ -449,8 +449,8 @@ export type DeckSheet = {
 /**
  * Cómo se ve cada línea en el visor 3D. La estructura es la misma (mismos tirantes, vigas, pilotes, postes y chapa); lo que
  * cambia es la calidad que se nota: el color y el brillo de la madera (al natural / lasur costero), los cantos biselados, el
- * zócalo perimetral, los tirantes más densos, las barandas con listonado y pasamanos biselado, las columnas de la pérgola, los
- * herrajes, la chapa (aluminizada trapezoidal / prepintada acanalada) y las canaletas.
+ * zócalo perimetral, los tirantes más densos, las barandas con listonado y pasamanos biselado, las columnas de la pérgola, la
+ * chapa (aluminizada trapezoidal / prepintada acanalada) y las canaletas. Ninguna de las dos líneas dibuja herrajes de metal.
  */
 export const DECK_LOOK = {
   esencial: {
@@ -529,7 +529,7 @@ export const DECK_3D_COLORES = {
   hormigon: "#a6a6a0",
   /** Tornillos a la vista de la línea Esencial. */
   tornillo: "#5d4b36",
-  /** Herrajes galvanizados de la pérgola Premium. */
+  /** Color de los herrajes (hoy ninguna línea los dibuja: la lista de herrajes del layout queda vacía). */
   herraje: "#8b9299",
 } as const;
 

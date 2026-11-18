@@ -161,10 +161,17 @@ export const PARRILLERO_DIMS = {
   /** La campana arranca en el dintel y baja en diagonal desde la chimenea hasta el borde de la mesada. */
   campanaAltoChimenea: 2.55,
   campanaAltoBorde: 1.85,
-  /** Remate de ladrillo de la chimenea. */
+  /** Remate (tapa maciza) de la chimenea. */
   tapaEspesor: 0.07,
   tapaVuelo: 0.04,
-  humoLado: 0.26,
+  /**
+   * Respiraderos: la salida del humo es por aberturas en las cuatro caras del cuerpo, justo debajo de la tapa (como en una
+   * chimenea de casa real), no por un agujero arriba. Alto de las aberturas (dos hiladas) y lado de los pilarcitos de las esquinas.
+   */
+  respiraderoAlto: 0.15,
+  respiraderoPilar: 0.15,
+  /** Piso de hormigón bajo la mesada y el hogar cuando hay deck (lugar de la leña): espesor, con la cara superior a ras del deck. */
+  pisoNichoEspesor: 0.1,
   /** Bacha: ancho (a lo largo de u), fondo (v) y profundidad. */
   bachaAncho: 0.5,
   bachaFondo: 0.36,
