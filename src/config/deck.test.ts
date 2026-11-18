@@ -3,8 +3,10 @@ import {
   DECK_A_COTIZAR,
   DECK_LIMITES,
   DECK_LINEAS,
+  DECK_DOWNSPOUTS,
   DECK_LINES,
   DEFAULT_DECK,
+  DEFAULT_DECK_DOWNSPOUT,
   deckArea,
   deckLabel,
   deckNoIncluye,
@@ -293,5 +295,26 @@ describe("deck y techado: resumen", () => {
     expect(ess).toContain("Barandas Esencial: 7 ml × USD 40/ml = USD 280");
     expect(ess).toContain("Total del extra: USD 2.882");
     expect(ess).toContain("Total con extras: USD 49.632");
+  });
+});
+
+describe("deck Premium: un solo desagüe, en la esquina que se elija", () => {
+  it("hay dos esquinas posibles, por defecto la derecha, y los valores raros o viejos vuelven al defecto", () => {
+    expect(DECK_DOWNSPOUTS).toEqual(["izquierda", "derecha"]);
+    expect(DEFAULT_DECK_DOWNSPOUT).toBe("derecha");
+    expect(DEFAULT_DECK.downspout).toBe("derecha");
+    expect(premium({ downspout: "izquierda" }).downspout).toBe("izquierda");
+    expect(premium({ downspout: "centro" as never }).downspout).toBe("derecha");
+    // Un diseño o link guardado antes de poder elegirlo no lo trae.
+    const { downspout: _omit, ...viejo } = premium({ roofed: true });
+    expect(normalizeDeck(viejo as never).downspout).toBe("derecha");
+  });
+
+  it("elegir la esquina no cambia el precio ni las medidas", () => {
+    const a = premium({ roofed: true, width: 6, depth: 3, downspout: "izquierda" }),
+      b = premium({ roofed: true, width: 6, depth: 3, downspout: "derecha" });
+    expect(deckPrice(a)).toEqual(deckPrice(b));
+    expect(deckArea(a)).toBe(deckArea(b));
+    expect(deckLabel(a)).toBe(deckLabel(b));
   });
 });

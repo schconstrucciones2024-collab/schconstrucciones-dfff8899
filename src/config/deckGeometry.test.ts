@@ -190,12 +190,12 @@ describe("deck: ubicación pegada al frente", () => {
       expect(top / deckStepCount(top)).toBeLessThanOrEqual(DECK_3D.escalonAlzada + 1e-9);
   });
 
-  it("el techo del deck es más alto contra la casa, deja paso libre y queda bajo el borde de la losa de arriba", () => {
+  it("el techo del deck es más alto contra la casa, deja paso libre y no pasa de la altura máxima del techo", () => {
     for (const depth of [1, 2, 3, 6, 10]) {
       const h = deckRoofHeights(depth);
       expect(h.inner).toBeGreaterThanOrEqual(h.outer);
       expect(h.outer).toBeGreaterThanOrEqual(2.1);
-      expect(h.inner).toBeLessThan(2.65);
+      expect(h.inner).toBeLessThanOrEqual(DECK_3D.techoAlturaMax + 1e-9);
     }
   });
 

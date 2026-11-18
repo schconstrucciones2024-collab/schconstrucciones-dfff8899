@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DECK_3D } from "./deck";
 import { deckLayout, roofLayout, sheetProfile, type DeckBox } from "./deckLayout";
 import { deckStepCount } from "./deckGeometry";
+import { GEOMETRY } from "./geometry";
 
 const base = { roofed: false, railFront: false, railLeft: false, railRight: false, steps: false };
 const extent = (b: DeckBox) => ({
@@ -176,21 +177,20 @@ describe("deck 3D: medidas libres", () => {
       expect(Math.max(...b.size)).toBeLessThanOrEqual(DECK_3D.barandaCada + 0.2);
   });
 
-  it("un techo muy profundo lleva más filas de postes, cada 3,30 m como máximo", () => {
+  it("un techo muy profundo NO lleva postes a mitad del deck: solo los de la línea del frente", () => {
     const shallow = roofLayout(4, 3, 0.79),
-      deep = roofLayout(4, 10, 0.79);
+      deep = roofLayout(4, 10, 0.79),
+      wide = roofLayout(14, 12, 0.79);
     const rows = (r: typeof shallow) =>
       new Set(r.posts.map((p) => Math.round(p.pos[2] * 100))).size;
     expect(rows(shallow)).toBe(1);
-    expect(rows(deep)).toBeGreaterThanOrEqual(3);
-    const zs = [...new Set(deep.posts.map((p) => p.pos[2]))].sort((a, b) => b - a);
-    for (let i = 1; i < zs.length; i++)
-      expect(zs[i - 1]! - zs[i]!).toBeLessThanOrEqual(DECK_3D.largoMadera + 1e-6);
+    expect(rows(deep)).toBe(1);
+    expect(rows(wide)).toBe(1);
   });
 });
 
 describe("deck 3D: techo", () => {
-  it("cae hacia afuera: libre 2,30 m en el borde exterior y más alto contra la casa", () => {
+  it("cae hacia afuera: libre 2,65 m en el borde exterior y más alto contra la casa", () => {
     const R = roofLayout(4, 3, 0.79);
     expect(R.plane.origin[1]).toBeCloseTo(0.79 + DECK_3D.techoAlturaExterior, 6);
     expect(R.plane.angle).toBeGreaterThan(0);
@@ -198,6 +198,24 @@ describe("deck 3D: techo", () => {
     expect(inner - 0.79).toBeLessThanOrEqual(DECK_3D.techoAlturaMax + 0.01);
     // La puerta de entrada (2,10 m, con el umbral 6 cm más arriba que el deck) pasa por debajo de las vigas contra la casa.
     expect(inner - 0.79).toBeGreaterThan(2.1 + 0.06);
+  });
+
+  it("apoyado contra el muro, el techo del deck queda por debajo del tope del muro de la casa (y del alero), en las dos líneas", () => {
+    // Deck a 0,79 m sobre el suelo con la casa a 0,85 m: es el caso de la planta baja sobre pilotes.
+    const floorBase = 0.85,
+      wallTop = floorBase + GEOMETRY.topWallHeight;
+    for (const D of [1, 2, 3, 4, 6, 10, 20])
+      for (const line of ["esencial", "premium"] as const) {
+        const R = roofLayout(6, D, 0.79, null, line);
+        const underside = R.plane.origin[1] + Math.sin(R.plane.angle) * R.plane.length,
+          stack = Math.max(...R.planeBoxes.map((b) => b.pos[1] + b.size[1] / 2)),
+          top = underside + stack + 0.03; // + el nervio de la chapa
+        expect(top, `D=${D} ${line}`).toBeLessThanOrEqual(wallTop - 0.03);
+      }
+  });
+
+  it("el techo del deck pasa por encima de la campana del parrillero (2,55 m) en todo el frente", () => {
+    expect(DECK_3D.techoAlturaExterior).toBeGreaterThanOrEqual(2.55 + 0.1);
   });
 
   it("lleva postes dobles en las esquinas exteriores y ninguno enfrente de la puerta", () => {
@@ -219,6 +237,26 @@ describe("deck 3D: techo", () => {
       }
       expect(xs.length).toBeGreaterThanOrEqual(2);
     }
+  });
+
+  it("todos los postes están sobre la línea del frente: al agrandar el ancho o la profundidad no aparece ninguno a mitad del deck", () => {
+    for (const W of [2, 4, 6, 9, 14, 20])
+      for (const D of [2, 3, 4, 6, 10])
+        for (const line of ["esencial", "premium"] as const) {
+          const R = roofLayout(W, D, 0.79, null, line);
+          const zs = new Set(R.posts.map((p) => Math.round(p.pos[2] * 1000)));
+          expect(zs.size, `W=${W} D=${D} ${line}`).toBe(1);
+          // Esquinas incluidas, y ninguna distancia entre postes pasa de 3,30 m (+ el corrimiento por la puerta).
+          const px = [...new Set(R.posts.map((p) => Math.round(p.pos[0] * 1000) / 1000))].sort((a, b) => a - b);
+          expect(Math.abs(px[0]! + (W / 2 - 0.1)), `W=${W} D=${D} ${line}`).toBeLessThan(0.1);
+          expect(Math.abs(px[px.length - 1]! - (W / 2 - 0.1)), `W=${W} D=${D} ${line}`).toBeLessThan(0.1);
+        }
+  });
+
+  it("al agrandar la profundidad del deck no cambia la cantidad de postes", () => {
+    const count = (D: number) => deckLayout({ width: 6, depth: D, ...base, roofed: true, line: "premium" }, 0.79, 0).roof!.posts.length;
+    expect(count(3)).toBe(count(6));
+    expect(count(6)).toBe(count(12));
   });
 
   it("la chapa es trapezoidal: paso de 10 cm y nervio de 3 cm", () => {
@@ -294,19 +332,21 @@ describe("deck 3D: las dos líneas (misma estructura, distinta calidad)", () => 
     expect(P.rails.length).toBeGreaterThan(E.rails.length);
   });
 
-  it("Premium: columnas únicas de mayor escuadría, herrajes galvanizados, babetas, canaleta y bajadas de agua", () => {
+  it("Premium: columnas únicas de mayor escuadría, babetas, canaleta y UNA sola bajada de agua; sin piezas de metal en los postes", () => {
     const r = P.roof!;
     const ecol = E.roof!.posts[0]!.size,
       pcol = r.posts[0]!.size;
     expect(pcol[0]).toBeGreaterThan(ecol[0] * 1.5);
     expect(pcol[2]).toBeGreaterThanOrEqual(ecol[2]);
-    expect(r.hardware.length).toBeGreaterThanOrEqual(r.posts.length * 2);
+    // Sin herrajes de metal: ni placas en la base de los postes ni chapas de unión.
+    expect(r.hardware).toHaveLength(0);
+    expect(E.roof!.hardware).toHaveLength(0);
     expect(r.planeTrim.length).toBeGreaterThanOrEqual(2);
-    // Canaleta al ancho de la chapa y al menos dos bajadas que llegan al suelo.
+    // Canaleta al ancho de la chapa y una sola bajada que llega al suelo.
     const gutter = r.trim.find((b) => b.size[0] > 1)!;
     expect(gutter.size[0]).toBeCloseTo(r.sheet.width, 6);
     const downs = r.trim.filter((b) => b.size[0] === 0.07);
-    expect(downs.length).toBeGreaterThanOrEqual(2);
+    expect(downs).toHaveLength(1);
     for (const d of downs) {
       expect(extent(d).y[0]).toBeCloseTo(0, 6);
       expect(extent(d).y[1]).toBeLessThanOrEqual(extent(gutter).y[1] + EPS);
@@ -315,13 +355,33 @@ describe("deck 3D: las dos líneas (misma estructura, distinta calidad)", () => 
     expect(gutter.pos[2]).toBeGreaterThan(cfg.depth);
   });
 
-  it("las bajadas de agua no caen sobre los escalones", () => {
-    for (const [W, doorX] of [[6, 2.5], [6, -2.5], [8, 0], [10, 1]] as const) {
-      const L = deckLayout({ ...cfg, width: W, steps: true, line: "premium" }, 0.79, doorX);
-      const xEsc = Math.max(-(W - 1.2) / 2, Math.min((W - 1.2) / 2, doorX));
-      for (const d of L.roof!.trim.filter((b) => b.size[0] === 0.07))
-        expect(Math.abs(d.pos[0] - xEsc), `W=${W} puerta ${doorX}`).toBeGreaterThanOrEqual(0.6);
+  it("el desagüe baja en la esquina elegida: izquierda o derecha, sea cual sea el ancho", () => {
+    for (const W of [3, 4, 9, 14]) {
+      const down = (downspout: "izquierda" | "derecha") =>
+        deckLayout({ ...cfg, width: W, roofed: true, line: "premium", downspout }, 0.79, 0).roof!.trim.filter((b) => b.size[0] === 0.07);
+      const L = down("izquierda"),
+        R = down("derecha");
+      expect(L, `W=${W}`).toHaveLength(1);
+      expect(R, `W=${W}`).toHaveLength(1);
+      expect(L[0]!.pos[0], `W=${W}`).toBeCloseTo(-(W / 2 - 0.1), 6);
+      expect(R[0]!.pos[0], `W=${W}`).toBeCloseTo(W / 2 - 0.1, 6);
     }
+    // Sin elegir, queda a la derecha; la Esencial no lleva canaleta ni bajada.
+    const def = deckLayout({ ...cfg, roofed: true, line: "premium" }, 0.79, 0).roof!.trim.filter((b) => b.size[0] === 0.07);
+    expect(def[0]!.pos[0]).toBeGreaterThan(0);
+    expect(deckLayout({ ...cfg, roofed: true, line: "esencial" }, 0.79, 0).roof!.trim).toHaveLength(0);
+  });
+
+  it("la bajada de agua no cae sobre los escalones: pasa al lado más cercano libre del deck", () => {
+    for (const [W, doorX] of [[6, 2.5], [6, -2.5], [8, 0], [10, 1], [2.4, 0]] as const)
+      for (const downspout of ["izquierda", "derecha"] as const) {
+        const L = deckLayout({ ...cfg, width: W, steps: true, line: "premium", downspout }, 0.79, doorX);
+        const ancho = Math.min(1.2, Math.max(0.6, W - 0.2)),
+          xEsc = Math.max(-(W - ancho) / 2, Math.min((W - ancho) / 2, doorX));
+        const downs = L.roof!.trim.filter((b) => b.size[0] === 0.07);
+        expect(downs.length, `W=${W} puerta ${doorX}`).toBe(1);
+        expect(Math.abs(downs[0]!.pos[0] - xEsc), `W=${W} puerta ${doorX} ${downspout}`).toBeGreaterThanOrEqual(ancho / 2 + 0.1 - 1e-6);
+      }
   });
 
   it("en las dos líneas nada queda bajo el suelo ni pasa de 3,30 m de madera", () => {

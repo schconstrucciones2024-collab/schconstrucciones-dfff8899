@@ -7,6 +7,7 @@ import {
   PARRILLERO_TEXTOS,
   formatUYU,
   normalizeParrillero,
+  parrilleroEnSuLugar,
   parrilleroLabel,
   parrilleroPrice,
   parrilleroSummaryLines,
@@ -22,10 +23,11 @@ import {
   toWorld,
   validateParrillero,
 } from "./parrilleroGeometry";
-import { cutBoxes, inflate, overlaps, subtractRect, type Rect } from "./deckCutout";
+import { TECHO_HOLGURA, cutBoxes, inflate, overlaps, roofOpeningDetail, subtractRect, type Rect } from "./deckCutout";
 import { deckLayout, type DeckBox } from "./deckLayout";
 import { deckPlacement } from "./deckGeometry";
 import type { Point } from "./geometry";
+import { OPENINGS_CATALOG } from "./openingsCatalog";
 
 // Casa rectangular de 8 × 6 m; el frente de la entrada es el muro `edge-2` (z = 3) y mira hacia +z.
 const RECT: Point[] = [
@@ -56,15 +58,37 @@ const rectOf = (b: DeckBox): Rect => {
   const e = ext(b);
   return { x0: e.x0, x1: e.x1, z0: e.z0, z1: e.z1 };
 };
+const closeRect = (a: Rect, b: Rect) => {
+  for (const k of ["x0", "x1", "z0", "z1"] as const) expect(a[k]).toBeCloseTo(b[k], 9);
+};
 const flat = { roofed: false, railFront: false, railLeft: false, railRight: false, steps: false };
 
 describe("parrillero: datos, precios y textos", () => {
   it("arranca apagado y normaliza cualquier entrada", () => {
     expect(DEFAULT_PARRILLERO.enabled).toBe(false);
     expect(normalizeParrillero(undefined)).toEqual(DEFAULT_PARRILLERO);
-    expect(normalizeParrillero({ enabled: true, finish: "revoque", side: "derecho", sink: false })).toEqual({ enabled: true, finish: "revoque", side: "derecho", sink: false });
+    expect(normalizeParrillero({ enabled: true, finish: "revoque", side: "derecho", sink: false })).toEqual({
+      enabled: true,
+      finish: "revoque",
+      side: "derecho",
+      sink: false,
+      dx: 0,
+      dz: 0,
+      rot: 0,
+    });
     // Valores raros de un link viejo o roto: vuelven a los de fábrica.
     expect(normalizeParrillero({ enabled: "si" as never, finish: "oro" as never, side: "arriba" as never })).toEqual(DEFAULT_PARRILLERO);
+  });
+
+  it("el lugar y el giro se normalizan: acotados, enteros y de 0 a 359 grados; un link viejo (sin ellos) queda en su lugar", () => {
+    expect(normalizeParrillero({ dx: 99, dz: -99, rot: -90 })).toMatchObject({ dx: 30, dz: -30, rot: 270 });
+    expect(normalizeParrillero({ rot: 450 }).rot).toBe(90);
+    expect(normalizeParrillero({ rot: 12.4 }).rot).toBe(12);
+    expect(normalizeParrillero({ dx: Number.NaN, dz: "x" as never, rot: Number.POSITIVE_INFINITY })).toMatchObject({ dx: 0, dz: 0, rot: 0 });
+    expect(normalizeParrillero({ dx: 1.234 }).dx).toBe(1.23);
+    expect(parrilleroEnSuLugar(DEFAULT_PARRILLERO)).toBe(true);
+    expect(parrilleroEnSuLugar({ dx: 0.1, dz: 0, rot: 0 })).toBe(false);
+    expect(parrilleroEnSuLugar({ dx: 0, dz: 0, rot: 90 })).toBe(false);
   });
 
   it("los precios son los pedidos: fijos, en pesos, con su referencia en dólares", () => {
@@ -82,6 +106,13 @@ describe("parrillero: datos, precios y textos", () => {
       const prices = (["izquierdo", "derecho"] as const).flatMap((side) => [true, false].map((sink) => parrilleroPrice({ ...base, finish, side, sink }).uyu));
       expect(new Set(prices).size).toBe(1);
     }
+  });
+
+  it("moverlo o girarlo no cambia el precio", () => {
+    const base = { ...DEFAULT_PARRILLERO, enabled: true };
+    const a = parrilleroPrice(base),
+      b = parrilleroPrice({ ...base, dx: 2.5, dz: 1, rot: 135 });
+    expect(b).toEqual(a);
   });
 
   it("el texto comercial y el resumen dicen lo pedido", () => {
@@ -143,6 +174,33 @@ describe("parrillero: geometría 3D (piezas)", () => {
       mouthFront = L.mouth === 1 ? front : -front;
     expect(Math.abs(mouthFront - (L.mouth === 1 ? back!.x1 : back!.x0))).toBeCloseTo(D.hogarProfundo, 6);
     expect(left!.y1 - D.alturaMesada - D.pisoHogar).toBeCloseTo(D.bocaAlto, 6);
+  });
+
+  it("la caída de la campana y la chimenea ocupan todo el ancho del parrillero (0,90 m), no una parte", () => {
+    for (const side of ["izquierdo", "derecho"] as const) {
+      const l = parrilleroLayout(side, true),
+        prisms = [...l.walls.prisms, ...l.hood.prisms].sort((a, b) => a.x0 - b.x0);
+      // El prisma del fondo y el de la campana se tocan y juntos cubren la profundidad entera.
+      expect(prisms.length).toBe(2);
+      expect(prisms[0]!.x1).toBeCloseTo(prisms[1]!.x0, 9);
+      expect(prisms[0]!.x0).toBeCloseTo(-D.profundidad / 2, 9);
+      expect(prisms[1]!.x1).toBeCloseTo(D.profundidad / 2, 9);
+      // Los dos suben por la misma caída hasta la chimenea.
+      for (const pr of prisms) expect(Math.max(...pr.pts.map((q) => q[1]))).toBeCloseTo(D.campanaAltoChimenea, 9);
+      // El remate de la caída va de atrás hasta pasada la boca.
+      const cop = l.hood.coping[0]!;
+      expect(cop.x0).toBeLessThanOrEqual(-D.profundidad / 2 + 1e-9);
+      expect(cop.x1).toBeGreaterThanOrEqual(D.profundidad / 2 - 1e-9);
+      // La chimenea y su remate también van de atrás a la boca.
+      const ch = ext(l.chimney[0]!);
+      expect(ch.x0).toBeCloseTo(-D.profundidad / 2, 9);
+      expect(ch.x1).toBeCloseTo(D.profundidad / 2, 9);
+      expect(Math.min(...l.cap.ring.map((b) => ext(b).x0))).toBeLessThanOrEqual(-D.profundidad / 2 + 1e-9);
+      expect(Math.max(...l.cap.ring.map((b) => ext(b).x1))).toBeGreaterThanOrEqual(D.profundidad / 2 - 1e-9);
+      // El agujero de humo queda en el centro de la chimenea.
+      const hole = ext(l.cap.hole[0]!);
+      expect((hole.x0 + hole.x1) / 2).toBeCloseTo(0, 9);
+    }
   });
 
   it("el refractario es una pieza aparte del ladrillo exterior y la campana baja en diagonal", () => {
@@ -208,20 +266,26 @@ describe("parrillero: ubicación", () => {
     expect(frame.right.x).toBeCloseTo(1, 6);
   });
 
-  it("izquierdo queda a la izquierda de quien mira el frente y derecho a la derecha, con la boca hacia el centro", () => {
+  it("pegado a la casa: el fondo del parrillero sigue la línea del borde de la casa y el cuerpo va hacia el centro, con la boca hacia el centro", () => {
     const l = parrilleroRects("izquierdo", frame.length),
       r = parrilleroRects("derecho", frame.length);
-    expect(l.footprint.x1).toBeLessThan(-frame.length / 2);
-    expect(r.footprint.x0).toBeGreaterThan(frame.length / 2);
+    // Sin separación: la línea de atrás queda exactamente sobre el borde de la casa de su lado.
+    expect(l.footprint.x0).toBeCloseTo(-frame.length / 2, 6);
+    expect(l.footprint.x1).toBeCloseTo(-frame.length / 2 + 0.9, 6);
+    expect(r.footprint.x1).toBeCloseTo(frame.length / 2, 6);
+    expect(r.footprint.x0).toBeCloseTo(frame.length / 2 - 0.9, 6);
+    // El extremo de la mesada apoya contra el muro de la fachada.
+    expect(l.footprint.z0).toBeCloseTo(0, 6);
+    expect(r.footprint.z0).toBeCloseTo(0, 6);
     expect(l.mouth).toBe(1);
     expect(r.mouth).toBe(-1);
-    // Separación inicial de la casa.
-    expect(-frame.length / 2 - l.footprint.x1).toBeCloseTo(0.5, 6);
-    expect(r.footprint.x0 - frame.length / 2).toBeCloseTo(0.5, 6);
-    // En el mundo: la derecha del frente es +x y el parrillero queda del lado de afuera (z > 3).
-    const w = toWorld(frame, r.cx, 1.5);
-    expect(w.x).toBeGreaterThan(4.5);
-    expect(w.z).toBeGreaterThan(3);
+    // En el mundo: el fondo cae sobre la línea de la esquina exterior de la casa (x = ±4,1) y sale hacia afuera (z > 3).
+    const wl = toWorld(frame, l.footprint.x0, 1.5),
+      wr = toWorld(frame, r.footprint.x1, 1.5);
+    expect(wl.x).toBeCloseTo(-(4 + T / 2), 6);
+    expect(wr.x).toBeCloseTo(4 + T / 2, 6);
+    expect(wl.z).toBeGreaterThan(3);
+    expect(wr.z).toBeGreaterThan(3);
   });
 
   it("la huella mide 3,00 × 0,90 y sale hacia afuera desde la fachada", () => {
@@ -236,15 +300,74 @@ describe("parrillero: ubicación", () => {
   it("se adapta si cambia el tamaño de la casa y no depende del deck", () => {
     const wide = facadeFrame([{ x: -6, z: -3 }, { x: 6, z: -3 }, { x: 6, z: 3 }, { x: -6, z: 3 }], T)!;
     expect(wide.length).toBeCloseTo(12 + T, 6);
-    expect(parrilleroRects("derecho", wide.length).footprint.x0).toBeCloseTo((12 + T) / 2 + 0.5, 6);
+    expect(parrilleroRects("derecho", wide.length).footprint.x1).toBeCloseTo((12 + T) / 2, 6);
     // El obstáculo en el marco del deck solo corre por el desplazamiento del deck, nunca la posición real.
     const pl = deckPlacement(RECT, T, { width: 11, depth: 3 }, null)!;
     const o = parrilleroObstacle(frame, "derecho", pl);
-    expect(o.footprint.x0).toBeCloseTo((8 + T) / 2 + 0.5, 6);
+    expect(o.footprint.x1).toBeCloseTo((8 + T) / 2, 6);
   });
 
-  it("deckWidthToSurround da el ancho para que el deck rodee al parrillero con margen", () => {
-    expect(deckWidthToSurround(8)).toBeCloseTo(11.4, 6);
+  it("deckWidthToSurround: con el parrillero pegado a la casa alcanza el frente; si se lo corre más allá, el deck lo rodea con 30 cm", () => {
+    expect(deckWidthToSurround(8)).toBeCloseTo(8, 6);
+    expect(deckWidthToSurround(8.2, "izquierdo")).toBeCloseTo(8.2, 6);
+    // Corrido 1 m hacia afuera de la esquina derecha: llega hasta x = 5 y el deck, centrado, lo rodea con 30 cm de madera.
+    expect(deckWidthToSurround(8, "derecho", { dx: 1, dz: 0, rot: 0 })).toBeCloseTo(2 * (5 + 0.3), 6);
+    expect(deckWidthToSurround(8, "izquierdo", { dx: -1, dz: 0, rot: 0 })).toBeCloseTo(2 * (5 + 0.3), 6);
+  });
+});
+
+describe("parrillero: mover y girar", () => {
+  const frame = facadeFrame(RECT, T)!;
+  const base = parrilleroRects("izquierdo", frame.length);
+
+  it("sin mover ni girar es el lugar donde nace; dx y dz lo corren tal cual en el marco de la fachada", () => {
+    expect(base.angle).toBe(0);
+    expect(base.center.x).toBeCloseTo(-frame.length / 2 + 0.45, 9);
+    expect(base.center.z).toBeCloseTo(1.5, 9);
+    const m = parrilleroRects("izquierdo", frame.length, { dx: 1.2, dz: 0.7, rot: 0 });
+    expect(m.footprint.x0).toBeCloseTo(base.footprint.x0 + 1.2, 9);
+    expect(m.footprint.x1).toBeCloseTo(base.footprint.x1 + 1.2, 9);
+    expect(m.footprint.z0).toBeCloseTo(base.footprint.z0 + 0.7, 9);
+    expect(m.footprint.z1).toBeCloseTo(base.footprint.z1 + 0.7, 9);
+    expect(m.center.x).toBeCloseTo(base.center.x + 1.2, 9);
+  });
+
+  it("un giro recto intercambia el ancho y el largo alrededor del centro de su huella", () => {
+    const r90 = parrilleroRects("izquierdo", frame.length, { dx: 0, dz: 0, rot: 90 });
+    expect(r90.footprint.x1 - r90.footprint.x0).toBeCloseTo(3.0, 9);
+    expect(r90.footprint.z1 - r90.footprint.z0).toBeCloseTo(0.9, 9);
+    expect(r90.center).toEqual(base.center);
+    expect(r90.angle).toBeCloseTo(Math.PI / 2, 9);
+    const r180 = parrilleroRects("izquierdo", frame.length, { dx: 0, dz: 0, rot: 180 });
+    closeRect(r180.footprint, base.footprint);
+    const r270 = parrilleroRects("izquierdo", frame.length, { dx: 0, dz: 0, rot: 270 });
+    expect(r270.footprint.x1 - r270.footprint.x0).toBeCloseTo(3.0, 9);
+    expect(r270.footprint.z1 - r270.footprint.z0).toBeCloseTo(0.9, 9);
+    // Cuatro giros de 90° dejan todo como estaba.
+    const r360 = parrilleroRects("izquierdo", frame.length, { dx: 0, dz: 0, rot: 360 });
+    closeRect(r360.footprint, base.footprint);
+  });
+
+  it("un giro libre (45°) da las esquinas exactas y el rectángulo que las contiene", () => {
+    const r = parrilleroRects("derecho", frame.length, { dx: 0, dz: 0, rot: 45 });
+    expect(r.corners.length).toBe(4);
+    const lado = (3.0 + 0.9) / Math.SQRT2;
+    expect(r.footprint.x1 - r.footprint.x0).toBeCloseTo(lado, 6);
+    expect(r.footprint.z1 - r.footprint.z0).toBeCloseTo(lado, 6);
+    // Los lados de las esquinas siguen midiendo 0,90 y 3,00.
+    const dist = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.z - b.z);
+    expect(dist(r.corners[0]!, r.corners[1]!)).toBeCloseTo(0.9, 6);
+    expect(dist(r.corners[1]!, r.corners[2]!)).toBeCloseTo(3.0, 6);
+  });
+
+  it("el deck ve el obstáculo movido y girado", () => {
+    const pl = deckPlacement(RECT, T, { width: 11, depth: 3 }, null)!;
+    const pose = { dx: -1, dz: 0.5, rot: 90 };
+    const rects = parrilleroRects("derecho", frame.length, pose),
+      o = parrilleroObstacle(frame, "derecho", pl, 0, pose);
+    expect(o.footprint).toEqual(rects.footprint);
+    expect(o.chimney).toEqual(rects.chimney);
+    expect(o.hood).toEqual(rects.hood);
   });
 });
 
@@ -253,8 +376,11 @@ describe("parrillero: el deck se recorta alrededor del parrillero", () => {
   const W = deckWidthToSurround(frame.length);
   const pl = deckPlacement(RECT, T, { width: W, depth: 3 }, null)!;
   const obstacle = parrilleroObstacle(frame, "derecho", pl);
+  // Corrido 1 m hacia adentro del deck: el hueco queda en el medio, con madera a los dos lados.
+  const inner = parrilleroObstacle(frame, "derecho", pl, 0, { dx: -1, dz: 0, rot: 0 });
   const deck = { width: W, depth: 3, ...flat };
-  const hole = inflate(obstacle.footprint, 0.03);
+  const hole = inflate(inner.footprint, 0.03);
+  const area = (bs: DeckBox[]) => bs.reduce((sum, b) => sum + b.size[0] * b.size[2], 0);
 
   it("sin parrillero el deck es el original; el hueco aparece solo cuando hay parrillero", () => {
     const original = deckLayout(deck, 0.5),
@@ -262,23 +388,28 @@ describe("parrillero: el deck se recorta alrededor del parrillero", () => {
     expect(again.cutout).toBeNull();
     expect(again.boards.length).toBe(original.boards.length);
     expect(JSON.stringify(again)).toBe(JSON.stringify(original));
-    const cut = deckLayout(deck, 0.5, null, obstacle);
-    expect(cut.cutout).toBeDefined();
-    expect(cut.boards.length).toBeGreaterThan(original.boards.length - 1);
+    // Pegado a la casa (en la esquina del deck) o corrido hacia adentro: en los dos casos hay hueco y menos madera.
+    for (const o of [obstacle, inner]) {
+      const cut = deckLayout(deck, 0.5, null, o);
+      expect(cut.cutout).not.toBeNull();
+      expect(area(cut.boards)).toBeLessThan(area(original.boards) - 0.5);
+    }
   });
 
   it("ninguna tabla, tirante, pilote, baranda ni tornillo pisa la huella del parrillero", () => {
-    const L = deckLayout({ ...deck, railFront: true, railLeft: true, railRight: true, steps: true }, 0.5, null, obstacle);
-    const strict = inflate(obstacle.footprint, 0.03 - 1e-6);
-    for (const list of [L.boards, L.piles, L.steps, L.rails, L.fascia]) for (const b of list) expect(overlaps(rectOf(b), strict)).toBe(false);
-    // Los tirantes del cerco quedan pegados al hueco, sin pisarlo.
-    for (const b of L.frame) expect(overlaps(rectOf(b), strict)).toBe(false);
-    for (const b of L.screws) expect(b.pos[0] > strict.x0 && b.pos[0] < strict.x1 && b.pos[2] > strict.z0 && b.pos[2] < strict.z1).toBe(false);
+    for (const o of [obstacle, inner]) {
+      const L = deckLayout({ ...deck, railFront: true, railLeft: true, railRight: true, steps: true }, 0.5, null, o);
+      const strict = inflate(o.footprint, 0.03 - 1e-6);
+      for (const list of [L.boards, L.piles, L.steps, L.rails, L.fascia]) for (const b of list) expect(overlaps(rectOf(b), strict)).toBe(false);
+      // Los tirantes del cerco quedan pegados al hueco, sin pisarlo.
+      for (const b of L.frame) expect(overlaps(rectOf(b), strict)).toBe(false);
+      for (const b of L.screws) expect(b.pos[0] > strict.x0 && b.pos[0] < strict.x1 && b.pos[2] > strict.z0 && b.pos[2] < strict.z1).toBe(false);
+    }
   });
 
   it("la madera llega hasta el borde del hueco (holgura de 3 cm) y el resto del deck queda entero", () => {
-    const L = deckLayout(deck, 0.5, null, obstacle),
-      near = L.boards.filter((b) => ext(b).z1 > obstacle.footprint.z0 && ext(b).z0 < obstacle.footprint.z1);
+    const L = deckLayout(deck, 0.5, null, inner),
+      near = L.boards.filter((b) => ext(b).z1 > inner.footprint.z0 && ext(b).z0 < inner.footprint.z1);
     // Hay tablas que terminan justo en el hueco, en los dos costados.
     expect(near.some((b) => Math.abs(ext(b).x1 - hole.x0) < 1e-6)).toBe(true);
     expect(near.some((b) => Math.abs(ext(b).x0 - hole.x1) < 1e-6)).toBe(true);
@@ -287,14 +418,15 @@ describe("parrillero: el deck se recorta alrededor del parrillero", () => {
   });
 
   it("un deck que no llega al parrillero no se toca", () => {
-    const short = { width: 8, depth: 3, ...flat },
-      pl2 = deckPlacement(RECT, T, { width: 8, depth: 3 }, null)!,
+    // Un deck de 6 m (de x = -3 a 3) no llega al parrillero pegado a la esquina derecha (de x = 3,2 a 4,1).
+    const short = { width: 6, depth: 3, ...flat },
+      pl2 = deckPlacement(RECT, T, { width: 6, depth: 3 }, null)!,
       o = parrilleroObstacle(frame, "derecho", pl2),
       a = deckLayout(short, 0.5),
       b = deckLayout(short, 0.5, null, o);
     expect(b.cutout).toBeNull();
     expect(JSON.stringify(b)).toBe(JSON.stringify(a));
-    const rel = parrilleroDeckRelation({ frame, side: "derecho", deck: { enabled: true, roofed: false, width: 8, depth: 3 }, deckPl: pl2, topY: 0.5 });
+    const rel = parrilleroDeckRelation({ frame, side: "derecho", deck: { enabled: true, roofed: false, width: 6, depth: 3 }, deckPl: pl2, topY: 0.5 });
     expect(rel.deckCuts).toBe(false);
     expect(rel.deckShort).toBe(true);
   });
@@ -312,7 +444,9 @@ describe("parrillero: el techo del deck se abre para la chimenea", () => {
   const frame = facadeFrame(RECT, T)!;
   const W = deckWidthToSurround(frame.length);
   const pl = deckPlacement(RECT, T, { width: W, depth: 3 }, null)!;
-  const obstacle = parrilleroObstacle(frame, "derecho", pl);
+  const edge = parrilleroObstacle(frame, "derecho", pl);
+  // Corrido 1 m hacia adentro: la chimenea queda en el medio del techo.
+  const obstacle = parrilleroObstacle(frame, "derecho", pl, 0, { dx: -1, dz: 0, rot: 0 });
   const deck = { width: W, depth: 3, ...flat, roofed: true };
 
   it("el techo se abre solo en la chimenea y el resto conserva sus piezas", () => {
@@ -335,6 +469,37 @@ describe("parrillero: el techo del deck se abre para la chimenea", () => {
     expect(sheetWidth).toBeGreaterThan(sheetOrig * 0.9);
     expect(original.roof!.opening).toBeNull();
     expect(original.roof!.sheetPieces.length).toBe(1);
+  });
+
+  it("el hueco del techo tiene el tamaño de la chimenea (más una holgura de 5 cm) y todo el resto es techo", () => {
+    for (const o of [obstacle, edge]) {
+      const L = deckLayout(deck, 0.79, null, o),
+        op = L.roof!.opening!,
+        chimW = o.chimney.x1 - o.chimney.x0,
+        chimD = o.chimney.z1 - o.chimney.z0;
+      expect(op).not.toBeNull();
+      expect(op.x1 - op.x0).toBeLessThanOrEqual(chimW + 2 * TECHO_HOLGURA + 1e-6);
+      expect(op.z1 - op.z0).toBeLessThanOrEqual(chimD + 2 * TECHO_HOLGURA + 1e-6);
+      // Toda la abertura es la de la chimenea: no se agrega la campana (lo hace solo si el techo quedara más bajo que ella).
+      expect(op.z1 - op.z0).toBeLessThan(D.chimeneaSeccion + 0.11);
+    }
+    const rel = parrilleroDeckRelation({ frame, side: "derecho", deck: { enabled: true, roofed: true, width: W, depth: 3 }, deckPl: pl, topY: 0.79 });
+    expect(rel.roofOpens).toBe(true);
+    expect(rel.roofOpensForHood).toBe(false);
+  });
+
+  it("roofOpeningDetail suma la campana solo si el techo pasaría por ella", () => {
+    const bounds: Rect = { x0: -6, x1: 6, z0: 0, z1: 4 };
+    const alto = roofOpeningDetail(obstacle, bounds, () => 2.7);
+    expect(alto.byHood).toBe(false);
+    expect(alto.rect).not.toBeNull();
+    const bajo = roofOpeningDetail(obstacle, bounds, () => 2.4);
+    expect(bajo.byHood).toBe(true);
+    const a = alto.rect!,
+      b = bajo.rect!;
+    expect((b.x1 - b.x0) * (b.z1 - b.z0)).toBeGreaterThan((a.x1 - a.x0) * (a.z1 - a.z0));
+    // Si el techo pasa por encima de la chimenea, no hay nada que abrir.
+    expect(roofOpeningDetail(obstacle, bounds, () => 4.2).rect).toBeNull();
   });
 
   it("ni la chapa ni los tirantes ni los postes atraviesan la chimenea", () => {
@@ -365,11 +530,11 @@ describe("parrillero: el techo del deck se abre para la chimenea", () => {
     const rel = (enabled: boolean, roofed: boolean) =>
       parrilleroDeckRelation({ frame, side: "derecho", deck: { enabled, roofed, width: W, depth: 3 }, deckPl: pl, topY: 0.5 });
     // Sí / No / No: el parrillero queda solo sobre el terreno.
-    expect(rel(false, false)).toEqual({ deckCuts: false, roofOpens: false, deckShort: false, lift: 0, flush: false });
+    expect(rel(false, false)).toEqual({ deckCuts: false, roofOpens: false, roofOpensForHood: false, deckShort: false, lift: 0, flush: false });
     // Sí / Sí / No: el deck se recorta.
     expect(rel(true, false)).toMatchObject({ deckCuts: true, roofOpens: false, deckShort: false });
     // Sí / Sí / Sí: el deck se recorta y el techo se adapta.
-    expect(rel(true, true)).toMatchObject({ deckCuts: true, roofOpens: true, deckShort: false });
+    expect(rel(true, true)).toMatchObject({ deckCuts: true, roofOpens: true, roofOpensForHood: false, deckShort: false });
   });
 });
 
@@ -381,13 +546,33 @@ describe("parrillero: validación de espacio", () => {
     expect(ok(RECT, "derecho").ok).toBe(true);
   });
 
-  it("avisa, sin tocar nada, si el lateral choca con la casa", () => {
-    const r = ok(WING, "derecho");
+  it("pegado a la casa es lo normal; avisa, sin tocar nada, si lo corrés y atraviesa la casa", () => {
+    // Apoyar contra un muro (el de la fachada, o el del ala) no es chocar.
+    expect(ok(WING, "derecho").ok).toBe(true);
+    expect(ok(WING, "izquierdo").ok).toBe(true);
+    const r = ok(WING, "derecho", { pose: { dx: 0.5, dz: 0, rot: 0 } });
     expect(r.ok).toBe(false);
     expect(r.issues[0]!.code).toBe("casa");
-    expect(r.issues[0]!.message).toMatch("lateral derecho");
-    // Del otro lado hay lugar.
-    expect(ok(WING, "izquierdo").ok).toBe(true);
+    expect(r.issues[0]!.message).toMatch("atraviesa la casa");
+    // Metido hacia adentro de la casa.
+    expect(ok(RECT, "izquierdo", { pose: { dx: 0, dz: -1.5, rot: 0 } }).issues[0]!.code).toBe("casa");
+    // Girado 90° y apoyado en la fachada: sigue siendo válido.
+    expect(ok(RECT, "izquierdo", { pose: { dx: 0, dz: 0, rot: 90 } }).ok).toBe(true);
+  });
+
+  it("avisa si tapa una ventana o una puerta de la fachada", () => {
+    const keys = Object.keys(OPENINGS_CATALOG) as (keyof typeof OPENINGS_CATALOG)[];
+    const type = keys.find((k) => !OPENINGS_CATALOG[k].door) ?? keys[0]!;
+    // Una abertura cerca de cada esquina de la fachada (el sentido del muro decide cuál es cuál).
+    const blocked = (side: "izquierdo" | "derecho", offset: number) =>
+      !ok(RECT, side, { openings: [{ floor: 0, wall: "edge-2", offset, type }] }).ok;
+    const izq = [3.6, -3.6].map((o) => blocked("izquierdo", o)),
+      der = [3.6, -3.6].map((o) => blocked("derecho", o));
+    expect(izq.filter(Boolean).length).toBe(1);
+    expect(der.filter(Boolean).length).toBe(1);
+    expect(izq[0]).not.toBe(der[0]);
+    // Una abertura en el medio de la fachada no estorba.
+    expect(ok(RECT, "izquierdo", { openings: [{ floor: 0, wall: "edge-2", offset: 0, type }] }).ok).toBe(true);
   });
 
   it("avisa si queda fuera del terreno", () => {
@@ -399,10 +584,18 @@ describe("parrillero: validación de espacio", () => {
 
   it("los avisos juntan el choque, el deck recortado y el techo adaptado, en ese orden", () => {
     const status = ok(RECT, "derecho"),
-      rel = { deckCuts: true, roofOpens: true, deckShort: false, lift: 0, flush: false };
+      rel = { deckCuts: true, roofOpens: true, roofOpensForHood: false, deckShort: false, lift: 0, flush: false };
     const notices = parrilleroNotices(status, rel);
     expect(notices.map((n) => n.level)).toEqual(["info", "info"]);
-    expect(parrilleroNotices(ok(WING, "derecho"), { deckCuts: false, roofOpens: false, deckShort: true, lift: 0, flush: false })[0]!.level).toBe("error");
+    expect(notices[1]!.text).toBe(PARRILLERO_TEXTOS.techoAdaptado);
+    const choca = ok(RECT, "izquierdo", { pose: { dx: 0, dz: -1.5, rot: 0 } });
+    expect(parrilleroNotices(choca, { ...rel, deckCuts: false, roofOpens: false, deckShort: true })[0]!.level).toBe("error");
+    // Si el techo quedara más bajo que la campana, el aviso lo dice.
+    expect(parrilleroNotices(status, { ...rel, roofOpensForHood: true }).map((n) => n.text)).toContain(PARRILLERO_TEXTOS.techoBajo);
+    // Un giro que no es recto avisa que el hueco del deck es el rectángulo que lo contiene; uno recto, no.
+    const pose = (rot: number) => ({ dx: 0, dz: 0, rot });
+    expect(parrilleroNotices(status, rel, pose(45)).map((n) => n.text)).toContain(PARRILLERO_TEXTOS.giroLibre);
+    expect(parrilleroNotices(status, rel, pose(90)).map((n) => n.text)).not.toContain(PARRILLERO_TEXTOS.giroLibre);
   });
 });
 

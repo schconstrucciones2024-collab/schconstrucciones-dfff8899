@@ -60,7 +60,14 @@ export type Footprint = "rectangular" | "L" | "U" | "T" | "escalonada";
 export const GEOMETRY = {
   exteriorThickness: 0.15,
   interiorThickness: 0.1,
+  /** Altura de los muros de las plantas de abajo (m): lo que hay entre una losa y la siguiente (ver `FLOOR_STEP`). */
   wallHeight: 2.65,
+  /**
+   * Altura de los muros de la última planta (la de arriba de todo), en todos los diseños. Es más alta para que el techo del deck,
+   * que apoya contra el muro de la fachada, quede por debajo del alero de la casa, y para que la campana del parrillero (2,55 m)
+   * pase por debajo del techo del deck. No cambia la distancia entre pisos, así que las escaleras no se tocan.
+   */
+  topWallHeight: 3.2,
   slabThickness: 0.2,
   pileHeight: 0.65,
   ceilingThickness: 0.07,
@@ -71,6 +78,14 @@ export const GEOMETRY = {
   headroom: 2,
   railHeight: 1,
 };
+/** Altura estándar de los muros de la planta `floor` (0 = planta baja) en una casa de `floors` plantas. */
+export const wallHeightFor = (floor: number, floors: number) => (floor >= floors - 1 ? GEOMETRY.topWallHeight : GEOMETRY.wallHeight);
+/**
+ * Altura con la que se dibuja y se mide un muro: los que conservan la altura estándar guardada (2,65 m, la de los diseños y links
+ * anteriores) toman la de su planta; los que se editaron a mano mantienen la que tienen.
+ */
+export const effectiveWallHeight = (stored: number | undefined, floor: number, floors: number) =>
+  stored === undefined || Math.abs(stored - GEOMETRY.wallHeight) < 1e-6 ? wallHeightFor(floor, floors) : stored;
 export const snap = (v: number) => Math.round(v / GEOMETRY.snap) * GEOMETRY.snap;
 export const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.z - b.z);
 export function signedArea(p: Point[]) {

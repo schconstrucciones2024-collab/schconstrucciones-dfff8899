@@ -26,6 +26,14 @@ export type ParrilleroConfig = {
   side: ParrilleroSide;
   /** Bacha y grifería sobre la mesada integrada. Va incluida en el precio: no cambia el valor. */
   sink: boolean;
+  /**
+   * Cuánto se movió del lugar donde nace (pegado a la casa, con el fondo sobre la línea del borde del frente): `dx` hacia la
+   * derecha de quien mira la fachada y `dz` hacia afuera de la casa, en metros. Moverlo o girarlo no cambia el precio.
+   */
+  dx: number;
+  dz: number;
+  /** Giro (grados, 0–359) alrededor del centro de su huella. 0 = con el fondo sobre la línea del borde de la casa. */
+  rot: number;
 };
 
 export const DEFAULT_PARRILLERO: ParrilleroConfig = {
@@ -33,7 +41,22 @@ export const DEFAULT_PARRILLERO: ParrilleroConfig = {
   finish: DEFAULT_PARRILLERO_FINISH,
   side: DEFAULT_PARRILLERO_SIDE,
   sink: true,
+  dx: 0,
+  dz: 0,
+  rot: 0,
 };
+
+/** Cuánto puede alejarse (m) del lugar donde nace; más que eso sale del terreno de todos modos. */
+export const PARRILLERO_MOVER_MAX = 30;
+/** El 3D encaja el movimiento a esta grilla (m) y el giro a estos grados; el panel mueve de a `PARRILLERO_PASO_PANEL`. */
+export const PARRILLERO_PASO_MOVER = 0.05;
+export const PARRILLERO_PASO_GIRO = 5;
+export const PARRILLERO_PASO_PANEL = 0.1;
+
+const num = (v: unknown, fallback = 0) => (typeof v === "number" && Number.isFinite(v) ? v : fallback);
+const metros = (v: unknown) => Math.round(Math.max(-PARRILLERO_MOVER_MAX, Math.min(PARRILLERO_MOVER_MAX, num(v))) * 100) / 100;
+/** Giro válido: entero entre 0 y 359 (se acepta cualquier número, también negativo). */
+export const normalizeRot = (v: unknown) => ((Math.round(num(v)) % 360) + 360) % 360;
 
 /** Deja cualquier entrada (un diseño viejo, un link compartido) como una configuración válida. */
 export function normalizeParrillero(input?: Partial<ParrilleroConfig> | null): ParrilleroConfig {
@@ -43,8 +66,14 @@ export function normalizeParrillero(input?: Partial<ParrilleroConfig> | null): P
     finish: p.finish === "revoque" ? "revoque" : DEFAULT_PARRILLERO_FINISH,
     side: p.side === "derecho" ? "derecho" : DEFAULT_PARRILLERO_SIDE,
     sink: p.sink !== false,
+    dx: metros(p.dx) + 0,
+    dz: metros(p.dz) + 0,
+    rot: normalizeRot(p.rot),
   };
 }
+
+/** ¿Está en el lugar donde nace (sin moverlo ni girarlo)? */
+export const parrilleroEnSuLugar = (p: Pick<ParrilleroConfig, "dx" | "dz" | "rot">) => p.dx === 0 && p.dz === 0 && p.rot === 0;
 
 /** ¿Está agregado al presupuesto? */
 export const parrilleroIsActive = (p: Pick<ParrilleroConfig, "enabled">) => p.enabled === true;
@@ -145,16 +174,18 @@ export const PARRILLERO_DIMS = {
 } as const;
 
 /**
- * Ubicación respecto de la casa: el parrillero queda al costado de la fachada de la entrada (a la izquierda o a la derecha de
- * quien la mira de frente), a `separacionCasa` de la esquina y con el extremo de la mesada a la altura de la fachada. La boca
- * mira hacia el centro del frente. Es una distancia inicial de diseño (casa de madera): la confirma el maestro en la visita.
+ * Ubicación respecto de la casa: el parrillero nace PEGADO a la casa, en el extremo izquierdo o derecho de la fachada de la
+ * entrada (mirándola de frente): el extremo de la mesada apoya contra el muro de la fachada y la línea de atrás del parrillero
+ * sigue la línea del borde de la casa (el mismo plano que el muro lateral). La boca mira hacia el centro del frente. Desde ahí
+ * se puede mover y girar. Son distancias iniciales de diseño: las confirma el maestro en la visita.
  */
 export const PARRILLERO_UBICACION = {
-  separacionCasa: 0.5,
-  /** Retranqueo (m) del extremo de la mesada respecto del plano de la fachada: 0 = a ras de la fachada. */
+  /** Separación (m) entre la línea del borde de la casa y el fondo del parrillero: 0 = fondo sobre esa línea. */
+  separacionCasa: 0,
+  /** Retranqueo (m) del extremo de la mesada respecto del plano de la fachada: 0 = apoyado contra el muro. */
   retranqueo: 0,
-  /** Libre mínimo (m) entre la huella y la casa, una abertura o el límite del terreno. */
-  libreMinimo: 0.4,
+  /** Libre mínimo (m) alrededor de la huella para dar aviso de una puerta o ventana que quedaría tapada. */
+  libreMinimo: 0.05,
 } as const;
 
 export const PARRILLERO_TEXTOS = {
@@ -193,7 +224,20 @@ export const PARRILLERO_TEXTOS = {
   sinEspacio: "No hay lugar libre de este lado.",
   deckNoLlega: "El deck no llega hasta el parrillero.",
   deckLoRodea: "El deck se recorta y rodea al parrillero.",
-  techoAdaptado: "El techo del deck se abre para dejar pasar la chimenea.",
+  techoAdaptado: "El techo del deck solo se abre en el hueco de la chimenea; el resto queda techado.",
+  techoBajo: "El techo del deck queda más bajo que la campana: se abre también para la campana.",
+  giroLibre:
+    "Con un giro que no es recto, el deck se recorta con el rectángulo que contiene al parrillero: queda un poco de hueco en las puntas.",
+  mover: "Mover y girar",
+  moverAyuda:
+    "Tocá el parrillero en el 3D para seleccionarlo y arrastralo para moverlo; con el botón de giro lo rotás. También podés usar estos botones (mueven de a 10 cm). Moverlo o girarlo no cambia el precio.",
+  izquierda: "Izquierda",
+  derecha: "Derecha",
+  haciaCasa: "Hacia la casa",
+  haciaAfuera: "Hacia afuera",
+  girarIzquierda: "Girar 90° a la izquierda",
+  girarDerecha: "Girar 90° a la derecha",
+  volverLugar: "Volver a su lugar",
   /** `cm`: cuánto sube la base desde el terreno para que la mesada quede a 0,90 m sobre el deck. */
   baseElevada: (cm: number) =>
     `La base del parrillero sube ${cm} cm desde el terreno: la mesada queda a 0,90 m sobre el deck, donde se cocina parado.`,

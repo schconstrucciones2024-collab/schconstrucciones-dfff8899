@@ -186,6 +186,11 @@ export const DECK_LIMITES = {
   paso: 0.1,
 } as const;
 
+/** Esquina del frente del techo donde baja el desagüe (la canaleta lleva el agua a una sola bajada): mirando la fachada de frente. */
+export type DeckDownspout = "izquierda" | "derecha";
+export const DECK_DOWNSPOUTS: readonly DeckDownspout[] = ["izquierda", "derecha"];
+export const DEFAULT_DECK_DOWNSPOUT: DeckDownspout = "derecha";
+
 export type DeckConfig = {
   /** «Agregar deck». */
   enabled: boolean;
@@ -208,6 +213,8 @@ export type DeckConfig = {
   railRight: boolean;
   /** Escalones: se muestran en el 3D pero se cotizan aparte. */
   steps: boolean;
+  /** Techo Premium: esquina del frente donde baja el único desagüe (la canaleta). No cambia el precio. */
+  downspout: DeckDownspout;
 };
 
 export const DEFAULT_DECK: DeckConfig = {
@@ -221,6 +228,7 @@ export const DEFAULT_DECK: DeckConfig = {
   railLeft: false,
   railRight: false,
   steps: false,
+  downspout: DEFAULT_DECK_DOWNSPOUT,
 };
 
 const round = (n: number, digits: number) => {
@@ -251,6 +259,8 @@ export function normalizeDeck(input?: Partial<DeckConfig> | null): DeckConfig {
     railLeft: d.railLeft === true,
     railRight: d.railRight === true,
     steps: d.steps === true,
+    // Los diseños y links guardados antes de elegir el desagüe no lo traen: queda en la esquina por defecto.
+    downspout: d.downspout === "izquierda" ? "izquierda" : DEFAULT_DECK_DOWNSPOUT,
   };
 }
 
@@ -342,6 +352,11 @@ export const DECK_TEXTOS = {
   barandaNota: "El lado pegado a la casa no lleva baranda.",
   escalones: "Escalones",
   escalonesPrecio: "A cotizar",
+  desague: "Desagüe del techo",
+  desagueAyuda:
+    "Un solo desagüe: la canaleta lleva el agua a una sola bajada. Elegí en qué esquina del frente baja (mirando la casa de frente). No cambia el precio.",
+  desagueIzquierda: "Esquina izquierda",
+  desagueDerecha: "Esquina derecha",
   fueraDeLimite: "Con estas medidas el deck se cotiza a medida: el precio es «A cotizar».",
   ajustable:
     "Agrandalo o achicalo a tu gusto: no hay límite de medidas y el precio se actualiza solo.",
@@ -400,10 +415,15 @@ export const DECK_3D = {
   /** Separación máxima entre pilotes de una misma viga, y escuadría del pilote. */
   pilotesCada: 1.65,
   pilote: 0.14,
-  /** Techo: altura libre sobre el deck en el borde exterior y caída hacia afuera. */
-  techoAlturaExterior: 2.3,
-  techoPendiente: 0.08,
-  techoAlturaMax: 2.58,
+  /**
+   * Techo: altura libre sobre el deck en el borde exterior y caída hacia afuera. Con 2,65 m en el borde exterior el techo
+   * queda por encima de la campana del parrillero (2,55 m): la chimenea es lo único que atraviesa el techo. La altura de
+   * los muros de la casa (`WALL_HEIGHT`) está pensada para que este techo, apoyado contra el muro, quede por debajo del
+   * alero de la casa.
+   */
+  techoAlturaExterior: 2.65,
+  techoPendiente: 0.06,
+  techoAlturaMax: 2.85,
   posteSeccion: [0.105, 0.15] as const,
   /** Baranda. */
   barandaAltura: 1.0,
@@ -488,7 +508,8 @@ export const DECK_LOOK = {
       tirante: { ancho: 0.06, alto: 0.12, separacion: 0.5 },
       alero: 0.25,
       poste: { doble: false, seccion: [0.16, 0.16] as readonly [number, number], bisel: 0.006 },
-      herrajes: true,
+      // Sin herrajes de metal a la vista: ni placas en la base de los postes ni chapas en las uniones (sin cambio de precio).
+      herrajes: false,
       canaletas: true,
     },
     chapa: {

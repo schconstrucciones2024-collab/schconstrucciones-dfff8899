@@ -1,4 +1,4 @@
-import { DECK_3D, DECK_LOOK, type DeckConfig, type DeckLine } from "./deck";
+import { DECK_3D, DECK_LOOK, DEFAULT_DECK_DOWNSPOUT, type DeckConfig, type DeckDownspout, type DeckLine } from "./deck";
 import { deckRoofHeights, deckStepCount } from "./deckGeometry";
 import {
   DECK_HOLGURA,
@@ -44,9 +44,9 @@ export type DeckRoofLayout = {
   sheetPieces: { x: number; width: number; z0: number; z1: number }[];
   /** Abertura del techo para la chimenea, en el marco del deck; null si el techo queda entero. */
   opening: Rect | null;
-  /** Herrajes galvanizados de los postes (Premium), en el marco del deck. */
+  /** Herrajes de los postes, en el marco del deck. Hoy ninguna línea los dibuja (sin piezas de metal a la vista): queda vacío. */
   hardware: DeckBox[];
-  /** Canaleta y bajadas de agua (Premium), en el marco del deck. */
+  /** Canaleta y bajada de agua (Premium), en el marco del deck: una sola bajada, en la esquina elegida. */
   trim: DeckBox[];
   /** Babetas contra la casa (Premium), en el marco del plano. */
   planeTrim: DeckBox[];
@@ -83,8 +83,6 @@ const {
 } = DECK_3D;
 /** Separación entre el deck y el muro, para que las tablas no se metan en el revestimiento. */
 const HOLGURA_CASA = 0.01;
-/** Distancia mínima (m) del eje de la puerta a un poste del frente: la puerta mide 1 m y necesita su espacio libre. */
-const PUERTA_LIBRE = 0.75;
 /** Por encima de esta cantidad de tablas (un deck enorme) no se biselan los cantos, para cuidar al visor. */
 const MAX_TABLAS_BISELADAS = 2000;
 /** Por encima de esta cantidad de tornillos (un deck enorme) no se dibujan. */
@@ -161,7 +159,7 @@ export function deckLayout(
   deck: Pick<
     DeckConfig,
     "width" | "depth" | "roofed" | "railFront" | "railLeft" | "railRight" | "steps"
-  > & { line?: DeckLine },
+  > & { line?: DeckLine; downspout?: DeckDownspout },
   topY: number,
   doorX: number | null = null,
   obstacle: DeckObstacle | null = null,
@@ -385,17 +383,33 @@ export function deckLayout(
     screws: cScrews,
     cutout: hole,
     roof: deck.roofed
-      ? roofLayout(W, D, topY, doorX, line, hayEscalones ? { x: xEsc, half: ancho2 / 2 + 0.1 } : null, obstacle)
+      ? roofLayout(
+          W,
+          D,
+          topY,
+          doorX,
+          line,
+          hayEscalones ? { x: xEsc, half: ancho2 / 2 + 0.1 } : null,
+          obstacle,
+          deck.downspout ?? DEFAULT_DECK_DOWNSPOUT,
+        )
       : null,
   };
 }
 
+/** Distancia mínima (m) del eje de la puerta a un poste del frente: la puerta mide 1 m y necesita su espacio libre. */
+const PUERTA_LIBRE = 0.75;
+
 /**
- * Techo de chapa: postes, vigas, tirantes, clavadores y chapa, con caída hacia afuera. Ninguna madera pasa de 3,30 m: los
- * postes y las vigas se reparten cada 3,30 m como máximo, a lo ancho y, en un deck profundo, también a lo largo.
+ * Techo de chapa: postes, vigas, tirantes, clavadores y chapa, con caída hacia afuera. Ninguna madera pasa de 3,30 m: las vigas
+ * se empalman cada 3,30 m como máximo, a lo ancho y, en un deck profundo, también a lo largo.
+ * Los postes están solo sobre la LÍNEA DEL FRENTE (las esquinas y los intermedios cada 3,30 m como máximo): nunca hay postes
+ * a mitad del deck, entre el frente y la pared de la casa, sea cual sea la profundidad. Las vigas intermedias (en un deck
+ * profundo) y la de la casa se apoyan en los tirantes y en la pared.
  * Esencial: postes dobles de 6x2 y chapa aluminizada trapezoidal. Premium: columnas de mayor escuadría, tirantería vista más
- * robusta, chapa acanalada prepintada, herrajes, babetas contra la casa, canaleta y bajadas de agua.
- * `avoid` es una franja de x (los escalones) que las bajadas de agua esquivan.
+ * robusta, chapa acanalada prepintada, babetas contra la casa, canaleta y una sola bajada de agua, en la esquina `downspout`.
+ * Ninguna línea lleva piezas de metal a la vista en los postes (ni placas de base ni chapas de unión).
+ * `avoid` es una franja de x (los escalones) que la bajada de agua esquiva.
  * `obstacle` (el parrillero) nace del suelo: si su chimenea atraviesa el techo, el techo se abre ahí (con una holgura chica) y
  * se conserva el resto de la estructura; los postes que quedarían dentro de la mampostería se corren al costado.
  */
@@ -407,6 +421,7 @@ export function roofLayout(
   line: DeckLine = "esencial",
   avoid: { x: number; half: number } | null = null,
   obstacle: DeckObstacle | null = null,
+  downspout: DeckDownspout = DEFAULT_DECK_DOWNSPOUT,
 ): DeckRoofLayout {
   const T = DECK_LOOK[line].techo,
     chapa = DECK_LOOK[line].chapa,
@@ -423,7 +438,8 @@ export function roofLayout(
     length = Math.hypot(run, rise),
     xs = W / 2 - 0.1;
 
-  // Cantidad impar de tramos (1, 3, 5…): así no cae un poste justo en el centro, donde está la puerta de entrada.
+  // Postes de la línea del frente, cada 3,30 m como máximo. Cantidad impar de tramos (1, 3, 5…): así no cae un poste justo en el
+  // centro, donde está la puerta de entrada.
   let nTramos = Math.max(1, Math.ceil((2 * xs) / largoMadera - 1e-9));
   if (nTramos % 2 === 0) nTramos += 1;
   const postXs: number[] = [];
@@ -440,18 +456,13 @@ export function roofLayout(
     underside = (z: number) => topY + outerH + (rise * (zFront - z)) / run,
     opening = obstacle ? roofOpening(obstacle, roofBounds, underside) : null,
     toPlaneZ = (z: number) => (z - zFront) / cosA;
-  const nFilasPrev = Math.max(1, Math.ceil(run / largoMadera - 1e-9));
   if (obstacle) {
     // Ningún poste queda dentro de la mampostería ni de la abertura: se corre al costado más cercano que quede libre.
     const solid = inflate(obstacle.footprint, POSTE_HOLGURA),
       half = posteX / 2 + 0.02,
       conflicts = (x: number) => {
-        for (let i = 0; i < nFilasPrev; i++) {
-          const zr = zFront - (i * run) / nFilasPrev,
-            r: Rect = { x0: x - posteX / 2, x1: x + posteX / 2, z0: zr - posteZ / 2, z1: zr + posteZ / 2 };
-          if (overlaps(r, solid) || (opening && overlaps(r, inflate(opening, 0.02)))) return true;
-        }
-        return false;
+        const r: Rect = { x0: x - posteX / 2, x1: x + posteX / 2, z0: zFront - posteZ / 2, z1: zFront + posteZ / 2 };
+        return overlaps(r, solid) || (opening !== null && overlaps(r, inflate(opening, 0.02)));
       };
     const fx0 = Math.min(solid.x0, opening ? opening.x0 : solid.x0),
       fx1 = Math.max(solid.x1, opening ? opening.x1 : solid.x1);
@@ -466,13 +477,13 @@ export function roofLayout(
     }
     postXs.sort((a, b) => a - b);
   }
-  // Filas de postes a lo largo de la caída: el frente y, si el deck es profundo, una cada 3,30 m. La última fila es la
-  // viga contra la casa, que no lleva postes.
+  // Filas de vigas a lo largo de la caída: el frente y, si el deck es profundo, una cada 3,30 m (empalme de los tirantes). La
+  // última fila es la viga contra la casa. Solo la fila del frente lleva postes.
   const nFilas = Math.max(1, Math.ceil(run / largoMadera - 1e-9)),
     localZ = (i: number) => (-i * length) / nFilas;
   const posts: DeckBox[] = [],
     hardware: DeckBox[] = [];
-  for (let i = 0; i < nFilas; i++) {
+  for (let i = 0; i < 1; i++) {
     const alto = outerH + (rise * i) / nFilas,
       zRow = zFront - (i * run) / nFilas;
     for (const x of postXs) {
@@ -503,7 +514,7 @@ export function roofLayout(
   const planeBoxes: DeckBox[] = [],
     beamY = viga / 2,
     vigaBisel = line === "premium" ? 0.005 : 0;
-  // Vigas a lo ancho: una por fila de postes y la de la casa, cortadas entre poste y poste.
+  // Vigas a lo ancho: una por fila y la de la casa, cortadas entre poste y poste.
   for (let i = 0; i <= nFilas; i++)
     for (let k = 0; k < postXs.length - 1; k++) {
       // Las vigas llegan siempre hasta los dos extremos del techo, aunque un poste se haya corrido por la mampostería.
@@ -604,24 +615,27 @@ export function roofLayout(
       gz = alero + 0.02,
       gutterY = topY + outerH + gy * c - gz * s,
       gutterZ = zFront + gy * s + gz * c,
-      bajada = gutterY - 0.0425,
-      nBajadas = Math.max(2, Math.ceil((2 * xs) / 7) + 1);
+      bajada = gutterY - 0.0425;
     // La canaleta se interrumpe donde pasa la chimenea.
     const gutterCut = opening && obstacle ? inflate(obstacle.chimney, DECK_HOLGURA + 0.05) : null,
       gutter: DeckBox = { size: [W + 0.2, 0.085, 0.1], pos: [0, gutterY, gutterZ] };
     trim.push(...(gutterCut ? subtractRect(gutter, gutterCut) : [gutter]));
-    for (let x of spread(-xs, xs, nBajadas)) {
-      // Una bajada nunca queda sobre los escalones: pasa al lado más cercano que quede libre dentro del deck.
-      if (avoid && Math.abs(x - avoid.x) < avoid.half) {
-        const lados = [avoid.x + avoid.half, avoid.x - avoid.half]
-          .filter((c) => Math.abs(c) <= xs)
-          .sort((p, q) => Math.abs(p - x) - Math.abs(q - x));
-        x = lados[0] ?? x;
-      }
-      const downspout: DeckBox = { size: [0.07, bajada, 0.07], pos: [x, bajada / 2, gutterZ] };
-      if (!(gutterCut && overlaps(inflate(gutterCut, 0.1), { x0: x - 0.035, x1: x + 0.035, z0: gutterZ - 0.035, z1: gutterZ + 0.035 })))
-        trim.push(downspout);
-    }
+    // Una sola bajada, en la esquina elegida (mirando la fachada de frente). Si ahí hay escalones o la chimenea, pasa al lugar
+    // libre más cercano dentro del deck.
+    const half = 0.035,
+      wanted = downspout === "izquierda" ? -xs : xs,
+      cut = gutterCut ? inflate(gutterCut, 0.1) : null,
+      free = (x: number) =>
+        Math.abs(x) <= xs + 1e-6 &&
+        !(avoid && Math.abs(x - avoid.x) < avoid.half) &&
+        !(cut && overlaps(cut, { x0: x - half, x1: x + half, z0: gutterZ - half, z1: gutterZ + half }));
+    const candidates = [
+      wanted,
+      ...(avoid ? [avoid.x + avoid.half, avoid.x - avoid.half] : []),
+      ...(cut ? [cut.x0 - half, cut.x1 + half] : []),
+    ].sort((p, q) => Math.abs(p - wanted) - Math.abs(q - wanted));
+    const x = candidates.find(free);
+    if (x !== undefined) trim.push({ size: [0.07, bajada, 0.07], pos: [x, bajada / 2, gutterZ] });
   }
   const finalPlaneTrim = planeOpen ? cutBoxes(planeTrim, [planeOpen]) : planeTrim;
 

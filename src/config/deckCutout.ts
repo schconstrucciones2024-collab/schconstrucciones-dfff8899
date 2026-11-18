@@ -16,8 +16,8 @@ export type Rect = { x0: number; x1: number; z0: number; z1: number };
 
 /** Holgura (m) entre la madera del deck y la mampostería. */
 export const DECK_HOLGURA = 0.03;
-/** Holgura (m) del techo alrededor de la chimenea: razonable, sin agrandar la abertura. */
-export const TECHO_HOLGURA = 0.12;
+/** Holgura (m) del techo alrededor de la chimenea: la justa, para que la abertura sea la de la chimenea y no más. */
+export const TECHO_HOLGURA = 0.05;
 /** Holgura (m) de un poste del techo respecto de la mampostería. */
 export const POSTE_HOLGURA = 0.08;
 
@@ -112,23 +112,33 @@ export function clipRect(r: Rect, bounds: Rect): Rect | null {
 }
 
 /**
- * Abertura del techo del deck: la chimenea con su holgura y, solo si el techo pasaría por la campana (porque a esa altura la
- * cara inferior del techo queda por debajo de lo más alto de la campana), la campana también. `undersideAt(z)` devuelve la
- * altura (m sobre el suelo) de la cara inferior del techo en esa z. Devuelve null si el obstáculo no toca el techo.
+ * Abertura del techo del deck: SOLO la chimenea (con una holgura chica). La campana se incluye únicamente si el techo pasaría
+ * por ella (porque a esa altura la cara inferior del techo queda por debajo de lo más alto de la campana): con las alturas de
+ * fábrica el techo queda por encima de la campana y esto no pasa. `undersideAt(z)` devuelve la altura (m sobre el suelo) de la
+ * cara inferior del techo en esa z. `rect` es null si el obstáculo no toca el techo; `byHood`, si la campana hizo agrandar la abertura.
  */
-export function roofOpening(
+export function roofOpeningDetail(
   o: DeckObstacle,
   roofBounds: Rect,
   undersideAt: (z: number) => number,
-  margin = 0.15,
-): Rect | null {
+  margin = 0.07,
+): { rect: Rect | null; byHood: boolean } {
   const chim = inflate(o.chimney, TECHO_HOLGURA);
-  let opening: Rect | null = overlaps(chim, roofBounds) && o.chimneyTop > undersideAt(o.chimney.z0) - 0.05 ? chim : null;
+  let opening: Rect | null = overlaps(chim, roofBounds) && o.chimneyTop > undersideAt(o.chimney.z0) - 0.05 ? chim : null,
+    byHood = false;
   const hood = inflate(o.hood, TECHO_HOLGURA);
   if (overlaps(hood, roofBounds)) {
     // El punto del techo más bajo sobre la campana es el más cercano a la fachada de afuera (la caída es hacia afuera).
     const lowest = Math.min(undersideAt(Math.max(o.hood.z0, roofBounds.z0)), undersideAt(Math.min(o.hood.z1, roofBounds.z1)));
-    if (o.hoodTop + margin > lowest) opening = opening ? unionRect(opening, hood) : hood;
+    if (o.hoodTop + margin > lowest) {
+      byHood = true;
+      opening = opening ? unionRect(opening, hood) : hood;
+    }
   }
-  return opening ? clipRect(opening, roofBounds) : null;
+  return { rect: opening ? clipRect(opening, roofBounds) : null, byHood };
+}
+
+/** Abertura del techo del deck (ver `roofOpeningDetail`); null si el techo queda entero. */
+export function roofOpening(o: DeckObstacle, roofBounds: Rect, undersideAt: (z: number) => number, margin = 0.07): Rect | null {
+  return roofOpeningDetail(o, roofBounds, undersideAt, margin).rect;
 }

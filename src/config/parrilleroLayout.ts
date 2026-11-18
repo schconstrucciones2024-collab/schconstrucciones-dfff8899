@@ -193,27 +193,29 @@ function buildLayout(side: ParrilleroSide, withSink: boolean): ParrilleroLayout 
           [bx2 + nx * th, by + ny * th],
           [sx + nx * th, sy + ny * th],
         ],
-        vBack - 0.03,
+        // Remate de la caída del ancho completo del parrillero: de atrás (a ras del fondo) hasta un poco más allá de la boca.
+        -0.03,
         d + over,
       ),
     );
   }
 
   // --- Chimenea de ladrillo con remate y agujero de salida ---------------------------------------------------------
+  // Ocupa TODA la profundidad del parrillero (de atrás a la boca, `d`) y `sec` a lo largo de u: el cuerpo sube derecho desde
+  // la campana, sin dejar una franja de la campana al descubierto.
   const sec = D.chimeneaSeccion,
-    vC0 = d - sec,
     top = slabTop + D.chimeneaAltura,
     shaftTop = top - D.tapaEspesor,
     over = D.tapaVuelo,
     hole = D.humoLado,
     uc = uChim + sec / 2,
-    vc = vC0 + sec / 2;
-  const chimney = [bx(uChim, uTotal, vC0, d, D.campanaAltoChimenea, shaftTop)];
+    vc = d / 2;
+  const chimney = [bx(uChim, uTotal, 0, d, D.campanaAltoChimenea, shaftTop)];
   const cap = {
     ring: [
-      bx(uChim - over, uc - hole / 2, vC0 - over, d + over, shaftTop, top),
-      bx(uc + hole / 2, uTotal + over, vC0 - over, d + over, shaftTop, top),
-      bx(uc - hole / 2, uc + hole / 2, vC0 - over, vc - hole / 2, shaftTop, top),
+      bx(uChim - over, uc - hole / 2, -over, d + over, shaftTop, top),
+      bx(uc + hole / 2, uTotal + over, -over, d + over, shaftTop, top),
+      bx(uc - hole / 2, uc + hole / 2, -over, vc - hole / 2, shaftTop, top),
       bx(uc - hole / 2, uc + hole / 2, vc + hole / 2, d + over, shaftTop, top),
     ],
     hole: [bx(uc - hole / 2, uc + hole / 2, vc - hole / 2, vc + hole / 2, shaftTop, shaftTop + 0.004)],
