@@ -8,7 +8,7 @@
  */
 export const COPYRIGHT_HOLDER = "SCH Construcciones";
 /** Fecha de la última revisión de los textos legales. */
-export const LEGAL_UPDATED = "15 de noviembre de 2026";
+export const LEGAL_UPDATED = "18 de noviembre de 2026";
 
 export const copyrightYear = (): number => new Date().getFullYear();
 export const copyrightNotice = (year: number = copyrightYear()): string => `© ${year} ${COPYRIGHT_HOLDER}. Todos los derechos reservados.`;
@@ -46,7 +46,7 @@ export function privacySections(c: LegalContact): LegalBlock[] {
       items: [
         "Formulario de contacto: nombre, teléfono, tipo de proyecto, ubicación de la obra y, si querés, una descripción. El formulario no envía esos datos a ningún servidor: arma un mensaje y abre WhatsApp. Recién lo recibimos cuando lo enviás desde WhatsApp.",
         "WhatsApp y correo: lo que nos escribas y tu número o tu dirección de correo. Al escribirnos por WhatsApp, esa conversación también se rige por las condiciones de WhatsApp.",
-        "Diseñador 3D y cotizador: los cálculos se hacen en tu dispositivo. El diseñador guarda tu plano en el almacenamiento local de tu navegador para que no lo pierdas, y recuerda si cerraste su introducción. Eso no se sube a nuestros servidores y lo podés borrar desde los ajustes de tu navegador.",
+        "Diseñador 3D y cotizador: los cálculos se hacen en tu dispositivo. El diseñador guarda en el almacenamiento local de tu navegador el diseño que armás, los diseños a los que les pongas nombre en «Mis diseños» y tu plano, para que no los pierdas si salís y volvés, y recuerda si cerraste su introducción. Eso no se sube a nuestros servidores, solo está en este navegador y lo podés borrar desde los ajustes de tu navegador.",
         "Enlaces para compartir un diseño: llevan el diseño dentro del propio enlace. Quien tenga el enlace puede verlo; compartilo solo con quien quieras.",
         "Asistente de escaleras: si lo usás, el diseño (medidas, muros, muebles y escaleras) y el pedido que escribas se envían a un servicio de inteligencia artificial para generar la sugerencia. No enviamos tus datos de contacto; evitá escribir datos personales en el pedido.",
         "Estadísticas: podemos usar Google Analytics, con la dirección IP anonimizada, para medir de forma agregada qué secciones se visitan y cuántos toques recibe cada botón de contacto. No se envían nombres, teléfonos ni el contenido de tus mensajes. Cuando esté activo, Google puede usar cookies para esa medición.",
@@ -63,7 +63,7 @@ export function privacySections(c: LegalContact): LegalBlock[] {
     },
     {
       title: "Cookies y almacenamiento en tu navegador",
-      paragraphs: ["Este sitio no usa cookies de publicidad ni de seguimiento propias. Usa el almacenamiento local de tu navegador solo para las preferencias del diseñador que se explican arriba."],
+      paragraphs: ["Este sitio no usa cookies de publicidad ni de seguimiento propias. Usa el almacenamiento local de tu navegador solo para guardar tus diseños y las preferencias del diseñador que se explican arriba."],
     },
     {
       title: "Tus derechos",
