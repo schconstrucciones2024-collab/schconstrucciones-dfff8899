@@ -22,7 +22,7 @@ const STEPS: { title: string; text: string }[] = [
   },
   {
     title: "Recorrela y consultá",
-    text: "Miralá desde afuera, por dentro, en corte, en planta o en recorrido. Guardá una imagen en 4K o un video, compartí tu diseño con un link y mandale el resumen a SCH por WhatsApp.",
+    text: "Miralá desde afuera, por dentro, en corte, en planta o en recorrido. Guardá una imagen en 4K o un video, compartí tu diseño con un link y mandale el resumen a SCH por WhatsApp. Tu diseño se guarda solo en este dispositivo: podés salir y volver para seguir donde lo dejaste.",
   },
 ];
 
@@ -30,6 +30,7 @@ const CAN: string[] = [
   "Diseñar casas de hasta 500 m² y 3 plantas",
   "Elegir entre distribuciones ya armadas",
   "Dibujar tu propio plano en medidas reales y verlo en 3D",
+  "Guardar tus diseños con un nombre en «Mis diseños» y abrirlos, modificarlos o borrarlos cuando quieras",
   "Cambiar el día y la noche, la hora del sol y el entorno",
   "Ver los materiales y terminaciones de cada sistema",
   "Elegir el deck en línea Esencial (accesible) o Premium y ver en 3D la diferencia de calidad",

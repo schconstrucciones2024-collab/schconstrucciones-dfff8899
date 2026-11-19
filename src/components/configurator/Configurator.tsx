@@ -4,15 +4,14 @@ import { Button } from "@/components/ui/button";
 import { EditorToolbar, EditorPanel } from "./EditorTools";
 import PlanEditor from './PlanEditor';
 import { EntornoToolbar } from "./EntornoToolbar";
-import {
-  decodeDesign,
-  useConfigurator,
-} from "@/store/useConfigurator";
+import { useConfigurator } from "@/store/useConfigurator";
+import { useDesignLibrary } from "@/store/useDesignLibrary";
 import { SYSTEMS } from "@/lib/cotizador";
 import { systemOf } from "@/config/systems";
 import { Panels, STEPS } from "./Panels";
 import { DesignerIntro } from "./DesignerIntro";
 import { SystemSelector } from "./SystemSelector";
+import { SavedDesigns } from "./SavedDesigns";
 import { Summary } from "./Summary";
 import "./configurator.css";
 const Viewer3D = lazy(() => import("./Viewer3D"));
@@ -40,15 +39,10 @@ export default function Configurator() {
     [handoff, setHandoff] = useState<string | null>(null),
     s = useConfigurator();
   useEffect(() => {
-    // Siempre abrimos con la distribución sugerida (Compacta abierta).
-    // Solo se carga un diseño guardado si llega por link compartido (?design=).
-    try {
-      const encoded = new URLSearchParams(window.location.search).get("design");
-      if (encoded) {
-        const design = decodeDesign(encoded);
-        if (design) useConfigurator.setState({ config: design, past: [], future: [] });
-      }
-    } catch {}
+    // Un diseño que llega por link compartido (?design=) se abre tal cual. Si no, se retoma el último diseño de este
+    // navegador (autoguardado) y, si no hay ninguno, se abre con la distribución sugerida (Compacta abierta).
+    // Después, todo cambio se autoguarda solo (ver store/useDesignLibrary.ts).
+    const stopSaving = useDesignLibrary.getState().init();
     const canvas = document.createElement("canvas");
     if (!canvas.getContext("webgl2") && !canvas.getContext("webgl")) setFailed(true);
     const key = (e: KeyboardEvent) => {
@@ -71,6 +65,7 @@ export default function Configurator() {
     host?.addEventListener("keydown", key);
     return () => {
       host?.removeEventListener("keydown", key);
+      stopSaving();
     };
   }, []);
   const changeStep = (n: number) => {
@@ -143,6 +138,7 @@ export default function Configurator() {
             <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" aria-label="Cerrar aviso" onClick={() => setHandoff(null)}>×</Button>
           </div>
         )}
+        <SavedDesigns />
         <SystemSelector />
         <EditorToolbar />
         {!failed && <EntornoToolbar onStep={changeStep} />}
