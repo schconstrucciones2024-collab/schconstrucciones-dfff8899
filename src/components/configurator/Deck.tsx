@@ -7,7 +7,7 @@ import type { DeckObstacle } from "@/config/deckCutout";
 import { boxesGeometry, sheetGeometry } from "./deckMeshes";
 import { pbrProps } from "./pbr";
 
-/** Cajas unidas en una sola malla: madera con su veta (`map`), o liso (hormigón, tornillos, herrajes). */
+/** Cajas unidas en una sola malla: madera con su veta (`map`), o liso (tornillos, herrajes). */
 function Boxes({
   boxes,
   map,
@@ -76,7 +76,7 @@ function SheetRoof({
 }
 
 /**
- * Deck de madera curada sobre dados de hormigón, pegado al frente de la casa, con techo de chapa y barandas opcionales.
+ * Deck de madera curada sobre pilotes de madera curada, pegado al frente de la casa, con techo de chapa y barandas opcionales.
  * Hay dos líneas con la misma estructura y distinta calidad (`deck.line`, ver `DECK_LOOK`): la Esencial (madera al natural,
  * tornillos a la vista, chapa aluminizada) y la Premium (lasur costero, cantos biselados, zócalo, barandas con listonado,
  * columnas gruesas, chapa acanalada prepintada, canaleta y herrajes).
@@ -116,7 +116,7 @@ export function DeckModel({
     >
       <Boxes boxes={layout.boards} map={woodMap} color={wood} roughness={rough} />
       <Boxes boxes={layout.frame} map={woodMap} color={wood} roughness={rough} />
-      <Boxes boxes={layout.piles} color={DECK_3D_COLORES.hormigon} roughness={0.95} />
+      <Boxes boxes={layout.piles} map={woodMap} color={DECK_3D_COLORES.pilote} roughness={1} />
       <Boxes boxes={layout.steps} map={woodMap} color={wood} roughness={rough} />
       <Boxes boxes={layout.rails} map={woodMap} color={wood} roughness={rough} />
       <Boxes boxes={layout.fascia} map={woodMap} color={wood} roughness={rough} />

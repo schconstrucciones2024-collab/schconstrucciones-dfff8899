@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, type ReactNode } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
-import polygonClipping from "polygon-clipping";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { BATHROOM_MATERIALS, drawMaterial, FINISH_MATERIALS, type MaterialKind } from "@/config/materials";
 import { OPENINGS_CATALOG } from "@/config/openingsCatalog";
@@ -15,15 +14,10 @@ import {
   GEOMETRY,
   bounds,
   inside,
-  miterPolygon,
   detectRooms,
   stairGeometry,
   unionHoles,
-  roofFaces,
   offsetContour,
-  planeHeight,
-  type RoofFace,
-  isOrthogonal,
   distance,
   project,
   validateStair,
@@ -38,6 +32,8 @@ import {
 } from "@/config/geometry";
 import { EXTERIOR_THICKNESS, PLATEA_HEIGHT, exteriorThickness, systemOf } from "@/config/systems";
 import { TraditionalEnvelope } from "./TraditionalEnvelope";
+import { buildRoofGeometry } from "./roofGeometry";
+import { buildWallSolid, exteriorSolidHeight, floorsToDraw, innerFaceSpan, interiorSide, wallLocalRing } from "./wallSolid";
 import { DeckModel } from "./Deck";
 import { ParrilleroModel } from "./ParrilleroModel";
 import { useParrilleroInfo } from "./useParrilleroInfo";
@@ -348,10 +344,13 @@ function Wall({
   palette,
   dragging,
   setDragging,
+  inert = false,
 }: {
   c: HouseConfig;
   wall: WallId;
   floor: number;
+  /** Planta de abajo que se muestra bajo la planta activa: solo se mira, no se puede tocar ni editar. */
+  inert?: boolean;
   interiorMap: THREE.Texture;
   sidingMap: THREE.Texture;
   /** Pintura elegida: color de las caras exterior e interior (null = textura sin tocar). */
@@ -401,28 +400,30 @@ function Wall({
   );
   const thickness = wallData?.thickness ?? 0.15;
   const wallHeight=wallData?.height??WALL_HEIGHT;
+  // En las plantas de abajo el muro exterior sube hasta la losa de la planta siguiente: el revestimiento sigue sin franja entre plantas.
+  const solidHeight=interior?wallHeight:exteriorSolidHeight(wallHeight,floor,c.floors,FLOOR_STEP);
+  const ring=useMemo(()=>wallData?wallLocalRing(wallData,designWalls(c,floor)):[],[wallData?.a.x,wallData?.a.z,wallData?.b.x,wallData?.b.z,thickness,c.contour,c.walls]);
+  const side=useMemo(()=>wallData&&!interior?interiorSide(wallData,c.contour):1,[wallData?.a.x,wallData?.a.z,wallData?.b.x,wallData?.b.z,c.contour]);
   const solidGeometry=useMemo(()=>{
-    if(!wallData)return null;
-    const ring=miterPolygon(wallData,designWalls(c,floor)).map(p=>{const dx=p.x-pos[0],dz=p.z-pos[2];return {x:dx*Math.cos(angle)-dz*Math.sin(angle),z:dx*Math.sin(angle)+dz*Math.cos(angle)};});
-    const cuts=[Math.min(...ring.map(p=>p.x)),Math.max(...ring.map(p=>p.x)),...openings.flatMap(o=>[o.offset-OPENINGS_CATALOG[o.type].width/2,o.offset+OPENINGS_CATALOG[o.type].width/2])].sort((a,b)=>a-b), geos:THREE.BufferGeometry[]=[];
-    for(let i=0;i<cuts.length-1;i++){const a=cuts[i],b=cuts[i+1];if(a===undefined||b===undefined||b-a<1e-8)continue;const mid=(a+b)/2,o=openings.find(o=>Math.abs(o.offset-mid)<OPENINGS_CATALOG[o.type].width/2),spec=o?OPENINGS_CATALOG[o.type]:null;
-      const bands=spec?[[0,spec.sill],[spec.sill+spec.height,wallHeight]]:[[0,wallHeight]];
-      const clipped=polygonClipping.intersection([ring.map(p=>[p.x,p.z] as [number,number])],[[[a,-3],[b,-3],[b,3],[a,3]]]);
-      for(const poly of clipped)for(const [low,high] of bands){if(low===undefined||high===undefined||high-low<1e-6)continue;const points=(poly[0]??[]).slice(0,-1).map(v=>new THREE.Vector2(v[0],v[1]));const sh=new THREE.Shape(points),g=new THREE.ExtrudeGeometry(sh,{depth:high-low,bevelEnabled:false});g.rotateX(-Math.PI/2);g.scale(1,1,-1);flipWinding(g);g.translate(0,low,0);const pos=g.getAttribute('position'),uv=g.getAttribute('uv');for(let j=0;j<uv.count;j++)uv.setXY(j,pos.getX(j),pos.getY(j));geos.push(g);}
-    }
-    const g=geos.length?mergeGeometries(geos):null;geos.forEach(g=>g.dispose());return g;
-  },[wallData?.a.x,wallData?.a.z,wallData?.b.x,wallData?.b.z,thickness,wallHeight,c.contour,c.walls,openings.map(o=>`${o.id}-${o.type}-${o.offset}`).join('|')]);
+    if(!wallData||!ring.length)return null;
+    return buildWallSolid(ring,openings.map(o=>({type:o.type,offset:o.offset})),solidHeight);
+  },[ring,solidHeight,openings.map(o=>`${o.id}-${o.type}-${o.offset}`).join('|')]);
   useEffect(()=>()=>solidGeometry?.dispose(),[solidGeometry]);
+  // Revestimiento interior: cubre exactamente la cara interior del muro (en una esquina entrante la cara sobrepasa el eje del
+  // muro; si no se cubre queda una franja del revestimiento exterior a la vista). `side` = lado del muro que mira a la casa.
+  const span = useMemo(() => (ring.length ? innerFaceSpan(ring, side) : { lo: -length / 2, hi: length / 2 }), [ring, side, length]);
   const shape = useMemo(() => {
-    const s = new THREE.Shape();
-    s.moveTo(-length / 2, 0);
-    s.lineTo(length / 2, 0);
-    s.lineTo(length / 2, wallHeight);
-    s.lineTo(-length / 2, wallHeight);
+    const s = new THREE.Shape(),
+      lo = side * span.lo,
+      hi = side * span.hi;
+    s.moveTo(lo, 0);
+    s.lineTo(hi, 0);
+    s.lineTo(hi, solidHeight);
+    s.lineTo(lo, solidHeight);
     s.closePath();
     for (const o of openings) {
       const spec = OPENINGS_CATALOG[o.type],
-        x = o.offset - spec.width / 2,
+        x = side * o.offset - spec.width / 2,
         y = Math.max(0.001, spec.sill);
       const hole = new THREE.Path();
       hole.moveTo(x, y);
@@ -433,7 +434,7 @@ function Wall({
       s.holes.push(hole);
     }
     return s;
-  }, [length, openings.map((o) => `${o.id}-${o.type}-${o.offset}`).join("|")]);
+  }, [span, side, solidHeight, openings.map((o) => `${o.id}-${o.type}-${o.offset}`).join("|")]);
   const candidate = (e: ThreeEvent<PointerEvent | MouseEvent>): Opening | null => {
     const old = c.openings.find((o) => o.id === dragging),
       type = placing ?? old?.type;
@@ -453,7 +454,7 @@ function Wall({
   const invalid = ghost ? validateOpening(c, ghost, dragging ?? "ghost") : null;
   return (
     <group position={drag.preview ? [drag.preview.x, 0, drag.preview.z] : pos} rotation-y={angle}>
-      <mesh {...drag.handlers} {...(solidGeometry?{geometry:solidGeometry}:{})} castShadow receiveShadow>
+      <mesh {...(inert ? {} : drag.handlers)} {...(solidGeometry?{geometry:solidGeometry}:{})} castShadow receiveShadow>
         <meshStandardMaterial
           {...pbrProps(interior?interiorMap:sidingMap)}
           map={interior ? interiorMap : sidingMap}
@@ -463,7 +464,7 @@ function Wall({
         />
       </mesh>
       {!interior && (
-        <mesh position-z={thickness / 2 + 0.002}>
+        <mesh position-z={side * (thickness / 2 + 0.002)} rotation-y={side === 1 ? 0 : Math.PI}>
           <shapeGeometry args={[shape]} />
           <meshStandardMaterial {...pbrProps(interiorMap)} map={interiorMap} side={THREE.FrontSide} {...lookProps(looks.interior)} />
         </mesh>
@@ -471,7 +472,7 @@ function Wall({
       {openings.map((o) => (
         <OpeningModel key={o.id} opening={o} palette={palette} onDrag={setDragging} />
       ))}
-      {(placing || dragging) && (
+      {!inert && (placing || dragging) && (
         <mesh
           position={[0, wallHeight / 2, 0.13]}
           onPointerMove={(e) => {
@@ -847,85 +848,63 @@ function StairRotateHandle({rotation,invalid,onPreview,onCommit,label="Rotar esc
     {deg!==null&&<span className="mt-1 block rounded bg-background px-1 text-center text-xs text-foreground">{deg}°</span>}
   </Html></group>;
 }
+/**
+ * Baranda del hueco de la escalera en la planta de arriba. Rodea todo el hueco menos el carril por donde se llega a la planta
+ * (el último escalón): en una escalera en U el otro carril del mismo borde es el arranque, o sea un vacío, y también lleva baranda.
+ */
 function HoleRail({ ring, map, stair }: { ring: Point[]; map: THREE.Texture; stair?:Stair | undefined }) {
   const g=stair?stairGeometry(stair,FLOOR_STEP):null,last=g?.steps.at(-1);
   const local=last&&stair?{x:stair.x+last.x*Math.cos(stair.rotation)-last.z*Math.sin(stair.rotation),z:stair.z+last.x*Math.sin(stair.rotation)+last.z*Math.cos(stair.rotation)}:null;
   const arrival=local?ring.map((a,i)=>({i,d:distance(project(local,a,ring[(i+1)%ring.length]??a).point,local)})).sort((a,b)=>a.d-b.d)[0]?.i:-1;
+  const lane=(stair?.width??0.9)/2;
   return (
     <group>
       {ring.map((a, i) => {
-        if(i===arrival)return null;
         const b = ring[(i+1)%ring.length];
         if (!b) return null;
         const len = distance(a, b);
-        return (
-          <group
-            key={i}
-            position={[(a.x + b.x) / 2, 0, (a.z + b.z) / 2]}
-            rotation-y={-Math.atan2(b.z - a.z, b.x - a.x)}
-          >
-            <Box size={[len, 0.06, 0.06]} position={[0, 1, 0]} map={map} />
-            {[-1, 1].map((side) => (
-              <Box
-                key={side}
-                size={[0.05, 1, 0.05]}
-                position={[(side * len) / 2, 0.5, 0]}
-                map={map}
-              />
-            ))}
-          </group>
-        );
+        // Tramos de este borde que llevan baranda (desde `a`, en metros).
+        let pieces: [number, number][] = [[0, len]];
+        if (i === arrival && local) {
+          const at = distance(a, project(local, a, b).point),
+            lo = Math.max(0, at - lane - 0.02),
+            hi = Math.min(len, at + lane + 0.02);
+          pieces = [];
+          if (lo > 0.1) pieces.push([0, lo]);
+          if (len - hi > 0.1) pieces.push([hi, len]);
+        }
+        const ux = (b.x - a.x) / len, uz = (b.z - a.z) / len;
+        return pieces.map(([t0, t1]) => {
+          const mid = (t0 + t1) / 2, l = t1 - t0;
+          return (
+            <group
+              key={`${i}-${t0}`}
+              position={[a.x + ux * mid, 0, a.z + uz * mid]}
+              rotation-y={-Math.atan2(b.z - a.z, b.x - a.x)}
+            >
+              <Box size={[l, 0.06, 0.06]} position={[0, 1, 0]} map={map} />
+              {[-1, 1].map((side) => (
+                <Box
+                  key={side}
+                  size={[0.05, 1, 0.05]}
+                  position={[(side * l) / 2, 0.5, 0]}
+                  map={map}
+                />
+              ))}
+            </group>
+          );
+        });
       })}
     </group>
   );
 }
 function Roof({ c, palette }: { c: HouseConfig; palette: ScenePalette }) {
-  // Esencial lleva techo liviano de chapa; la Clásica, losa de hormigón con membrana asfáltica.
+  // Todos los techos livianos son de chapa galvanizada trapezoidal; la Clásica de construcción tradicional lleva losa con membrana.
   const losa = c.finish === "clasica";
-  const map = useMaterial(losa ? "membrana" : "chapa"),
+  const map = useMaterial(losa ? "membrana" : "chapaTrapezoidal"),
     siding = useMaterial(FINISH_MATERIALS[c.finish].siding),
     looks = usePaintLooks(c.paint, c.finish);
-  const geo = useMemo(() => {
-    const pts: number[] = [],
-      uv: number[] = [],
-      gables: number[] = [];
-    const b=bounds(c.contour),slope=Math.tan((c.roofType==='plano'?3:c.roofPitch)*Math.PI/180);
-    const faces:RoofFace[]=c.roofType==='dos'&&isOrthogonal(c.contour)
-      ? roofFaces(c.contour,c.roofDirection,slope)
-      : [{rings:[c.contour],plane:c.roofDirection==='x'?{x:slope,z:0,c:-b.minX*slope}:{x:0,z:slope,c:-b.minZ*slope}}];
-    const exterior=designWalls(c,0).filter(w=>w.id.startsWith('edge-'));
-    const roof= c.roofType==='dos'&&isOrthogonal(c.contour)?roofFaces(c.contour,c.roofDirection,slope,c.overhang):[{...faces[0],rings:[offsetContour(c.contour,c.overhang)],plane:faces[0]?.plane??{x:0,z:0,c:0}}];
-    for(const face of roof){
-      const outer=face.rings[0];if(!outer)continue;
-      const holes=face.rings.slice(1),flat=[...outer,...holes.flat()];
-      const indices=THREE.ShapeUtils.triangulateShape(outer.map(p=>new THREE.Vector2(p.x,p.z)),holes.map(r=>r.map(p=>new THREE.Vector2(p.x,p.z))));
-      for(const triangle of indices)for(const i of triangle){const p=flat[i];if(!p)continue;const h=planeHeight(face.plane,p);pts.push(p.x,h,p.z);uv.push(p.x,p.z);}
-    }
-    for(const face of faces){
-      // Infill only on footprint boundary, never on internal ridges or valleys.
-      face.rings.forEach(r=>r.forEach((a,i)=>{const b=r[(i+1)%r.length];if(!b)return;
-        if(!exterior.some(w=>distance(project(a,w.a,w.b).point,a)<1e-6&&distance(project(b,w.a,w.b).point,b)<1e-6))return;
-        const ha=Math.max(0,planeHeight(face.plane,a)),hb=Math.max(0,planeHeight(face.plane,b));
-        if(ha+hb<1e-7)return;
-        gables.push(a.x,0,a.z,b.x,0,b.z,b.x,hb,b.z,a.x,0,a.z,b.x,hb,b.z,a.x,ha,a.z);
-      }));
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
-    g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
-    g.computeVertexNormals();
-    const ends = new THREE.BufferGeometry();
-    ends.setAttribute("position", new THREE.Float32BufferAttribute(gables, 3));
-    ends.setAttribute(
-      "uv",
-      new THREE.Float32BufferAttribute(
-        gables.flatMap((_, i) => (i % 3 === 0 ? [gables[i] ?? 0, gables[i + 1] ?? 0] : [])),
-        2,
-      ),
-    );
-    ends.computeVertexNormals();
-    return { g, ends };
-  }, [c.contour, c.roofType, c.roofPitch, c.roofDirection,c.overhang]);
+  const geo = useMemo(() => buildRoofGeometry(c), [c.contour, c.roofType, c.roofPitch, c.roofDirection, c.overhang, c.finish]);
   useEffect(
     () => () => {
       geo.g.dispose();
@@ -1035,13 +1014,24 @@ function ParrilleroScene({ c }: { c: HouseConfig }) {
     </>
   );
 }
-/** Zócalo, cintas y techo de la construcción tradicional, con sus materiales (hormigón, revoque y membrana o chapa). */
+/** Zócalo y techo de la construcción tradicional, con sus materiales (hormigón, revoque y membrana o chapa). */
 function TradEnvelope({ c }: { c: HouseConfig }) {
   const concrete = useMaterial("hormigon"),
     plaster = useMaterial(FINISH_MATERIALS[c.finish].siding),
-    roof = useMaterial(c.finish === "clasica" ? "membrana" : "chapa"),
+    roof = useMaterial(c.finish === "clasica" ? "membrana" : "chapaTrapezoidal"),
     looks = usePaintLooks(c.paint, c.finish);
   return <TraditionalEnvelope c={c} maps={{ concrete, plaster, roof }} plasterLook={looks.exterior} />;
+}
+/** Contenido que solo se mira (la planta de abajo en las vistas con corte): ningún objeto responde al puntero ni se puede editar. */
+function Inert({ on, children }: { on: boolean; children: ReactNode }) {
+  const ref = useRef<THREE.Group>(null);
+  useEffect(() => {
+    if (!on) return;
+    ref.current?.traverse((o) => {
+      o.raycast = () => {};
+    });
+  });
+  return <group ref={ref}>{children}</group>;
 }
 export function House({
   palette,
@@ -1068,8 +1058,9 @@ export function House({
   return (
     <group position={[c.position.x, 0, c.position.z]} rotation-y={-c.rotation}>
       <Foundation c={c} />
-      {Array.from({ length: cut ? 1 : c.floors }, (_, i) => {
-        const floor=cut?activeFloor:i;
+      {floorsToDraw(cut, activeFloor, c.floors).map(({ floor, inert: below }) => {
+        // En Interior, Corte y Planta se ve hasta la planta elegida: las de abajo siguen ahí (con su escalera, sus muros y
+        // sus aberturas), solo que no se pueden tocar. Las de arriba se ocultan para poder mirar adentro.
         const incoming = sceneStairs
             .filter((s) => !s.exterior && s.floor === floor - 1)
             .map((s) => stairGeometry(s, FLOOR_STEP).hole),
@@ -1079,6 +1070,7 @@ export function House({
           rooms = detectRooms(c.contour, c.walls[floor] ?? []);
         return (
           <group key={floor} position-y={floorBase(c) + floor * FLOOR_STEP}>
+            <Inert on={below}>
             <FloorSlab
               contour={c.contour}
               holes={incoming}
@@ -1101,6 +1093,7 @@ export function House({
                   palette={palette}
                   dragging={dragging}
                   setDragging={setDragging}
+                  inert={below}
                 />
               ))}
             {c.counters
@@ -1119,9 +1112,9 @@ export function House({
                 <StairModel key={v.id} stair={v} c={c} map={floorMap} palette={palette} onPreview={previewStair} />
               ))}
             {incoming.map((r, i) => {
-              const below = sceneStairs.filter(s=>!s.exterior&&s.floor===floor-1)[i];
-              const continues = below?.type==='caracol'&&sceneStairs.some(s=>!s.exterior&&s.floor===floor&&s.type==='caracol'&&Math.abs(s.x-below.x)<1e-3&&Math.abs(s.z-below.z)<1e-3);
-              return continues ? null : <HoleRail key={i} ring={r} map={floorMap} stair={below} />;
+              const lower = sceneStairs.filter(s=>!s.exterior&&s.floor===floor-1)[i];
+              const continues = lower?.type==='caracol'&&sceneStairs.some(s=>!s.exterior&&s.floor===floor&&s.type==='caracol'&&Math.abs(s.x-lower.x)<1e-3&&Math.abs(s.z-lower.z)<1e-3);
+              return continues ? null : <HoleRail key={i} ring={r} map={floorMap} stair={lower} />;
             })}
             {!cut && (
               <FloorSlab
@@ -1132,6 +1125,7 @@ export function House({
                 thickness={GEOMETRY.ceilingThickness}
               />
             )}
+            </Inert>
             {view === "planta" &&
               floor === activeFloor &&
               rooms.map((r, i) => (
@@ -1165,21 +1159,3 @@ export function House({
   );
 }
 
-/**
- * Un espejado (`scale(1,1,-1)`) invierte el orden de los vértices: las caras exteriores quedaban como "traseras" y el pase de
- * normales de la oclusión ambiental las veía hacia adentro, oscureciendo la pared entera salvo los bordes (efecto "transparente").
- * Se reordena cada triángulo para que vuelvan a mirar hacia afuera.
- */
-function flipWinding(g: THREE.BufferGeometry) {
-  const index = g.getIndex();
-  if (index) {
-    for (let i = 0; i < index.count; i += 3) { const b = index.getX(i + 1); index.setX(i + 1, index.getX(i + 2)); index.setX(i + 2, b); }
-    index.needsUpdate = true;
-    return;
-  }
-  for (const name of Object.keys(g.attributes)) {
-    const a = g.getAttribute(name) as THREE.BufferAttribute, n = a.itemSize, arr = a.array as Float32Array;
-    for (let t = 0; t + 2 < a.count; t += 3) for (let k = 0; k < n; k++) { const i1 = (t + 1) * n + k, i2 = (t + 2) * n + k, v = arr[i1]!; arr[i1] = arr[i2]!; arr[i2] = v; }
-    a.needsUpdate = true;
-  }
-}

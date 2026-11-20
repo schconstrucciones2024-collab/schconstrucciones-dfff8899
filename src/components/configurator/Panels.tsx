@@ -280,7 +280,12 @@ export function Panels({ step }: { step: number }) {
             <p className="mt-3 text-xs leading-6 text-foreground/70">
               {c.finish === "clasica"
                 ? "La Clásica lleva losa llena de hormigón armado ejecutada en obra, con antepecho, aislación térmica e impermeabilización de azotea con membrana asfáltica (planta baja)."
-                : "La Esencial lleva techo liviano: estructura de madera 100% curada, aislación térmica/hidrófuga reforzada y cubierta de chapa con zinguería completa (cenefa y canaleta)."}
+                : "La Esencial lleva techo liviano: estructura de madera 100% curada, aislación térmica/hidrófuga reforzada y cubierta de chapa galvanizada trapezoidal con zinguería completa (cenefa y canaleta)."}
+            </p>
+          )}
+          {system !== "tradicional" && (
+            <p className="mt-3 text-xs leading-6 text-foreground/70">
+              Todos los techos llevan cubierta de chapa galvanizada trapezoidal, sea de una caída, a doble agua o plano.
             </p>
           )}
           {c.finish !== "clasica" && (

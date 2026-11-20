@@ -29,29 +29,29 @@ function Surface({
   if (style === "metal")
     return (
       <meshStandardMaterial
-        color="#454a50"
-        metalness={0.45}
-        roughness={0.5}
+        color="#b4b9bd"
+        metalness={0.6}
+        roughness={0.45}
         side={THREE.DoubleSide}
       />
     );
   if (style === "pipe")
     return <meshStandardMaterial color="#c4c7cb" metalness={0.1} roughness={0.55} />;
   if (style === "roof") {
-    // Clásica: membrana asfáltica mate. Esencial: chapa prepintada gris grafito, mate.
+    // Clásica: membrana asfáltica mate. Esencial: chapa galvanizada trapezoidal (el color sale de la textura).
     return (
       <meshStandardMaterial
         {...pbrProps(maps.roof)}
         map={maps.roof}
-        color={clasica ? "#ffffff" : "#6c7279"}
-        metalness={clasica ? 0 : 0.25}
+        color="#ffffff"
+        metalness={clasica ? 0 : 0.55}
         roughness={1}
         side={THREE.DoubleSide}
       />
     );
   }
   const map = style === "concrete" ? maps.concrete : maps.plaster;
-  // El hormigón del zócalo no se pinta: solo el revoque (cintas y antepecho) toma el color elegido para el exterior.
+  // El hormigón del zócalo no se pinta: solo el revoque (losa y antepecho) toma el color elegido para el exterior.
   const look = style === "concrete" ? null : plasterLook;
   return (
     <meshStandardMaterial {...pbrProps(map)} map={map} side={THREE.DoubleSide} {...lookProps(look)} />
@@ -59,7 +59,7 @@ function Surface({
 }
 
 /**
- * Zócalo, cintas entre plantas y techo de la construcción tradicional (ver `config/envelope.ts`). Reemplaza al techo
+ * Zócalo y techo de la construcción tradicional (ver `config/envelope.ts`). Reemplaza al techo
  * de woodframe: la casa se ve de mampostería, con losa plana y antepecho (Clásica) o chapa prolija con cenefa y canaleta (Esencial).
  */
 export function TraditionalEnvelope({
