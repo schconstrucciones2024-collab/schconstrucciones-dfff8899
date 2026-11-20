@@ -92,7 +92,7 @@ export const SYSTEMS: Record<SystemId, SystemConfig> = {
     // Tarifas base por m² (Punta del Diablo, terreno firme y nivelado). Desde 65 m² rige el descuento por superficie
     // (config/tradicional.ts → VOLUME_TIERS): se calcula con `rateFor` / `estimateFor`, nunca con `price` a secas.
     categories: [
-      { id: "esencial", name: "ESENCIAL", price: 1200, description: "Una alternativa sólida y accesible para construir en ladrillo, con techo liviano y una inversión inicial más económica.", interior: "Muros de ladrillo hueco (ticholo) o ladrillo común, con revoque común · Cielorraso de yeso · Piso cerámico estándar · Aberturas · Techo liviano de chapa con aislación térmica/hidrófuga reforzada" },
+      { id: "esencial", name: "ESENCIAL", price: 1200, description: "Una alternativa sólida y accesible para construir en ladrillo, con techo liviano y una inversión inicial más económica.", interior: "Muros de ladrillo hueco (ticholo) o ladrillo común, con revoque común · Cielorraso de yeso · Piso cerámico estándar · Aberturas · Techo liviano de chapa galvanizada trapezoidal con aislación térmica/hidrófuga reforzada" },
       { id: "clasica", name: "CLÁSICA", price: 1400, description: "Una alternativa de mayor terminación, con losa de hormigón armado y piso porcelanato.", interior: "Muros de ladrillo hueco (ticholo) o ladrillo común, con revoque fino · Losa llena de hormigón armado con aislación térmica y membrana asfáltica · Piso porcelanato · Aberturas" },
     ],
   },
@@ -348,6 +348,7 @@ function extrasWithPaintSummary(
   const pqParr = parrillero && parrilleroIsActive(parrillero) ? parrilleroExtra(parrillero, logistics) : undefined;
   if (deck && dq) {
     lines.push(deckLabel(deck));
+    lines.push(DECK_TEXTOS.estructuraLinea);
     if (dq.subtotal === null) lines.push(`Deck: ${DECK_A_COTIZAR}`);
     else {
       lines.push(`${deck.roofed ? "Deck techado" : "Deck"} ${deckLineName(deck.line)}: ${dq.area} m² × USD ${dq.rate}/m² = ${formatUSD(dq.deck ?? 0)}`);
@@ -387,7 +388,7 @@ function deckSummary(
 ): string {
   const extra = deckExtra(deck, logistics);
   const pq = parrillero && parrilleroIsActive(parrillero) ? parrilleroExtra(parrillero, logistics) : undefined;
-  const lines = [`Extras opcionales (no incluidos en el presupuesto de la vivienda)`, deckLabel(deck)];
+  const lines = [`Extras opcionales (no incluidos en el presupuesto de la vivienda)`, deckLabel(deck), DECK_TEXTOS.estructuraLinea];
   if (extra.subtotal === null) lines.push(`Deck: ${DECK_A_COTIZAR}`);
   else {
     lines.push(`${deck.roofed ? "Deck techado" : "Deck"} ${deckLineName(deck.line)}: ${extra.area} m² × USD ${extra.rate}/m² = ${formatUSD(extra.deck ?? 0)}`);
