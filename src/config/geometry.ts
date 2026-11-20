@@ -616,6 +616,12 @@ export function roofFaces(contour: Point[], direction: 'x'|'z', slope: number, o
   }
   return faces;
 }
+/**
+ * Planta de un muro con las esquinas a inglete. En cada extremo que comparte punto con otro muro, la línea de cada cara se
+ * corta con la línea de la cara del otro muro que cae del MISMO lado de la esquina: la cara que mira hacia el interior del
+ * ángulo con la que mira hacia el interior, y la exterior con la exterior. Así dos muros a 90° forman una esquina recta
+ * (la cara exterior queda más larga que la interior), sin chaflán ni cruce de caras.
+ */
 export function miterPolygon(s: Segment, all: Segment[]): Point[] {
   const dx = s.b.x - s.a.x,
     dz = s.b.z - s.a.z,
@@ -632,17 +638,20 @@ export function miterPolygon(s: Segment, all: Segment[]): Point[] {
     const v = distance(other.a, p) < 1e-6 ? other.b : other.a,
       ox = v.x - p.x,
       oz = v.z - p.z,
-      ol = Math.hypot(ox, oz),
+      ol = Math.hypot(ox, oz);
+    if (ol < 1e-9) return q;
+    // Sentido en que sale cada muro desde la esquina.
+    const atStart = distance(s.a, p) < 1e-6,
+      ux = (atStart ? dx : -dx) / len,
+      uz = (atStart ? dz : -dz) / len,
       onx = -oz / ol,
       onz = ox / ol;
-    const side =
-      orient2d(p.x, p.z, s.a === p ? s.b.x : s.a.x, s.a === p ? s.b.z : s.a.z, v.x, v.z) > 0
-        ? -sign
-        : sign;
-    const r = {
-        x: p.x + ((onx * other.thickness) / 2) * side,
-        z: p.z + ((onz * other.thickness) / 2) * side,
-      },
+    // La cara `sign` de este muro mira hacia el otro muro (cara interior del ángulo) si su normal apunta hacia donde sale el otro.
+    const towardOther = (nx * sign * ox + nz * sign * oz) / ol > 0;
+    // La cara del otro muro que corresponde: la que mira hacia este muro (interior) o la contraria (exterior).
+    const facing = onx * ux + onz * uz > 0 ? 1 : -1;
+    const k = towardOther ? facing : -facing;
+    const r = { x: p.x + onx * (other.thickness / 2) * k, z: p.z + onz * (other.thickness / 2) * k },
       den = dx * oz - dz * ox;
     if (Math.abs(den) > 1e-8) {
       const t = ((r.x - q.x) * oz - (r.z - q.z) * ox) / den;

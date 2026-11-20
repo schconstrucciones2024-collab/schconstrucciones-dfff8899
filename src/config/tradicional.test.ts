@@ -75,7 +75,7 @@ describe("textos de valor de la construcción tradicional", () => {
   });
   it("cada opción muestra el detalle de su cubierta", () => {
     const estructura = (option: "esencial" | "clasica") => incluyeFor(option).find((i) => i.id === "estructura")?.texto ?? "";
-    expect(estructura("esencial")).toContain("Techo Liviano: estructura de madera 100% curada, aislación térmica/hidrófuga reforzada y cubierta de chapa con zinguería completa.");
+    expect(estructura("esencial")).toContain("Techo Liviano: estructura de madera 100% curada, aislación térmica/hidrófuga reforzada y cubierta de chapa galvanizada trapezoidal con zinguería completa.");
     expect(estructura("esencial")).not.toContain("losa llena");
     expect(estructura("clasica")).toContain("Losa: estructura portante reforzada, losa llena de hormigón armado ejecutada en obra, aislación térmica e impermeabilización de azotea (planta baja).");
     expect(estructura("clasica")).not.toContain("madera 100% curada");

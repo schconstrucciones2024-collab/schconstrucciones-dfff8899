@@ -195,7 +195,7 @@ export const WOODFRAME_PLANS: LayoutProposal[] = [
       "123 m² en dos plantas · Dormitorio y baño al fondo de planta baja; arriba, suite, dos dormitorios y estar sobre el living.",
     notes: [
       "La escalera en U queda en el ángulo interior de la L, junto al estar: un solo lugar para subir y bajar.",
-      "El estar de planta alta aprovecha el techo del living y se abre al frente.",
+      "El estar de planta alta aprovecha el techo del living y se abre al frente; la escalera desemboca en él y de ahí se llega a todos los dormitorios.",
     ],
     rooms: [
       room("Dormitorio", "bed", 0, 0, 3.2, 3, [2.4, 3]),
@@ -211,9 +211,9 @@ export const WOODFRAME_PLANS: LayoutProposal[] = [
           room("Dormitorio principal", "bed", 0, 0, 3.2, 3, [2.4, 3]),
           room("Baño", "bath", 3.2, 0, 2.3, 3, [4.5, 3]),
           room("Dormitorio 2", "bed", 0, 4.2, 2.9, 3.8, [2, 4.2], { flip: true }),
-          room("Dormitorio 3", "bed", 2.9, 4.2, 3, 3.8, [3.8, 4.2], { flip: true }),
+          room("Dormitorio 3", "bed", 5.9, 4.8, 3.1, 3.2, [5.9, 6.3], { flip: true }),
         ],
-        openings: [bigWin(9, 6.3), bigWin(7.4, 8), win(0, 3.6), win(9, 3.9)],
+        openings: [bigWin(9, 6.3), bigWin(7.4, 8), bigWin(4.4, 8), win(0, 3.6), win(9, 3.9)],
         open: "Estar y distribuidor",
       },
     ],

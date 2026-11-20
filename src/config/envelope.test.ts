@@ -69,12 +69,10 @@ describe("envolvente de la construcción tradicional", () => {
     expect(box(part(parts, "chapa"))?.max.y).toBeGreaterThan(top);
   });
 
-  it("las cintas entre plantas aparecen solo con más de una planta y a la altura del entrepiso", () => {
+  it("entre plantas no hay cintas ni franjas: la pared es continua y el techo sube una planta", () => {
     expect(ids(buildEnvelope(base))).not.toContain("cintas");
     const parts = buildEnvelope({ ...base, floors: 2 });
-    const cintas = box(part(parts, "cintas"));
-    expect(cintas?.max.y).toBeCloseTo(base.floorBase + base.floorStep);
-    expect(cintas?.min.y).toBeCloseTo(base.floorBase + base.floorStep - base.slabThickness);
+    expect(ids(parts)).not.toContain("cintas");
     // con dos plantas el techo sube una planta
     expect(box(part(parts, "remate"))?.max.y).toBeGreaterThan(
       (box(part(buildEnvelope(base), "remate"))?.max.y ?? 0) + 2.8,

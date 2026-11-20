@@ -48,7 +48,7 @@ export const DECK_LINEAS: Record<DeckLine, DeckLineInfo> = {
           },
           {
             label: "Subestructura",
-            text: "Tirantes colocados sobre dados/pilotines de hormigón con separación optimizada para garantizar rigidez estructural.",
+            text: "Pilotes de madera curada (CCA), tirantes principales y secundarios 6x2 de pino curado de primera, con separación optimizada para garantizar rigidez estructural.",
           },
           {
             label: "Fijaciones",
@@ -108,7 +108,7 @@ export const DECK_LINEAS: Record<DeckLine, DeckLineInfo> = {
           },
           {
             label: "Subestructura",
-            text: "Tirantería sobredimensionada para pisada totalmente firme, sin flexión.",
+            text: "Pilotes de madera curada (CCA) y tirantería sobredimensionada para pisada totalmente firme, sin flexión.",
           },
           {
             label: "Fijaciones",
@@ -330,10 +330,12 @@ export const DECK_TEXTOS = {
   deckTitulo: "Agregar deck",
   deckDescripcion: {
     esencial:
-      "Deck de madera curada CCA sobre dados de hormigón, con tornillería anti-corrosión. Entregado instalado y lijado, listo para pintar.",
+      "Deck de madera curada CCA sobre pilotes de madera curada, con tornillería anti-corrosión. Entregado instalado y lijado, listo para pintar.",
     premium:
-      "Deck de madera de primera, curada CCA, con cantos trabajados y tirantería sobredimensionada. Entregado con 2 a 3 manos de protector costero.",
+      "Deck de madera de primera, curada CCA, sobre pilotes de madera curada, con cantos trabajados y tirantería sobredimensionada. Entregado con 2 a 3 manos de protector costero.",
   } satisfies Record<DeckLine, string>,
+  /** Línea del mensaje de WhatsApp y del resumen: cómo apoya el deck (las dos líneas, Esencial y Premium). */
+  estructuraLinea: "Estructura del deck: pilotes de madera curada (CCA), tirantes y piso de pino curado.",
   techoTitulo: "Agregar techo al deck",
   techoDescripcion: {
     esencial:
@@ -412,7 +414,7 @@ export const DECK_3D = {
   tiranteAlto: 0.15,
   tiranteAncho: 0.05,
   tiranteSeparacion: 0.4,
-  /** Separación máxima entre pilotes de una misma viga, y escuadría del pilote. */
+  /** Separación máxima entre pilotes (de madera curada) de una misma viga, y escuadría del pilote. */
   pilotesCada: 1.65,
   pilote: 0.14,
   /**
@@ -525,8 +527,8 @@ export const DECK_LOOK = {
 
 /** Colores del 3D que no dependen de la línea. */
 export const DECK_3D_COLORES = {
-  /** Dados / pilotines de hormigón sobre los que apoyan los tirantes. */
-  hormigon: "#a6a6a0",
+  /** Pilotes de madera curada (CCA) sobre los que apoyan las vigas: más oscuros que el piso, por el tratamiento y el contacto con el suelo. */
+  pilote: "#7a6843",
   /** Tornillos a la vista de la línea Esencial. */
   tornillo: "#5d4b36",
   /** Color de los herrajes (hoy ninguna línea los dibuja: la lista de herrajes del layout queda vacía). */

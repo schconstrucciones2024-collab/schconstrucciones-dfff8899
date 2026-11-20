@@ -11,7 +11,9 @@ export type MaterialKind =
   // Pisos de la construcción tradicional
   | "ceramico" | "porcelanato"
   // Baños de woodframe: piso cerámico antideslizante y pared de cerámica
-  | "ceramicoAntideslizante" | "ceramicoBano";
+  | "ceramicoAntideslizante" | "ceramicoBano"
+  // Techo de todas las casas con cubierta liviana: chapa galvanizada trapezoidal
+  | "chapaTrapezoidal";
 
 export const MATERIAL_NAMES: Record<MaterialKind, string> = {
   chapones: "Chapones cepillados de eucalipto/pino",
@@ -42,6 +44,7 @@ export const MATERIAL_NAMES: Record<MaterialKind, string> = {
   porcelanato: "Piso porcelanato",
   ceramicoAntideslizante: "Piso cerámico antideslizante",
   ceramicoBano: "Pared de cerámica",
+  chapaTrapezoidal: "Chapa galvanizada trapezoidal",
 };
 
 export const FINISH_MATERIALS: Record<FinishId, { wall: MaterialKind; ceiling: MaterialKind; floor: MaterialKind; siding: MaterialKind }> = {
@@ -228,6 +231,18 @@ export function drawMaterial(kind: MaterialKind, size = 512): HTMLCanvasElement 
       }
       break;
     }
+    case "chapaTrapezoidal": {
+      // Muestra de 0,80 m con 8 nervios trapezoidales (paso de 10 cm): valle plano, dos flancos y cresta más clara.
+      const ribs = 8, w = size / ribs;
+      ctx.fillStyle = "#aab0b4"; ctx.fillRect(0, 0, size, size);
+      for (let i = 0; i < ribs; i++) {
+        const x = i * w;
+        ctx.fillStyle = "#8f969b"; ctx.fillRect(x + w * 0.22, 0, w * 0.19, size);
+        ctx.fillStyle = "#c4c9cc"; ctx.fillRect(x + w * 0.41, 0, w * 0.19, size);
+        ctx.fillStyle = "#8f969b"; ctx.fillRect(x + w * 0.60, 0, w * 0.19, size);
+      }
+      break;
+    }
     case "ceramicoAntideslizante": tiles(2, [150, 148, 142], 10, "rgb(104,102,98)", Math.max(3, size / 130), false); break;
     case "ceramicoBano": {
       // Cerámica blanca esmaltada de 60 × 30 cm, colocada en horizontal (dos hiladas por muestra), junta clara fina.
@@ -260,6 +275,8 @@ export const MATERIAL_TILE_M: Partial<Record<MaterialKind, number>> = {
   arena: 2, pasto: 2, ceramico: 0.9, porcelanato: 1.2,
   // antideslizante: baldosas de 30 cm (2 × 2); cerámica de pared: baldosas de 60 × 30 cm (dos hiladas por muestra)
   ceramicoAntideslizante: 0.6, ceramicoBano: 0.6,
+  // chapa trapezoidal: muestra de 0,80 m con 8 nervios (paso de 10 cm)
+  chapaTrapezoidal: 0.8,
 };
 
 export type MaterialMapId = "albedo" | "normal" | "orm";
@@ -269,5 +286,8 @@ export type MaterialMapId = "albedo" | "normal" | "orm";
  * (R = oclusión, G = rugosidad, B = metal, sin usar). `low` pide la versión de 512 px para celulares.
  */
 export function materialTextureUrl(kind: MaterialKind, map: MaterialMapId, low = false): string {
-  return `/textures/${kind}/${map}${low ? "-512" : ""}.webp`;
+  // La chapa galvanizada trapezoidal comparte la carpeta de la chapa (`chapa/`), con el prefijo `trap-` en cada archivo.
+  const folder = kind === "chapaTrapezoidal" ? "chapa" : kind,
+    prefix = kind === "chapaTrapezoidal" ? "trap-" : "";
+  return `/textures/${folder}/${prefix}${map}${low ? "-512" : ""}.webp`;
 }

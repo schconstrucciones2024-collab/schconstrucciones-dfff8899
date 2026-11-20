@@ -303,11 +303,11 @@ export const TRADICIONAL_PLANS: LayoutProposal[] = [
       "153 m² en tres plantas · Social con cocina cerrada abajo, dos dormitorios en el primer piso y tres en el segundo.",
     notes: [
       "Las escaleras están en los dos extremos de la L: ningún vacío cae sobre otro.",
-      "Los baños quedan en la misma vertical en las tres plantas.",
+      "Los baños quedan en la misma vertical en las tres plantas, del lado opuesto a la escalera: ninguna puerta da contra el hueco.",
     ],
     rooms: [
-      room("Cocina", "kitchen", 3, 0, 3, 3, [4, 3]),
-      room("Baño", "bath", 6, 0, 2, 3, [7.2, 3]),
+      room("Baño", "bath", 3, 0, 2, 3, [4, 3]),
+      room("Cocina", "kitchen", 5, 0, 3, 3, [5.5, 3]),
     ],
     stairs: [
       { floor: 0, type: "U", at: pt(6.2, 3), open: "S" },
@@ -319,19 +319,19 @@ export const TRADICIONAL_PLANS: LayoutProposal[] = [
       bigWin(5, 7.5),
       bigWin(0, 5.5),
       win(8, 6.8),
-      kitchenWin(4.5, 0),
-      kitchenWin(3, 1.8),
+      kitchenWin(6.5, 0),
+      kitchenWin(8, 1.8),
     ],
     counters: [
-      { x: 4.5, z: 0.42, length: 2 },
-      { x: 3.42, z: 1.8, length: 2, rotation: Math.PI / 2 },
+      { x: 6.5, z: 0.42, length: 2 },
+      { x: 7.58, z: 1.8, length: 2, rotation: Math.PI / 2 },
     ],
     open: "Living-comedor",
     upper: [
       {
         rooms: [
-          room("Dormitorio 1", "bed", 3, 0, 3, 3, [3.9, 3]),
-          room("Baño", "bath", 6, 0, 2, 3, [7.2, 3]),
+          room("Baño", "bath", 3, 0, 2, 3, [4, 3]),
+          room("Dormitorio 1", "bed", 5, 0, 3, 3, [5.5, 3]),
           room("Dormitorio 2", "bed", 2, 4.2, 3.2, 3.3, [2.8, 4.2], { flip: true }),
         ],
         openings: [win(8, 6.8), win(8, 4.5), bigWin(6.9, 7.5)],
@@ -339,8 +339,8 @@ export const TRADICIONAL_PLANS: LayoutProposal[] = [
       },
       {
         rooms: [
-          room("Dormitorio principal", "bed", 3, 0, 3, 3, [3.9, 3]),
-          room("Baño", "bath", 6, 0, 2, 3, [7.2, 3]),
+          room("Baño", "bath", 3, 0, 2, 3, [4, 3]),
+          room("Dormitorio principal", "bed", 5, 0, 3, 3, [5.5, 3]),
           room("Dormitorio 3", "bed", 2, 4.2, 3.2, 3.3, [2.8, 4.2], { flip: true }),
           room("Dormitorio 4", "bed", 5.2, 4.2, 2.8, 3.3, [6, 4.2], { flip: true }),
         ],

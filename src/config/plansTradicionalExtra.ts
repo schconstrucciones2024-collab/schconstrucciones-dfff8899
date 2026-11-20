@@ -289,7 +289,8 @@ export const TRADICIONAL_PLANS_EXTRA: LayoutProposal[] = [
       "154 m² en dos plantas · Cocina, baño y lavadero abajo; arriba, suite, tres dormitorios y baño común en dos franjas.",
     notes: [
       "La escalera recta corre pegada al muro este y se percibe como un único gesto de la fachada lateral.",
-      "En planta alta los dormitorios se agrupan en dos franjas con el baño común en el centro del frente.",
+      "En planta alta la escalera desemboca en un hall de 2 m sobre el lado este, que se abre al distribuidor: se rodea el hueco y se llega a todos los dormitorios.",
+      "Los dormitorios se agrupan en dos franjas con el baño común en el centro del frente.",
       "Cocina, baño y lavadero comparten la pared húmeda en la planta baja.",
     ],
     rooms: [
@@ -308,17 +309,17 @@ export const TRADICIONAL_PLANS_EXTRA: LayoutProposal[] = [
     upper: [
       {
         rooms: [
-          room("Dormitorio principal", "bed", 0, 0, 3.6, 3.4, undefined, {
-            doors: [pt(2.6, 3.4), pt(3.6, 1.6)],
+          room("Dormitorio principal", "bed", 0, 0, 2.9, 3.4, undefined, {
+            doors: [pt(1.6, 3.4), pt(2.9, 1.6)],
           }),
-          room("Baño suite", "bath", 3.6, 0, 2.2, 3.4),
-          room("Dormitorio 2", "bed", 5.8, 0, 2.9, 3.4, [6.7, 3.4]),
-          room("Dormitorio 3", "bed", 0, 4.6, 3.2, 3.4, [2.3, 4.6], { flip: true }),
-          room("Baño común", "bath", 3.2, 4.6, 2.2, 3.4, [4.5, 4.6], { flip: true }),
-          room("Dormitorio 4", "bed", 5.4, 4.6, 3.3, 3.4, [6.3, 4.6], { flip: true }),
+          room("Baño suite", "bath", 2.9, 0, 2, 3.4),
+          room("Dormitorio 2", "bed", 4.9, 0, 2.7, 3.4, [6, 3.4]),
+          room("Dormitorio 3", "bed", 0, 4.6, 2.9, 3.4, [2, 4.6], { flip: true }),
+          room("Baño común", "bath", 2.9, 4.6, 2, 3.4, [4, 4.6], { flip: true }),
+          room("Dormitorio 4", "bed", 4.9, 4.6, 2.7, 3.4, [6, 4.6], { flip: true }),
         ],
         openings: [],
-        open: "Distribuidor",
+        open: "Hall y distribuidor",
       },
     ],
   },

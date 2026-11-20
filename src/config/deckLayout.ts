@@ -59,7 +59,7 @@ export type DeckLayout = {
   boards: DeckBox[];
   /** Estructura de madera: tirantes secundarios y vigas principales. */
   frame: DeckBox[];
-  /** Pilotes (dados de hormigón). */
+  /** Pilotes de madera curada (o, en un deck bajo, la solera de madera curada que apoya los tirantes). */
   piles: DeckBox[];
   /** Escalones del frente. */
   steps: DeckBox[];
@@ -229,7 +229,7 @@ export function deckLayout(
             pos: [x, altoPilote / 2, z],
           });
       } else {
-        // Deck bajo (sobre platea): una solera corrida apoya los tirantes en lugar de pilotes.
+        // Deck bajo (sobre platea): una solera corrida de madera curada apoya los tirantes en lugar de pilotes.
         piles.push({ size: [W - 0.2, altoPilote, 0.1], pos: [0, altoPilote / 2, z] });
       }
     }

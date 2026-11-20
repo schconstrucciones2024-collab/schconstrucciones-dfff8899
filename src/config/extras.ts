@@ -29,7 +29,7 @@ export const EXTRA_CARDS: readonly ExtraCard[] = [
   {
     id: "deck",
     titulo: "Deck y techado",
-    resumen: "Deck de pino curado sobre pilotes, solo o techado, con barandas. En línea Esencial o Premium.",
+    resumen: "Deck de pino curado sobre pilotes de madera curada, solo o techado, con barandas. En línea Esencial o Premium.",
     desde: `Desde USD ${deckDesde}/m²`,
   },
   {

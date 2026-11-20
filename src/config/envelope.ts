@@ -17,7 +17,7 @@ import type { FinishId } from "./materials";
 
 /**
  * Envolvente de la construcción tradicional: lo que hace que la casa se lea como una obra de mampostería y no como una
- * cabaña. Zócalo de hormigón, cintas entre plantas, y arriba, o bien una losa plana con antepecho, remate, membrana y bajada
+ * cabaña. Zócalo de hormigón, muros continuos entre plantas (sin cintas), y arriba, o bien una losa plana con antepecho, remate, membrana y bajada
  * pluvial (Clásica), o bien un techo de chapa bajo y prolijo con frontones de mampostería, cenefa, canaleta y bajada (Esencial).
  *
  * Son funciones puras (sin React) que devuelven geometrías three.js ya fusionadas por tipo de pieza; el componente
@@ -51,7 +51,6 @@ export type EnvelopeInput = {
 export const ENVELOPE = {
   plinthProjection: 0.03,
   plinthHeight: 0.3,
-  beltProjection: 0.02,
   slab: 0.18,
   slabProjection: 0.05,
   parapetHeight: 0.5,
@@ -69,7 +68,6 @@ export const ENVELOPE = {
 
 const STYLES: Record<string, PartStyle> = {
   zocalo: "concrete",
-  cintas: "plaster",
   losa: "plaster",
   antepecho: "plaster",
   remate: "concrete",
@@ -257,7 +255,9 @@ function addPitchedRoof(i: EnvelopeInput, top: number, add: Add) {
         const p = flat[k];
         if (!p) continue;
         pts.push(p.x, top + H(face, p), p.z);
-        uv.push(p.x, p.z);
+        // Los nervios de la chapa corren a lo largo de la caída del agua.
+        if (i.roofDirection === "x") uv.push(p.z, p.x);
+        else uv.push(p.x, p.z);
       }
   }
   if (pts.length) {
@@ -433,7 +433,7 @@ function addPitchedRoof(i: EnvelopeInput, top: number, add: Add) {
   }
 }
 
-/** Todas las piezas de la envolvente (zócalo, cintas y techo) de una casa tradicional. */
+/** Todas las piezas de la envolvente (zócalo y techo) de una casa tradicional. */
 export function buildEnvelope(i: EnvelopeInput): EnvelopePart[] {
   const E = ENVELOPE,
     half = i.thickness / 2,
@@ -449,11 +449,7 @@ export function buildEnvelope(i: EnvelopeInput): EnvelopePart[] {
     "zocalo",
     prism(i.contour, half + E.plinthProjection, -half, i.groundTop, i.floorBase + E.plinthHeight),
   );
-  // Cintas entre plantas: tapan el canto de la losa de entrepiso.
-  for (let f = 1; f < i.floors; f++) {
-    const y = i.floorBase + f * i.floorStep;
-    add("cintas", prism(i.contour, half + E.beltProjection, -half, y - i.slabThickness, y));
-  }
+  // Entre plantas no hay cintas: el muro exterior sube hasta la losa siguiente (`exteriorSolidHeight`, en el visor) y la pared se ve continua.
   if (i.finish === "clasica") addFlatRoof(i, top, add);
   else addPitchedRoof(i, top, add);
   const parts: EnvelopePart[] = [];

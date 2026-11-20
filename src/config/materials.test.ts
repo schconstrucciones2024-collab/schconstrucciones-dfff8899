@@ -62,6 +62,12 @@ describe("texturas PBR del visor 3D", () => {
     expect(materialTextureUrl("pasto", "normal", true)).toBe("/textures/pasto/normal-512.webp");
   });
 
+  it("la chapa trapezoidal del techo usa la carpeta chapa/ con el prefijo trap-", () => {
+    expect(materialTextureUrl("chapaTrapezoidal", "albedo")).toBe("/textures/chapa/trap-albedo.webp");
+    expect(materialTextureUrl("chapaTrapezoidal", "orm", true)).toBe("/textures/chapa/trap-orm-512.webp");
+    expect(materialTextureUrl("chapa", "albedo")).toBe("/textures/chapa/albedo.webp"); // la chapa acanalada de pared no cambia
+  });
+
   it("la arena y el pasto se repiten cada 2 m, los pisos de baldosas según su tamaño y el resto cada 1 m", () => {
     expect(MATERIAL_TILE_M.arena).toBe(2);
     expect(MATERIAL_TILE_M.pasto).toBe(2);
@@ -69,7 +75,8 @@ describe("texturas PBR del visor 3D", () => {
     expect(MATERIAL_TILE_M.porcelanato).toBe(1.2); // 2 × 2 baldosas de 60 cm
     expect(MATERIAL_TILE_M.ceramicoAntideslizante).toBe(0.6); // 2 × 2 baldosas de 30 cm
     expect(MATERIAL_TILE_M.ceramicoBano).toBe(0.6); // dos hiladas de baldosas de 60 × 30 cm
-    const own = new Set<MaterialKind>(["arena", "pasto", "ceramico", "porcelanato", "ceramicoAntideslizante", "ceramicoBano"]);
+    expect(MATERIAL_TILE_M.chapaTrapezoidal).toBe(0.8); // 8 nervios de 10 cm
+    const own = new Set<MaterialKind>(["arena", "pasto", "ceramico", "porcelanato", "ceramicoAntideslizante", "ceramicoBano", "chapaTrapezoidal"]);
     for (const kind of kinds.filter((k) => !own.has(k))) expect(MATERIAL_TILE_M[kind] ?? 1).toBe(1);
   });
 });

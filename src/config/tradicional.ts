@@ -77,7 +77,7 @@ export const PRECIO_INCLUYE: readonly IncluyeItem[] = [
     titulo: "Estructura y cubierta adaptada al clima marino",
     texto: "Mampostería tradicional con materiales aptos para salinidad y viento costero.",
     porOpcion: {
-      esencial: "estructura de madera 100% curada, aislación térmica/hidrófuga reforzada y cubierta de chapa con zinguería completa.",
+      esencial: "estructura de madera 100% curada, aislación térmica/hidrófuga reforzada y cubierta de chapa galvanizada trapezoidal con zinguería completa.",
       clasica:
         "estructura portante reforzada, losa llena de hormigón armado ejecutada en obra, aislación térmica e impermeabilización de azotea (planta baja).",
     },

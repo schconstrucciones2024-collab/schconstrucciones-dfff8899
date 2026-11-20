@@ -5,6 +5,8 @@ import {
   DECK_LINEAS,
   DECK_DOWNSPOUTS,
   DECK_LINES,
+  DECK_3D_COLORES,
+  DECK_TEXTOS,
   DEFAULT_DECK,
   DEFAULT_DECK_DOWNSPOUT,
   deckArea,
@@ -257,6 +259,21 @@ describe("deck y techado: resumen", () => {
   it("con viaje aparte el total con extras queda pendiente", () => {
     const q = deckExtra(deck({}), { zoneId: "far", separateTrip: true });
     expect(withExtras(null, q).totalConExtras).toBeNull();
+  });
+
+  it("las dos líneas apoyan el deck en pilotes de madera curada, en la ficha, en las descripciones y en el mensaje", () => {
+    for (const line of DECK_LINES) {
+      const sub = DECK_LINEAS[line].specs.deck.items.find((i) => i.label === "Subestructura");
+      expect(sub?.text).toMatch(/pilotes de madera curada/i);
+      expect(DECK_TEXTOS.deckDescripcion[line]).toMatch(/pilotes de madera curada/i);
+      const all = JSON.stringify([DECK_LINEAS[line], DECK_TEXTOS.deckDescripcion[line], DECK_TEXTOS.techoDescripcion[line]]);
+      expect(all).not.toMatch(/hormig|dados|pilotin/i);
+      const text = buildSummary(areas, local, "woodframe", "rustica", deck({ line }));
+      expect(text).toContain("pilotes de madera curada");
+    }
+    // En el 3D los pilotes tienen color de madera (no de hormigón).
+    expect(DECK_3D_COLORES).toHaveProperty("pilote");
+    expect(DECK_3D_COLORES).not.toHaveProperty("hormigon");
   });
 
   it("la etiqueta del deck dice la línea", () => {

@@ -160,6 +160,7 @@ export function configWhatsAppText(input: PriceInput & { openings: number }) {
       head = "Extras opcionales (no incluidos en el presupuesto de la vivienda)",
       parts = [deckOn ? `${head}: ${deckLabel(deck)}` : head];
     if (deckOn) {
+      parts.push(DECK_TEXTOS.estructuraLinea);
       if (extra.subtotal === null) parts.push(`Deck: ${DECK_TEXTOS.escalonesPrecio}`);
       else {
         parts.push(`${deck.roofed ? "Deck techado" : "Deck"} ${deckLineName(deck.line)}: ${formatUSD(extra.deck ?? 0)}`);
