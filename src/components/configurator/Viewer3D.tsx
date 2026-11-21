@@ -494,7 +494,7 @@ export default function Viewer3D({ onFail }: { onFail: () => void }) {
             <StaticEnvironment palette={palette} />
           )}
           <Suspense fallback={null}>
-            <Ground underHouse={s.underHouse} />
+            <Ground />
             <House palette={palette} dragging={dragging} setDragging={setDragging} />
           </Suspense>
           <SafeBoundary label="La vegetación" fallback={null}>
@@ -557,10 +557,10 @@ export default function Viewer3D({ onFail }: { onFail: () => void }) {
             <Focus size={18} />
           </Button>
           <Button
-            variant="secondary"
+            variant={s.underHouse ? "default" : "secondary"}
             size="icon"
             className="h-11 w-11"
-            title="Ver bajo la casa"
+            title={s.underHouse ? "Ver bajo la casa (activado): tocá para volver" : "Ver bajo la casa"}
             aria-label="Ver bajo la casa"
             aria-pressed={s.underHouse}
             onClick={s.toggleUnder}

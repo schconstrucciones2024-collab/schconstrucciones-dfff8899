@@ -3,8 +3,9 @@ import polygonClipping from "polygon-clipping";
 import type * as THREE from "three";
 import { PLAN_CATALOG } from "@/config/layoutProposals";
 import { exteriorSegments, isOrthogonal, miterPolygon, polygonArea, type Point } from "@/config/geometry";
-import { buildLayoutProposal, designWalls, initialConfig, FLOOR_STEP } from "@/store/useConfigurator";
-import { buildWallSolid, exteriorSolidHeight, floorsToDraw, innerFaceSpan, interiorSide, wallFrame, wallLocalRing } from "./wallSolid";
+import { OPENINGS_CATALOG } from "@/config/openingsCatalog";
+import { buildLayoutProposal, designWalls, initialConfig, resolveWall, FLOOR_STEP } from "@/store/useConfigurator";
+import { buildContinuousSolid, buildSlabSolid, buildWallSolid, exteriorSolidHeight, floorsToDraw, innerFaceSpan, interiorSide, JOINT_OVERLAP, wallFrame, wallLocalRing } from "./wallSolid";
 
 const rect = (w: number, d: number): Point[] => [
   { x: 0, z: 0 },
@@ -134,5 +135,142 @@ describe("plantas que se dibujan", () => {
     ]);
     expect(floorsToDraw(true, 9, 2).map((f) => f.floor)).toEqual([0, 1]);
     expect(floorsToDraw(true, -1, 2).map((f) => f.floor)).toEqual([0]);
+  });
+});
+
+/** Aristas dirigidas de una malla sin índice, con los vértices redondeados al 0,01 mm. Las que están en el plano y = 0 son el borde abierto de abajo. */
+function edgeStats(g: THREE.BufferGeometry) {
+  const p = g.getAttribute("position"),
+    key = (i: number) => `${Math.round(p.getX(i) * 1e5)},${Math.round(p.getY(i) * 1e5)},${Math.round(p.getZ(i) * 1e5)}`,
+    onFloor = (i: number, j: number) => Math.abs(p.getY(i)) < 1e-6 && Math.abs(p.getY(j)) < 1e-6,
+    directed = new Map<string, number>(),
+    floor = new Set<string>();
+  for (let t = 0; t + 2 < p.count; t += 3)
+    for (let k = 0; k < 3; k++) {
+      const i = t + k,
+        j = t + ((k + 1) % 3),
+        id = `${key(i)}>${key(j)}`;
+      directed.set(id, (directed.get(id) ?? 0) + 1);
+      if (onFloor(i, j)) floor.add(id);
+    }
+  let repeated = 0,
+    unmatched = 0;
+  for (const [id, n] of directed) {
+    if (n > 1) repeated++;
+    const [a, b] = id.split(">") as [string, string];
+    if (!directed.has(`${b}>${a}`) && !floor.has(id)) unmatched++;
+  }
+  return { repeated, unmatched };
+}
+
+/** Volumen con signo: positivo si todas las caras miran hacia afuera. */
+function signedVolume(g: THREE.BufferGeometry): number {
+  const p = g.getAttribute("position");
+  let v = 0;
+  for (let i = 0; i + 2 < p.count; i += 3) {
+    const ax = p.getX(i), ay = p.getY(i), az = p.getZ(i), bx = p.getX(i + 1), by = p.getY(i + 1), bz = p.getZ(i + 1), cx = p.getX(i + 2), cy = p.getY(i + 2), cz = p.getZ(i + 2);
+    v += (ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx)) / 6;
+  }
+  return v;
+}
+
+describe("cuerpo del muro sin cortes: no quedan caras internas que asomen como una raya", () => {
+  const wall = { id: "edge-0", a: { x: 0, z: 0 }, b: { x: 6, z: 0 }, thickness: 0.15, height: 2.65 };
+  const ring = wallLocalRing(wall, exteriorSegments(rect(6, 4)));
+  const cuts = [
+    { type: "ventana" as const, offset: -1.8 },
+    { type: "entrada" as const, offset: 0.2 },
+    { type: "ventanaGrande" as const, offset: 1.9 },
+  ];
+
+  it("es una superficie cerrada y bien orientada (cada arista tiene su vecina, ninguna está repetida, todas las caras miran hacia afuera)", () => {
+    const g = buildContinuousSolid(ring, cuts, 2.65, true)!;
+    expect(g).not.toBeNull();
+    expect(edgeStats(g)).toEqual({ repeated: 0, unmatched: 0 });
+    expect(signedVolume(g)).toBeGreaterThan(0);
+  });
+
+  it("el armado anterior por tramos sí dejaba caras internas repetidas (por eso la raya)", () => {
+    const old = buildSlabSolid(ring, cuts, 2.65)!,
+      stats = edgeStats(old);
+    expect(stats.repeated + stats.unmatched).toBeGreaterThan(0);
+  });
+
+  it("descuenta de su volumen los huecos de las ventanas y la puerta", () => {
+    const g = buildContinuousSolid(ring, cuts, 2.65, true)!,
+      zs = ring.map((q) => q.z),
+      thick = Math.max(...zs) - Math.min(...zs),
+      holes = cuts.reduce((s, o) => s + OPENINGS_CATALOG[o.type].width * OPENINGS_CATALOG[o.type].height * thick, 0);
+    expect(signedVolume(g)).toBeCloseTo(Math.abs(polygonArea(ring)) * 2.65 - holes, 4);
+  });
+
+  it("sin cara superior no hay ningún triángulo horizontal arriba (en las plantas de abajo no hay raya en la unión entre plantas)", () => {
+    const horizontalAt = (g: THREE.BufferGeometry, y: number) => {
+      const p = g.getAttribute("position");
+      let n = 0;
+      for (let i = 0; i + 2 < p.count; i += 3) if ([0, 1, 2].every((k) => Math.abs(p.getY(i + k) - y) < 1e-5)) n++;
+      return n;
+    };
+    expect(horizontalAt(buildWallSolid(ring, cuts, 2.65, { top: true })!, 2.65)).toBeGreaterThan(0);
+    expect(horizontalAt(buildWallSolid(ring, cuts, 2.65, { top: false })!, 2.65)).toBe(0);
+    // abajo nunca hay cara: queda apoyado sobre la losa o sobre el muro de abajo
+    expect(horizontalAt(buildWallSolid(ring, cuts, 2.65)!, 0)).toBe(0);
+  });
+
+  it("todos los muros de todas las distribuciones, en todas las plantas, se arman sin cortes y cerrados", () => {
+    const bad: string[] = [];
+    for (const plan of PLAN_CATALOG.filter((p) => p.version === 2)) {
+      const c = buildLayoutProposal(initialConfig(plan.system ?? "woodframe"), plan);
+      for (let floor = 0; floor < c.floors; floor++) {
+        const all = designWalls(c, floor);
+        for (const w of all) {
+          const r = wallLocalRing(w, all),
+            interior = w.id.startsWith("wall-"),
+            h = interior ? w.height : exteriorSolidHeight(w.height, floor, c.floors, FLOOR_STEP),
+            cutsHere = c.openings.filter((o) => o.floor === floor && resolveWall(c, o.wall, floor)?.id === w.id).map((o) => ({ type: o.type, offset: o.offset })),
+            g = buildContinuousSolid(r, cutsHere, h, true);
+          if (!g) {
+            bad.push(`${plan.id} planta ${floor} ${w.id}: no se pudo armar sin cortes`);
+            continue;
+          }
+          const s = edgeStats(g);
+          if (s.repeated || s.unmatched) bad.push(`${plan.id} planta ${floor} ${w.id}: la malla no es cerrada (${s.repeated} repetidas, ${s.unmatched} sin vecina)`);
+          if (signedVolume(g) <= 0) bad.push(`${plan.id} planta ${floor} ${w.id}: hay caras que miran hacia adentro`);
+        }
+      }
+    }
+    expect(bad.slice(0, 12)).toEqual([]);
+  });
+
+  it("todos los muros se cortan a las mismas alturas (las de todas las aberturas): en las esquinas los vértices de un muro y del vecino coinciden", () => {
+    const levelsOf = (g: THREE.BufferGeometry) => {
+      const p = g.getAttribute("position"),
+        ys = new Set<number>();
+      for (let i = 0; i < p.count; i++) ys.add(Math.round(p.getY(i) * 1e4));
+      return [...ys].sort((a, b) => a - b);
+    };
+    const expected = [0, 0.9, 1.1, 1.5, 2.05, 2.1, 2.65].map((v) => Math.round(v * 1e4));
+    const noCuts = buildContinuousSolid(ring, [], 2.65, true)!,
+      withCuts = buildContinuousSolid(ring, cuts, 2.65, true)!;
+    expect(levelsOf(noCuts)).toEqual(expected);
+    expect(levelsOf(withCuts)).toEqual(expected);
+  });
+
+  it("la malla del muro se mantiene liviana (menos de 1500 triángulos por muro con seis aberturas)", () => {
+    const six = [-2.75, -1.65, -0.55, 0.55, 1.65, 2.75].map((offset) => ({ type: "ventana" as const, offset })),
+      walls8 = exteriorSegments(rect(8, 4)),
+      g = buildContinuousSolid(wallLocalRing(walls8[0]!, walls8), six, 2.65, true)!;
+    expect(g.getAttribute("position").count / 3).toBeLessThan(1500);
+  });
+
+  it("si una abertura no entra en el tramo recto del muro se usa el armado por tramos en vez de fallar", () => {
+    const wide = [{ type: "ventanal" as const, offset: 2.9 }];
+    expect(buildContinuousSolid(ring, wide, 2.65, true)).toBeNull();
+    expect(buildWallSolid(ring, wide, 2.65)).not.toBeNull();
+  });
+
+  it("el muro de una planta con otra encima se prolonga unos milímetros dentro del de arriba", () => {
+    expect(JOINT_OVERLAP).toBeGreaterThan(0);
+    expect(JOINT_OVERLAP).toBeLessThan(0.02);
   });
 });

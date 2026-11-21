@@ -33,7 +33,7 @@ import {
 import { EXTERIOR_THICKNESS, PLATEA_HEIGHT, exteriorThickness, systemOf } from "@/config/systems";
 import { TraditionalEnvelope } from "./TraditionalEnvelope";
 import { buildRoofGeometry } from "./roofGeometry";
-import { buildWallSolid, exteriorSolidHeight, floorsToDraw, innerFaceSpan, interiorSide, wallLocalRing } from "./wallSolid";
+import { buildWallSolid, exteriorSolidHeight, floorsToDraw, innerFaceSpan, interiorSide, JOINT_OVERLAP, wallLocalRing } from "./wallSolid";
 import { DeckModel } from "./Deck";
 import { ParrilleroModel } from "./ParrilleroModel";
 import { useParrilleroInfo } from "./useParrilleroInfo";
@@ -153,30 +153,33 @@ function MergedBoxes({
     </mesh>
   );
 }
-export function Ground({ underHouse }: { underHouse: boolean }) {
+/** Color medio de cada suelo (el de las texturas): sirve de suelo de respaldo hasta el horizonte. */
+export const GROUND_BASE_COLOR = { arena: "#c9bd9f", pasto: "#415a22" } as const;
+export function Ground() {
   const ground = useConfigurator((s) => s.config.ground);
   const map = useMaterial(ground === "arena" ? "arena" : "pasto");
   // El plano mide 80 m y su UV va de 0 a 1: la repetición se aplica a TODOS los mapas (color, normal, rugosidad, oclusión).
   const groundMap = useMemo(() => repeatPBR(map, 80), [map]);
   useEffect(() => () => disposePBR(groundMap), [groundMap]);
+  // El suelo SIEMPRE es opaco: antes, con "Ver bajo la casa" activado se volvía casi transparente (18 %) y la casa quedaba flotando en
+  // el cielo, también desde arriba y en el resto de las vistas.
   return (
     <group>
-    <mesh rotation-x={-Math.PI / 2} position-y={0} receiveShadow>
-      <planeGeometry args={[80, 80]} />
-      <meshStandardMaterial
-        map={groundMap}
-        {...pbrProps(groundMap)}
-        roughness={1}
-        transparent={underHouse}
-        opacity={underHouse ? 0.18 : 1}
-        depthWrite={!underHouse}
-      />
-    </mesh>
-    <GroundGrass hidden={underHouse} sand={ground==='arena'} />
+      {/* Suelo de respaldo, liso y mucho más grande: llega hasta el horizonte (la niebla lo funde con el cielo) y asegura que haya suelo
+          aunque la textura tarde en cargar o falle. Queda 2 cm más abajo para no pelear con el suelo texturado. */}
+      <mesh rotation-x={-Math.PI / 2} position-y={-0.02} receiveShadow>
+        <planeGeometry args={[400, 400]} />
+        <meshStandardMaterial color={ground === "arena" ? GROUND_BASE_COLOR.arena : GROUND_BASE_COLOR.pasto} roughness={1} />
+      </mesh>
+      <mesh rotation-x={-Math.PI / 2} position-y={0} receiveShadow>
+        <planeGeometry args={[80, 80]} />
+        <meshStandardMaterial map={groundMap} {...pbrProps(groundMap)} roughness={1} />
+      </mesh>
+      <GroundGrass sand={ground === "arena"} />
     </group>
   );
 }
-function GroundGrass({hidden,sand}:{hidden:boolean;sand:boolean}){
+function GroundGrass({sand}:{sand:boolean}){
   const c=useConfigurator(s=>s.config);
   const geometry=useMemo(()=>{
     const b=bounds(c.contour),pts:number[]=[],uv:number[]=[],colors:number[]=[];
@@ -193,7 +196,7 @@ function GroundGrass({hidden,sand}:{hidden:boolean;sand:boolean}){
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));g.computeVertexNormals();return g;
   },[c.contour,sand]);
   useEffect(()=>()=>geometry.dispose(),[geometry]);
-  return <group position={[c.position.x,0,c.position.z]} rotation-y={-c.rotation} visible={!hidden}><mesh geometry={geometry}><meshStandardMaterial vertexColors side={THREE.DoubleSide} roughness={0.9}/></mesh></group>;
+  return <group position={[c.position.x,0,c.position.z]} rotation-y={-c.rotation}><mesh geometry={geometry}><meshStandardMaterial vertexColors side={THREE.DoubleSide} roughness={0.9}/></mesh></group>;
 }
 const NO_HOLES: Point[][] = [];
 function Foundation({ c }: { c: HouseConfig }) {
@@ -345,12 +348,15 @@ function Wall({
   dragging,
   setDragging,
   inert = false,
+  isTop = true,
 }: {
   c: HouseConfig;
   wall: WallId;
   floor: number;
   /** Planta de abajo que se muestra bajo la planta activa: solo se mira, no se puede tocar ni editar. */
   inert?: boolean;
+  /** Es la última planta que se dibuja: solo ahí se ve la cara superior del muro (en las de abajo la tapa el muro de arriba). */
+  isTop?: boolean;
   interiorMap: THREE.Texture;
   sidingMap: THREE.Texture;
   /** Pintura elegida: color de las caras exterior e interior (null = textura sin tocar). */
@@ -401,13 +407,15 @@ function Wall({
   const thickness = wallData?.thickness ?? 0.15;
   const wallHeight=wallData?.height??WALL_HEIGHT;
   // En las plantas de abajo el muro exterior sube hasta la losa de la planta siguiente: el revestimiento sigue sin franja entre plantas.
-  const solidHeight=interior?wallHeight:exteriorSolidHeight(wallHeight,floor,c.floors,FLOOR_STEP);
+  const faceHeight=interior?wallHeight:exteriorSolidHeight(wallHeight,floor,c.floors,FLOOR_STEP);
+  // Con otra planta encima el muro se prolonga unos milímetros dentro del de arriba (mismo revestimiento): no queda rendija en la unión.
+  const solidHeight=faceHeight+(!interior&&!isTop?JOINT_OVERLAP:0);
   const ring=useMemo(()=>wallData?wallLocalRing(wallData,designWalls(c,floor)):[],[wallData?.a.x,wallData?.a.z,wallData?.b.x,wallData?.b.z,thickness,c.contour,c.walls]);
   const side=useMemo(()=>wallData&&!interior?interiorSide(wallData,c.contour):1,[wallData?.a.x,wallData?.a.z,wallData?.b.x,wallData?.b.z,c.contour]);
   const solidGeometry=useMemo(()=>{
     if(!wallData||!ring.length)return null;
-    return buildWallSolid(ring,openings.map(o=>({type:o.type,offset:o.offset})),solidHeight);
-  },[ring,solidHeight,openings.map(o=>`${o.id}-${o.type}-${o.offset}`).join('|')]);
+    return buildWallSolid(ring,openings.map(o=>({type:o.type,offset:o.offset})),solidHeight,{top:interior||isTop});
+  },[ring,solidHeight,interior,isTop,openings.map(o=>`${o.id}-${o.type}-${o.offset}`).join('|')]);
   useEffect(()=>()=>solidGeometry?.dispose(),[solidGeometry]);
   // Revestimiento interior: cubre exactamente la cara interior del muro (en una esquina entrante la cara sobrepasa el eje del
   // muro; si no se cubre queda una franja del revestimiento exterior a la vista). `side` = lado del muro que mira a la casa.
@@ -418,8 +426,8 @@ function Wall({
       hi = side * span.hi;
     s.moveTo(lo, 0);
     s.lineTo(hi, 0);
-    s.lineTo(hi, solidHeight);
-    s.lineTo(lo, solidHeight);
+    s.lineTo(hi, faceHeight);
+    s.lineTo(lo, faceHeight);
     s.closePath();
     for (const o of openings) {
       const spec = OPENINGS_CATALOG[o.type],
@@ -434,7 +442,7 @@ function Wall({
       s.holes.push(hole);
     }
     return s;
-  }, [span, side, solidHeight, openings.map((o) => `${o.id}-${o.type}-${o.offset}`).join("|")]);
+  }, [span, side, faceHeight, openings.map((o) => `${o.id}-${o.type}-${o.offset}`).join("|")]);
   const candidate = (e: ThreeEvent<PointerEvent | MouseEvent>): Opening | null => {
     const old = c.openings.find((o) => o.id === dragging),
       type = placing ?? old?.type;
@@ -1054,11 +1062,13 @@ export function House({
     interiorMap = useMaterial(finish.wall),
     ceilingMap = useMaterial(finish.ceiling),
     sidingMap = useMaterial(finish.siding),
-    cut = view === "interior" || view === "corte" || view === "planta";
+    cut = view === "interior" || view === "corte" || view === "planta",
+    drawn = floorsToDraw(cut, activeFloor, c.floors),
+    topDrawn = drawn[drawn.length - 1]?.floor ?? 0;
   return (
     <group position={[c.position.x, 0, c.position.z]} rotation-y={-c.rotation}>
       <Foundation c={c} />
-      {floorsToDraw(cut, activeFloor, c.floors).map(({ floor, inert: below }) => {
+      {drawn.map(({ floor, inert: below }) => {
         // En Interior, Corte y Planta se ve hasta la planta elegida: las de abajo siguen ahí (con su escalera, sus muros y
         // sus aberturas), solo que no se pueden tocar. Las de arriba se ocultan para poder mirar adentro.
         const incoming = sceneStairs
@@ -1094,6 +1104,7 @@ export function House({
                   dragging={dragging}
                   setDragging={setDragging}
                   inert={below}
+                  isTop={floor === topDrawn}
                 />
               ))}
             {c.counters
